@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+# Local persistence snapshots (M0 dev store)
+server/.data/
+# Playwright
+client/test-results/
+client/playwright-report/
+client/.playwright/

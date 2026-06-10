@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+**/dist
+**/.next
+client/test-results
+client/playwright-report
+server/prisma/dev.db*
+server/.data
+server/.env
+.git
+.github
+design
+*.md

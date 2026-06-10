@@ -1,0 +1,30 @@
+// Emberfall persistence schema.
+//
+// Local dev runs SQLite (zero setup on Windows — no Docker required).
+// Production swaps the provider to "postgresql" + a managed DATABASE_URL
+// (Neon/Railway) and regenerates the init migration — see design/DEPLOY.md.
+// One table so far; keep this file boring.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// A persisted character. `id` is the stable playerId the client generates and
+// stores locally (real auth replaces this in P1 — same row, new lookup key).
+model Player {
+  id        String   @id
+  name      String
+  zone      String   @default("verdant-vale")
+  x         Float
+  y         Float
+  hp        Int
+  maxHp     Int
+  level     Int      @default(1)
+  createdAt DateTime @default(now())
+  lastSeen  DateTime @updatedAt
+}

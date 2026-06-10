@@ -1,0 +1,110 @@
+import { Schema, MapSchema, defineTypes } from "@colyseus/schema";
+import { BASE_MAX_HP } from "../types";
+
+/**
+ * Colyseus synced state for one zone.
+ *
+ * We use the functional `defineTypes()` API rather than `@type` decorators.
+ * tsx/esbuild does not reliably apply `experimentalDecorators` (it transpiles
+ * to TC39 standard decorators, which crash Colyseus's legacy `@type`). With
+ * `declare`d fields + constructor initialization there is NO decorator
+ * transform and NO emitted field code, so the prototype accessors that
+ * `defineTypes` installs are never shadowed — identical behaviour under tsc,
+ * tsx, Vite, and Vitest.
+ *
+ * These run on the SERVER. The Phaser client imports them as `import type` only,
+ * decoding state from the schema reflection the server sends on join.
+ */
+
+/** A connected player's authoritative state. */
+export class PlayerSchema extends Schema {
+  /** Stable cross-session id (from join options) — survives reconnect. */
+  declare id: string;
+  declare name: string;
+  declare x: number;
+  declare y: number;
+  declare hp: number;
+  declare maxHp: number;
+  declare level: number;
+  declare alive: boolean;
+  /** Server time (ms) of last ability use — drives cooldown enforcement. */
+  declare lastAbilityAt: number;
+
+  constructor() {
+    super();
+    this.id = "";
+    this.name = "";
+    this.x = 0;
+    this.y = 0;
+    this.hp = BASE_MAX_HP;
+    this.maxHp = BASE_MAX_HP;
+    this.level = 1;
+    this.alive = true;
+    this.lastAbilityAt = 0;
+  }
+}
+defineTypes(PlayerSchema, {
+  id: "string",
+  name: "string",
+  x: "number",
+  y: "number",
+  hp: "number",
+  maxHp: "number",
+  level: "number",
+  alive: "boolean",
+  lastAbilityAt: "number",
+});
+
+/** A non-player combatant. M0 ships one stationary training dummy. */
+export class EnemySchema extends Schema {
+  declare id: string;
+  declare name: string;
+  declare x: number;
+  declare y: number;
+  declare hp: number;
+  declare maxHp: number;
+  declare alive: boolean;
+  /** Server time (ms) at which a dead enemy respawns (0 = not pending). */
+  declare respawnAt: number;
+
+  constructor() {
+    super();
+    this.id = "";
+    this.name = "Training Dummy";
+    this.x = 0;
+    this.y = 0;
+    this.hp = 200;
+    this.maxHp = 200;
+    this.alive = true;
+    this.respawnAt = 0;
+  }
+}
+defineTypes(EnemySchema, {
+  id: "string",
+  name: "string",
+  x: "number",
+  y: "number",
+  hp: "number",
+  maxHp: "number",
+  alive: "boolean",
+  respawnAt: "number",
+});
+
+/** Root room state for a single zone. */
+export class ZoneState extends Schema {
+  declare zoneId: string;
+  declare players: MapSchema<PlayerSchema>;
+  declare enemies: MapSchema<EnemySchema>;
+
+  constructor() {
+    super();
+    this.zoneId = "verdant-vale";
+    this.players = new MapSchema<PlayerSchema>();
+    this.enemies = new MapSchema<EnemySchema>();
+  }
+}
+defineTypes(ZoneState, {
+  zoneId: "string",
+  players: { map: PlayerSchema },
+  enemies: { map: EnemySchema },
+});

@@ -1,0 +1,26 @@
+{
+  "name": "mmo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "postinstall": "npm run db:generate -w @mmo/server",
+    "dev": "concurrently -k -n server,client -c blue,green \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "npm run dev -w @mmo/server",
+    "dev:client": "npm run dev -w @mmo/client",
+    "build": "npm run build -w @mmo/client",
+    "test": "npm run test -w @mmo/shared",
+    "test:e2e": "npm run test:e2e -w @mmo/client",
+    "typecheck": "npm run typecheck -w @mmo/shared && npm run typecheck -w @mmo/server && npm run typecheck -w @mmo/client"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "concurrently": "^10.0.3",
+    "typescript": "^6.0.3"
+  }
+}
