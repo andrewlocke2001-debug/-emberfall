@@ -56,6 +56,15 @@ user's accounts — full runbook in `design/DEPLOY.md`.
 
 ## Decision log
 
+- **2026-06-11 — Postgres EVERYWHERE (Neon), SQLite dropped.** Deviation from
+  DEPLOY.md §2's "SQLite locally / PG in prod": Prisma 7 driver adapters
+  declare a provider that must match the schema provider, so one schema can't
+  serve both engines. Local dev + prod now share the same Neon DB (split into
+  a Neon branch for dev when it starts to matter). Local dev requires
+  internet — acceptable for an online game. `@prisma/adapter-better-sqlite3`
+  removed; `@prisma/adapter-pg` added; `dotenv` promoted to runtime dep
+  (db.ts loads server/.env).
+
 - **2026-06-10 — REAL-TIME 20 Hz LOCKED** over the kit's 600ms OSRS tick.
   Criteria: most popular modern combat model, least clunky, netcode already
   built and verified; deliberate pacing via ~1.5s GCD (FFXIV), not input

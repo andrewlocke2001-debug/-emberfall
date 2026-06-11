@@ -7,7 +7,7 @@
     "@colyseus/core": "^0.17.43",
     "@colyseus/schema": "^4.0.26",
     "@mmo/shared": "*",
-    "@prisma/adapter-better-sqlite3": "^7.8.0",
+    "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "colyseus": "^0.17.10",
     "tsx": "^4.22.4"

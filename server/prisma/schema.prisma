@@ -1,8 +1,9 @@
 // Emberfall persistence schema.
 //
-// Local dev runs SQLite (zero setup on Windows — no Docker required).
-// Production swaps the provider to "postgresql" + a managed DATABASE_URL
-// (Neon/Railway) and regenerates the init migration — see design/DEPLOY.md.
+// Postgres everywhere (Neon) — local dev and production share the engine so
+// one set of migrations is the truth. A Prisma driver adapter must match the
+// schema provider, which rules out SQLite-locally/PG-in-prod with one schema
+// (deviation from the kit runbook, logged in design/PROGRESS.md).
 // One table so far; keep this file boring.
 
 generator client {
@@ -11,7 +12,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 // A persisted character. `id` is the stable playerId the client generates and

@@ -1,0 +1,11 @@
+# Netlify build config — the repo root is the base so npm workspaces resolve.
+# Connect the repo in the Netlify UI; these settings are picked up automatically.
+
+[build]
+  command = "npm ci && npm run build"
+  publish = "client/dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+  # The deployed zone server (Fly.io). Not a secret — it's in the client bundle.
+  VITE_SERVER_URL = "wss://emberfall-server.fly.dev"
