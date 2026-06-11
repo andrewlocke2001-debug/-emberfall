@@ -6,16 +6,19 @@ where the project stands.
 
 ## Current phase
 
-**P0 — Foundation (deploy only).** Everything local is done and verified:
-netcode, combat slice, real-database persistence, tests, CI workflow, deploy
-configs. The single remaining item is the deploy itself, which needs the
-user's accounts — full runbook in `design/DEPLOY.md`.
+**P0 — Foundation (exit test pending).** Server is LIVE on the internet:
+- GitHub: https://github.com/andrewlocke2001-debug/-emberfall (CI on push)
+- DB: Neon Postgres (us-west-2), migrated, e2e-verified
+- Server: https://emberfall-server.fly.dev — Colyseus 0.17.43 responding,
+  region gru, **scaled to exactly 1 machine** (two in-memory worlds = players
+  can't see each other; re-check after every `fly scale`/deploy until P11's
+  Redis driver)
+- Client: Netlify — user connecting the repo (netlify.toml is committed)
 
 ## Next up (in order)
 
-1. **Deploy session** (user + Claude Code together): GitHub remote → Neon
-   Postgres (+ provider swap per DEPLOY.md §2) → Fly.io server → Netlify
-   client → P0 exit test on two phones over the real internet
+1. User finishes Netlify import → site URL → **P0 exit test:** two phones,
+   real internet, walk + fight + reconnect. Record result here; P0 CLOSED.
 2. Then P1: Tiled maps (Meadowbrook/Greenreach), auth, zod validation, chat
 
 ## Shipped
