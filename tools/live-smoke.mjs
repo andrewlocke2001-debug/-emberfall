@@ -17,7 +17,12 @@ async function join(name) {
   page.on("console", (m) => console.log(`[${name}] console.${m.type()}: ${m.text()}`));
   page.on("requestfailed", (r) => console.error(`[${name}] request failed: ${r.url()} — ${r.failure()?.errorText}`));
   page.on("response", (r) => {
-    if (r.url().includes("matchmake")) console.log(`[${name}] matchmake response: HTTP ${r.status()}`);
+    const path = new URL(r.url()).pathname;
+    console.log(`[${name}] response: HTTP ${r.status()} ${path}`);
+  });
+  page.on("request", (r) => {
+    const path = new URL(r.url()).pathname;
+    if (path.includes("assets") || path.includes("matchmake")) console.log(`[${name}] request: ${path}`);
   });
   page.on("websocket", (ws) => {
     console.log(`[${name}] websocket opened: ${ws.url()}`);

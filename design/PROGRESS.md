@@ -23,6 +23,28 @@ where the project stands.
 
 ## Shipped
 
+### 2026-06-12 — One-URL deploy + production crash-loop fix ✅
+- **The Fly app now serves the game itself** (express static of client/dist,
+  built in-image; client resolves endpoint same-origin). Netlify dependency
+  dropped — netlify.toml stays as an optional future path. ONE URL:
+  https://emberfall-server.fly.dev
+- **Root-caused the production hang** ("stuck on Entering…"): Neon serverless
+  kills idle Postgres sockets → pg pool emitted unhandled 'error' → Node
+  died → Fly machine stopped → next visitor hit a ~15s cold boot with hanging
+  joins. Fixed three ways: own pg.Pool (idleTimeoutMillis 30s + error
+  handler), 4-min SELECT 1 heartbeat (also prevents Neon free-tier compute
+  suspend), process-level uncaught/unhandled guards, and fly.toml
+  `[[restart]] policy="always"`.
+- Live verification over the real internet: matchmake 200 ✓, raw WS upgrade +
+  join handshake ✓ (tools/live-ws-probe.mjs), full Node SDK join ✓
+  (tools/live-join.mjs). NOTE: the local sandboxed Chromium cannot execute
+  external-HTTPS page scripts (bodies stall) — browser-level live checks must
+  run on a real device; identical bundle verified end-to-end via LAN origin
+  (tools/live-smoke.mjs against http://<lan-ip>:2567).
+- Docker gotchas fixed: tsconfig.base.json must be COPYd (extends chain);
+  image builds client with vite only (tsc stays the local/CI gate).
+- New deps: express (static hosting), pg + @types/pg (owned pool).
+
 ### 2026-06-10 — P0 production plumbing ✅
 - **Prisma 7 persistence** replaces the JSON snapshot store: `Player` table,
   SQLite locally (`server/prisma/dev.db`, no Docker needed), driver-adapter
