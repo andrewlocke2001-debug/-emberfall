@@ -20,3 +20,8 @@ primary_region = "gru" # São Paulo — pick the region closest to your players
 [[vm]]
   size = "shared-cpu-1x"
   memory = "512mb"
+
+# If the process ever exits, restart it immediately — never stop-and-wait
+# for the next request (that costs every first visitor a ~15s cold boot).
+[[restart]]
+  policy = "always"
