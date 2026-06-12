@@ -8,7 +8,13 @@
 export type Vec2 = { x: number; y: number };
 
 export type ClassId = "Warrior" | "Ranger" | "Mage";
-export type AbilityId = "strike";
+
+/**
+ * All ability ids, as a const tuple so the zod message schema
+ * (`z.enum(ABILITY_IDS)`) and the `AbilityId` union can never drift.
+ */
+export const ABILITY_IDS = ["strike"] as const;
+export type AbilityId = (typeof ABILITY_IDS)[number];
 
 /** Server simulation tick rate (Hz) and the derived fixed step. */
 export const TICK_RATE = 20;

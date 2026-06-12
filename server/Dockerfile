@@ -21,6 +21,12 @@ RUN npm ci
 
 COPY shared/ shared/
 COPY server/ server/
+COPY client/ client/
+
+# Build the client in-image; the server serves it statically, so the Fly app
+# is both the game page and the websocket (no VITE_SERVER_URL — the client
+# falls back to same-origin).
+RUN npm run build -w @mmo/client
 
 EXPOSE 2567
 

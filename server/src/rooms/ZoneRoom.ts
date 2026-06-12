@@ -17,6 +17,7 @@ import {
   type WelcomePayload,
 } from "@mmo/shared";
 import { EnemySchema, PlayerSchema, ZoneState } from "@mmo/shared/schema/state";
+import { MoveSchema, UseAbilitySchema } from "@mmo/shared/protocol/schemas";
 import { characterStore, type SavedCharacter } from "../persistence/store";
 
 const DUMMY_ID = "dummy-1";
@@ -41,20 +42,31 @@ interface InputState {
 export class ZoneRoom extends Room<{ state: ZoneState }> {
   override maxClients = 50;
 
+  /**
+   * Hard transport-level flood ceiling — Colyseus disconnects any client
+   * exceeding it. Movement intents are edge-triggered (sent on input change),
+   * so 30/s is generous for honest clients and cheap insurance against spam.
+   */
+  override maxMessagesPerSecond = 30;
+
   private inputs = new Map<string, InputState>();
 
   override onCreate(): void {
     this.state = new ZoneState();
     this.spawnDummy();
 
-    this.onMessage<MovePayload>(ClientMessage.Move, (client, msg) => {
+    // Every inbound message is zod-validated by Colyseus before our handler
+    // runs (kit rule #2). A payload that fails the schema gets the client
+    // disconnected with CloseCode.WITH_ERROR — validated input is trusted
+    // input from here on.
+    this.onMessage(ClientMessage.Move, MoveSchema, (client, msg: MovePayload) => {
       const input = this.inputs.get(client.sessionId);
       if (!input) return;
-      input.dx = clampUnit(msg?.dx ?? 0);
-      input.dy = clampUnit(msg?.dy ?? 0);
+      input.dx = msg.dx;
+      input.dy = msg.dy;
     });
 
-    this.onMessage<UseAbilityPayload>(ClientMessage.UseAbility, (client, msg) => {
+    this.onMessage(ClientMessage.UseAbility, UseAbilitySchema, (client, msg: UseAbilityPayload) => {
       this.handleUseAbility(client, msg);
     });
 
@@ -210,11 +222,6 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 }
 
 // --- pure helpers ----------------------------------------------------------
-
-function clampUnit(v: number): number {
-  if (Number.isNaN(v)) return 0;
-  return v < -1 ? -1 : v > 1 ? 1 : v;
-}
 
 function toCombatant(e: PlayerSchema | EnemySchema): Combatant {
   return { x: e.x, y: e.y, hp: e.hp, maxHp: e.maxHp, alive: e.alive };

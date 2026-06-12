@@ -1,0 +1,183 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { MapSource } from "./types";
+import { meadowbrook } from "./maps/meadowbrook";
+import { greenreach } from "./maps/greenreach";
+
+/**
+ * ASCII → Tiled-format JSON compiler. Run from the repo root:
+ *   npm run mapgen
+ *
+ * Output is standard Tiled JSON (openable in the Tiled editor), consumed by
+ * both the server (collision/exits/spawns) and the client (rendering) via
+ * shared/src/systems/zonemap.ts. Tile size is 32px; the tileset image named
+ * here never ships — the client paints its own texture at runtime.
+ */
+
+const TILE = 32;
+
+/** gids: 1 grass · 2 path · 3 wall · 4 tree · 5 water · 6 floor · 7 fence */
+const GROUND: Record<string, number> = {
+  ".": 1,
+  ",": 2,
+  "#": 1,
+  T: 1,
+  "~": 1,
+  "=": 6,
+  f: 1,
+  s: 2,
+  D: 1,
+  E: 2,
+};
+const OBSTACLE: Record<string, number> = { "#": 3, T: 4, "~": 5, f: 7 };
+
+const MAPS: MapSource[] = [meadowbrook, greenreach];
+
+function compile(src: MapSource): object {
+  const height = src.ascii.length;
+  const width = src.ascii[0]?.length ?? 0;
+  if (width === 0 || height === 0) throw new Error(`${src.id}: empty map`);
+
+  const ground: number[] = [];
+  const obstacles: number[] = [];
+  const objects: object[] = [];
+  let nextObjectId = 1;
+  let sawSpawn = false;
+  const seenEntries = new Set<string>();
+
+  const isEntryChar = (ch: string): boolean => ch >= "0" && ch <= "9";
+
+  for (let y = 0; y < height; y++) {
+    const row = src.ascii[y]!;
+    if (row.length !== width) {
+      throw new Error(`${src.id}: row ${y} is ${row.length} chars, expected ${width}`);
+    }
+    for (let x = 0; x < width; x++) {
+      const ch = row[x]!;
+      const isExit = ch in src.exits;
+      const isEntry = isEntryChar(ch);
+
+      const groundGid = isExit || isEntry ? 2 : GROUND[ch];
+      if (groundGid === undefined) {
+        throw new Error(`${src.id}: unknown char '${ch}' at (${x},${y})`);
+      }
+      ground.push(groundGid);
+      obstacles.push(OBSTACLE[ch] ?? 0);
+
+      const px = x * TILE;
+      const py = y * TILE;
+      const cx = px + TILE / 2;
+      const cy = py + TILE / 2;
+
+      if (isExit) {
+        const exit = src.exits[ch]!;
+        objects.push({
+          id: nextObjectId++,
+          name: "exit",
+          type: "exit",
+          x: px,
+          y: py,
+          width: TILE,
+          height: TILE,
+          rotation: 0,
+          visible: true,
+          properties: [
+            { name: "to", type: "string", value: exit.to },
+            { name: "entry", type: "string", value: exit.entry },
+          ],
+        });
+      } else if (isEntry) {
+        const name = src.entries[ch];
+        if (!name) throw new Error(`${src.id}: entry char '${ch}' has no name in entries`);
+        if (seenEntries.has(ch)) throw new Error(`${src.id}: duplicate entry char '${ch}'`);
+        seenEntries.add(ch);
+        objects.push(point(nextObjectId++, `entry:${name}`, "entry", cx, cy));
+      } else if (ch === "s") {
+        if (sawSpawn) throw new Error(`${src.id}: more than one default spawn 's'`);
+        sawSpawn = true;
+        objects.push(point(nextObjectId++, "entry:default", "entry", cx, cy));
+      } else if (ch === "D") {
+        objects.push({
+          ...point(nextObjectId++, "enemy:dummy", "enemy", cx, cy),
+          properties: [{ name: "kind", type: "string", value: "dummy" }],
+        });
+      }
+    }
+  }
+
+  if (!sawSpawn) throw new Error(`${src.id}: missing default spawn 's'`);
+  for (const ch of Object.keys(src.exits)) {
+    if (!src.ascii.some((r) => r.includes(ch))) {
+      throw new Error(`${src.id}: exit char '${ch}' never placed`);
+    }
+  }
+  for (const ch of Object.keys(src.entries)) {
+    if (!seenEntries.has(ch)) throw new Error(`${src.id}: entry char '${ch}' never placed`);
+  }
+
+  return {
+    type: "map",
+    version: "1.10",
+    orientation: "orthogonal",
+    renderorder: "right-down",
+    infinite: false,
+    width,
+    height,
+    tilewidth: TILE,
+    tileheight: TILE,
+    nextlayerid: 4,
+    nextobjectid: nextObjectId,
+    properties: [{ name: "displayName", type: "string", value: src.displayName }],
+    tilesets: [
+      {
+        firstgid: 1,
+        name: "emberfall-tiles",
+        tilewidth: TILE,
+        tileheight: TILE,
+        tilecount: 7,
+        columns: 7,
+        spacing: 0,
+        margin: 0,
+        image: "emberfall-tiles.png",
+        imagewidth: 7 * TILE,
+        imageheight: TILE,
+      },
+    ],
+    layers: [
+      tileLayer(1, "ground", width, height, ground),
+      tileLayer(2, "obstacles", width, height, obstacles),
+      {
+        id: 3,
+        type: "objectgroup",
+        name: "markers",
+        x: 0,
+        y: 0,
+        opacity: 1,
+        visible: true,
+        draworder: "topdown",
+        objects,
+      },
+    ],
+  };
+}
+
+function point(id: number, name: string, type: string, x: number, y: number): object {
+  return { id, name, type, x, y, width: 0, height: 0, rotation: 0, visible: true, point: true };
+}
+
+function tileLayer(id: number, name: string, width: number, height: number, data: number[]): object {
+  return { id, type: "tilelayer", name, width, height, x: 0, y: 0, opacity: 1, visible: true, data };
+}
+
+// --- main --------------------------------------------------------------------
+
+const outDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "shared", "src", "data", "maps");
+mkdirSync(outDir, { recursive: true });
+
+for (const src of MAPS) {
+  const compiled = compile(src);
+  const file = join(outDir, `${src.id}.json`);
+  writeFileSync(file, JSON.stringify(compiled));
+  console.log(`[mapgen] ${src.id}: ${src.ascii[0]!.length}x${src.ascii.length} -> ${file}`);
+}

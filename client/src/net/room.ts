@@ -2,8 +2,23 @@ import { Client, getStateCallbacks, type Room } from "@colyseus/sdk";
 import type { JoinZoneOptions } from "@mmo/shared";
 import type { ZoneState } from "@mmo/shared/schema/state";
 
-const ENDPOINT =
-  (import.meta.env["VITE_SERVER_URL"] as string | undefined) ?? "ws://localhost:2567";
+/**
+ * Server endpoint resolution, in priority order:
+ *  1. VITE_SERVER_URL (baked at build time — e.g. a Netlify deploy pointing
+ *     at a separate game server)
+ *  2. localhost dev/preview → the local game server on :2567
+ *  3. same origin — production default: the Fly server serves this very page
+ *     AND the websocket, so wherever the page came from is the server.
+ */
+function resolveEndpoint(): string {
+  const explicit = import.meta.env["VITE_SERVER_URL"] as string | undefined;
+  if (explicit) return explicit;
+  const { protocol, hostname, host } = window.location;
+  if (hostname === "localhost" || hostname === "127.0.0.1") return "ws://localhost:2567";
+  return `${protocol === "https:" ? "wss" : "ws"}://${host}`;
+}
+
+const ENDPOINT = resolveEndpoint();
 
 /**
  * A live connection to a zone room: the typed room handle plus the

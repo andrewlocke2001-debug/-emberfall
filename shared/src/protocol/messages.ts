@@ -17,12 +17,15 @@ export interface JoinZoneOptions {
 export const ClientMessage = {
   Move: "move",
   UseAbility: "useAbility",
+  Chat: "chat",
 } as const;
 
 /** Server → client message types. */
 export const ServerMessage = {
   Welcome: "welcome",
   CombatEvent: "combat",
+  Chat: "chatMsg",
+  Transfer: "transfer",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -51,4 +54,35 @@ export interface CombatEventPayload {
   targetId: string;
   damage: number;
   targetDied: boolean;
+}
+
+/** Chat channels available in P1. Party/guild channels arrive with P6. */
+export type ChatChannel = "zone" | "global";
+
+/** Client → server: say something. Server validates, censors, rebroadcasts. */
+export interface ChatPayload {
+  channel: ChatChannel;
+  text: string;
+}
+
+/** Server → client: a (already censored) chat line to display. */
+export interface ChatBroadcastPayload {
+  channel: ChatChannel;
+  /** Display name of the sender. */
+  from: string;
+  /** Zone the sender was in (shown for global messages). */
+  zone: string;
+  text: string;
+  /** Server timestamp (ms). */
+  at: number;
+}
+
+/**
+ * Server → client: you walked into a zone exit — leave this room and join
+ * `zone`, asking for spawn point `entry`. The target room re-validates the
+ * entry name; the client can't teleport anywhere the server didn't offer.
+ */
+export interface TransferPayload {
+  zone: string;
+  entry: string;
 }
