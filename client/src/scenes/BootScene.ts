@@ -4,7 +4,8 @@ import { connectToZone } from "../net/room";
 
 /**
  * Connects to the zone room, then hands the live connection to ZoneScene.
- * Shows a status message while connecting / on failure.
+ * Surfaces live status while connecting (including the cold-start wake), and
+ * on failure offers a tap/key to retry instead of dead-ending.
  */
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -19,18 +20,22 @@ export class BootScene extends Phaser.Scene {
         fontSize: "20px",
         color: "#e6e6e6",
         align: "center",
+        wordWrap: { width: Math.min(560, this.scale.width - 40) },
       })
       .setOrigin(0.5);
 
-    connectToZone(opts)
+    connectToZone(opts, (msg) => status.setText(msg))
       .then((connection) => {
         this.scene.start("Zone", { connection });
       })
       .catch((err: unknown) => {
         console.error("[client] failed to connect:", err);
-        status
-          .setText("Couldn't reach the server.\nIs it running on :2567?")
-          .setColor("#ef4444");
+        status.setText("Couldn't reach the server.\nTap or press any key to retry.").setColor("#ef4444");
+        const retry = (): void => {
+          this.scene.restart();
+        };
+        this.input.once("pointerdown", retry);
+        this.input.keyboard?.once("keydown", retry);
       });
   }
 }

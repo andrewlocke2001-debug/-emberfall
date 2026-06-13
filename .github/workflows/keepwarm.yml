@@ -1,0 +1,25 @@
+name: keep-warm
+
+# Pings the deployed game server every 5 minutes so the Fly machine stays
+# awake (Fly stops idle machines, which makes the next visitor hit a slow
+# cold start). Free, runs on GitHub's schedule. Belt-and-suspenders with the
+# client's wake-and-retry logic.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping server
+        run: |
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://emberfall-server.fly.dev/ || true)
+            echo "attempt $i -> HTTP $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "server did not return 200 after retries"
+          exit 1
