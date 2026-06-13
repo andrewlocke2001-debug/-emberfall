@@ -23,6 +23,19 @@ where the project stands.
 
 ## Shipped
 
+### 2026-06-13 — Cold-start resilience (the real "stuck on Entering" fix) ✅
+- Diagnosed via logs: a real player joined fine while the machine was awake,
+  then Fly stopped the machine (SIGTERM) despite deployed `auto_stop_machines:
+  false`. A websocket join against a stopped machine hangs forever → the
+  "stuck on Entering Verdant Vale" the user saw. (So it was infra lifecycle,
+  not a code bug — the game itself always worked when the server was up.)
+- Two-layer fix: (1) client `connectToZone` wakes the server via HTTP polling
+  before joining (the request triggers Fly auto_start), shows progress + a 75s
+  budget, BootScene offers tap/key retry; (2) `.github/workflows/keepwarm.yml`
+  pings the server every 5 min so it stays awake.
+- Verified post-deploy: 1 machine started, live SDK join OK, new bundle
+  `index-KribFUb2.js` served. Bundle resilience confirmed shipped.
+
 ### 2026-06-12 — One-URL deploy + production crash-loop fix ✅
 - **The Fly app now serves the game itself** (express static of client/dist,
   built in-image; client resolves endpoint same-origin). Netlify dependency
