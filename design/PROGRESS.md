@@ -6,22 +6,46 @@ where the project stands.
 
 ## Current phase
 
-**P0 — Foundation (exit test pending).** Server is LIVE on the internet:
-- GitHub: https://github.com/andrewlocke2001-debug/-emberfall (CI on push)
-- DB: Neon Postgres (us-west-2), migrated, e2e-verified
-- Server: https://emberfall-server.fly.dev — Colyseus 0.17.43 responding,
-  region gru, **scaled to exactly 1 machine** (two in-memory worlds = players
-  can't see each other; re-check after every `fly scale`/deploy until P11's
-  Redis driver)
-- Client: Netlify — user connecting the repo (netlify.toml is committed)
+**P0 CLOSED ✅ (desktop-verified 2026-06-14)** — user played the live game at
+https://emberfall-server.fly.dev on desktop: spawns, moves, world renders.
+The hard part (real-time authoritative multiplayer over the internet) is
+proven. One URL serves client + websocket (no Netlify). Single Fly machine
+(keep at 1 until P11 Redis).
 
-## Next up (in order)
+**Now: P1 — "A world worth standing in."** Done: P1.1 (zod validation),
+P1.2 (ASCII→Tiled maps Meadowbrook/Greenreach + collision system, 31 tests
+green). Next: P1.3 (serve the real maps in-game — zone rooms, collision,
+travel, tilemap rendering replacing the empty grid).
 
-1. User finishes Netlify import → site URL → **P0 exit test:** two phones,
-   real internet, walk + fight + reconnect. Record result here; P0 CLOSED.
-2. Then P1: Tiled maps (Meadowbrook/Greenreach), auth, zod validation, chat
+## Known follow-ups (deferred, not blocking)
+- **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
+  camera tuning. Polish during/after P1.3 rendering work.
+- **Phone stray-path 404** ("Cannot GET /Can" from URL autocomplete) — fixed
+  with an SPA fallback in server/src/index.ts; ships with the next deploy.
+  Bare URL https://emberfall-server.fly.dev already works on mobile.
+- **Server uptime**: Fly still stops the idle machine despite auto_stop=false;
+  mitigated by client wake-and-retry + keepwarm cron. If it recurs, consider
+  moving prisma migrate out of boot (release_command) for fast cold starts.
 
 ## Shipped
+
+### 2026-06-14 — P0 closed + the actual freeze fixed + P1.1/P1.2 ✅
+- **Real root cause of "stuck on Entering" found via the user's browser
+  console**: `ZoneScene.update()` read `room.state.players.get()` before the
+  schema state had streamed in. Sub-ms on localhost (never failed locally),
+  but on a remote server the first frames run pre-sync → `undefined.get()`
+  throws → render loop freezes on the loading screen. Fixed with a guard in
+  update() + optional chaining in the test API. **This was THE bug**; the
+  earlier uptime/cold-start work was a separate, real issue.
+- Game verified working on the user's desktop against the live server.
+- SPA fallback added (server serves index.html for stray GET paths → phones
+  that autocomplete a path no longer 404).
+- **P1.1**: zod schemas validate every inbound message via Colyseus
+  `onMessage(type, schema, handler)`; `maxMessagesPerSecond` flood ceiling.
+- **P1.2**: `tools/mapgen` ASCII→Tiled-JSON compiler; Meadowbrook (40×40
+  town) + Greenreach (60×60 fields) maps with collision/exits/spawn/enemy
+  object layers; pure `systems/collision.ts` (axis-separated slide); 31 unit
+  tests green (collision + map referential integrity).
 
 ### 2026-06-13 — Cold-start resilience (the real "stuck on Entering" fix) ✅
 - Diagnosed via logs: a real player joined fine while the machine was awake,

@@ -38,6 +38,16 @@ const gameServer = new Server({
           },
         }),
       );
+      // SPA fallback: serve the game for any GET path that isn't an API call
+      // or a real asset (a phone autocompleting a stray path shouldn't 404).
+      app.get(/.*/, (req, res, next) => {
+        if (req.path.startsWith("/matchmake") || req.path.includes(".")) {
+          next();
+          return;
+        }
+        res.setHeader("Cache-Control", "no-store");
+        res.sendFile(join(clientDist, "index.html"));
+      });
       console.log(`[server] serving client from ${clientDist}`);
     }
   },
