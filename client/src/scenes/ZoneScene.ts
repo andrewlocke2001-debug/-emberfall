@@ -80,6 +80,13 @@ export class ZoneScene extends Phaser.Scene {
     const dt = deltaMs / 1000;
     const room = this.connection.room;
 
+    // The schema state streams in shortly AFTER join. On a remote server the
+    // first few frames run before it arrives (invisible on localhost, where
+    // it's sub-millisecond) — touching room.state.players.get() then throws
+    // "Cannot read properties of undefined" and freezes the render loop.
+    // Bail until the synced collections exist.
+    if (!room.state?.players || !room.state.enemies) return;
+
     // --- read input → movement intent
     let dx = 0;
     let dy = 0;
@@ -246,11 +253,11 @@ export class ZoneScene extends Phaser.Scene {
     (window as unknown as { __mmo?: unknown }).__mmo = {
       ready: true,
       sessionId: () => room.sessionId,
-      playerCount: () => room.state.players.size,
-      enemyHp: (id: string) => room.state.enemies.get(id)?.hp ?? null,
-      enemyMaxHp: (id: string) => room.state.enemies.get(id)?.maxHp ?? null,
+      playerCount: () => room.state?.players?.size ?? 0,
+      enemyHp: (id: string) => room.state?.enemies?.get(id)?.hp ?? null,
+      enemyMaxHp: (id: string) => room.state?.enemies?.get(id)?.maxHp ?? null,
       me: () => {
-        const p = room.state.players.get(room.sessionId);
+        const p = room.state?.players?.get(room.sessionId);
         return p ? { x: p.x, y: p.y, hp: p.hp, name: p.name, level: p.level } : null;
       },
       setTarget: (id: string | null) => this.selectTarget(id),
