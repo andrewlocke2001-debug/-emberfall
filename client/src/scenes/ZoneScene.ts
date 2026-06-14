@@ -12,6 +12,7 @@ import {
 import type { EnemySchema, PlayerSchema } from "@mmo/shared/schema/state";
 import type { ZoneConnection } from "../net/room";
 import { EntityView } from "../ui/EntityView";
+import { TouchControls } from "../ui/TouchControls";
 
 const STRIKE = ABILITIES.strike;
 const RECONCILE_SNAP = 64; // px of drift beyond which we hard-snap the local player
@@ -41,7 +42,11 @@ export class ZoneScene extends Phaser.Scene {
   private selectionRing!: Phaser.GameObjects.Arc;
 
   private lastSentDir = { dx: 0, dy: 0 };
+  private lastMoveSentAt = 0;
   private lastAttackAt = 0;
+
+  /** On-screen joystick + attack button; only created on touch devices. */
+  private touch?: TouchControls;
 
   constructor() {
     super("Zone");
@@ -71,6 +76,13 @@ export class ZoneScene extends Phaser.Scene {
 
     this.escKey.on("down", () => this.selectTarget(null));
 
+    // On touch / coarse-pointer devices, add the on-screen joystick + attack
+    // button. Keyboard handlers stay active too (hybrid devices just work).
+    const coarse = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+    if (coarse || this.sys.game.device.input.touch) {
+      this.touch = new TouchControls(this);
+    }
+
     this.setupStateSync();
     this.setupMessages();
     this.exposeTestApi();
@@ -87,17 +99,32 @@ export class ZoneScene extends Phaser.Scene {
     // Bail until the synced collections exist.
     if (!room.state?.players || !room.state.enemies) return;
 
-    // --- read input → movement intent
+    // --- read input → movement intent (keyboard digital + joystick analog)
     let dx = 0;
     let dy = 0;
     if (this.cursors.left.isDown || this.keys["A"]!.isDown) dx -= 1;
     if (this.cursors.right.isDown || this.keys["D"]!.isDown) dx += 1;
     if (this.cursors.up.isDown || this.keys["W"]!.isDown) dy -= 1;
     if (this.cursors.down.isDown || this.keys["S"]!.isDown) dy += 1;
+    if (this.touch) {
+      const v = this.touch.moveVector();
+      if (v.dx !== 0 || v.dy !== 0) {
+        dx = v.dx;
+        dy = v.dy;
+      }
+    }
 
-    if (dx !== this.lastSentDir.dx || dy !== this.lastSentDir.dy) {
+    // Throttle move intents: the analog joystick changes every frame, but the
+    // room caps inbound messages (maxMessagesPerSecond). Send on a meaningful
+    // change at ~12/s, and always send the stop immediately.
+    const now = performance.now();
+    const moveChanged =
+      Math.abs(dx - this.lastSentDir.dx) > 0.08 || Math.abs(dy - this.lastSentDir.dy) > 0.08;
+    const stopped = dx === 0 && dy === 0 && (this.lastSentDir.dx !== 0 || this.lastSentDir.dy !== 0);
+    if (stopped || (moveChanged && now - this.lastMoveSentAt >= 80)) {
       room.send(ClientMessage.Move, { dx, dy });
       this.lastSentDir = { dx, dy };
+      this.lastMoveSentAt = now;
     }
 
     // --- local player prediction + reconciliation
@@ -140,16 +167,14 @@ export class ZoneScene extends Phaser.Scene {
 
     this.updateSelectionRing();
 
-    // --- attack (held Space), throttled to the ability cooldown
-    if (this.keys["SPACE"]!.isDown && this.selectedTargetId) {
-      const now = performance.now();
-      if (now - this.lastAttackAt >= STRIKE.cooldownMs) {
-        room.send(ClientMessage.UseAbility, {
-          abilityId: "strike",
-          targetId: this.selectedTargetId,
-        });
-        this.lastAttackAt = now;
-      }
+    // --- attack (held Space or the on-screen button), gated by cooldown
+    const attacking = this.keys["SPACE"]!.isDown || (this.touch?.attackHeld() ?? false);
+    if (attacking && this.selectedTargetId && now - this.lastAttackAt >= STRIKE.cooldownMs) {
+      room.send(ClientMessage.UseAbility, {
+        abilityId: "strike",
+        targetId: this.selectedTargetId,
+      });
+      this.lastAttackAt = now;
     }
   }
 
