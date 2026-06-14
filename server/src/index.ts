@@ -29,7 +29,15 @@ const gameServer = new Server({
   transport: new WebSocketTransport(),
   express: (app) => {
     if (existsSync(clientDist)) {
-      app.use(express.static(clientDist));
+      // index.html must never be cached, or players keep running a stale
+      // client after a deploy (content-hashed assets are safe to cache).
+      app.use(
+        express.static(clientDist, {
+          setHeaders: (res, filePath) => {
+            if (filePath.endsWith(".html")) res.setHeader("Cache-Control", "no-store");
+          },
+        }),
+      );
       console.log(`[server] serving client from ${clientDist}`);
     }
   },

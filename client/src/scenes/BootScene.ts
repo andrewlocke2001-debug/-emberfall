@@ -30,7 +30,10 @@ export class BootScene extends Phaser.Scene {
       })
       .catch((err: unknown) => {
         console.error("[client] failed to connect:", err);
-        status.setText("Couldn't reach the server.\nTap or press any key to retry.").setColor("#ef4444");
+        const detail = err instanceof Error ? err.message : String(err);
+        status
+          .setText(`Couldn't enter the world:\n${detail}\n\nTap or press any key to retry.`)
+          .setColor("#ef4444");
         const retry = (): void => {
           this.scene.restart();
         };

@@ -61,6 +61,26 @@ async function wakeServer(onStatus: StatusFn): Promise<void> {
   throw new Error("The server is taking too long to wake up.");
 }
 
+/** Reject a promise if it hasn't settled within `ms`, with a useful message. */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} (timed out after ${ms / 1000}s)\nendpoint: ${ENDPOINT}`)),
+      ms,
+    );
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
 /** Connect to (or create) the single shared zone room with this identity. */
 export async function connectToZone(
   options: JoinZoneOptions,
@@ -69,7 +89,13 @@ export async function connectToZone(
   await wakeServer(onStatus);
   onStatus("Entering Verdant Vale…");
   const client = new Client(ENDPOINT);
-  const room = await client.joinOrCreate<ZoneState>("zone", options);
+  // A hung join (websocket connects but the room never confirms) would
+  // otherwise sit on "Entering…" forever. Surface it instead.
+  const room = await withTimeout(
+    client.joinOrCreate<ZoneState>("zone", options),
+    20_000,
+    "Joining the world failed",
+  );
   const $ = getStateCallbacks(room) as unknown as (instance: unknown) => any;
   return { room, $ };
 }
