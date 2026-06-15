@@ -8,9 +8,8 @@ import type { AbilityId } from "../types";
 
 /** Options the client sends when joining a zone room. */
 export interface JoinZoneOptions {
-  /** Stable, client-persisted id so a refresh restores the same character. */
-  playerId: string;
-  name: string;
+  /** Signed session token (from /auth/*). The server derives identity from it. */
+  token: string;
   /** When arriving via a zone exit, the named entry point to spawn at. */
   entry?: string;
 }

@@ -1,4 +1,4 @@
-import { Room, type Client } from "@colyseus/core";
+import { Room, ServerError, type Client } from "@colyseus/core";
 import {
   ABILITIES,
   ClientMessage,
@@ -19,6 +19,7 @@ import { MoveSchema, UseAbilitySchema } from "@mmo/shared/protocol/schemas";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
 import { exitAt, type ZoneMap } from "@mmo/shared/systems/zonemap";
+import { verifyToken } from "../auth";
 import { characterStore, type SavedCharacter } from "../persistence/store";
 
 const DUMMY_MAX_HP = 200;
@@ -87,8 +88,11 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   }
 
   override async onJoin(client: Client, options: JoinZoneOptions): Promise<void> {
-    const playerId = options?.playerId?.trim() || client.sessionId;
-    const name = (options?.name?.trim() || "Adventurer").slice(0, 24);
+    // Identity comes from the verified token, never from a client-supplied id.
+    const claims = await verifyToken(options?.token ?? "");
+    if (!claims) throw new ServerError(401, "Not authenticated. Please log in again.");
+    const playerId = claims.accountId;
+    const name = claims.username;
 
     const def = this.map.entries["default"]!;
     const saved = await characterStore.loadOrCreate(playerId, name, this.map.id, def);

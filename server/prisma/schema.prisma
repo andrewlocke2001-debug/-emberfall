@@ -15,12 +15,25 @@ datasource db {
   provider = "postgresql"
 }
 
-// A persisted character. `id` is the stable playerId the client generates and
-// stores locally (real auth replaces this in P1 — same row, new lookup key).
+// A login account. Guests get an auto-generated username + a random password
+// hash (they authenticate via the token kept in localStorage, never a typed
+// password). Registered accounts set their own password.
+model Account {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  isGuest      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+}
+
+// A persisted character. `id` is the owning Account's id (one character per
+// account for now — a 1:1 by shared id, kept additive so no destructive
+// migration was needed). Pre-auth rows (id = old client playerId) are simply
+// orphaned and never loaded.
 model Player {
   id        String   @id
   name      String
-  zone      String   @default("verdant-vale")
+  zone      String   @default("meadowbrook")
   x         Float
   y         Float
   hp        Int

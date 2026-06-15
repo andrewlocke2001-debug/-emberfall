@@ -26,6 +26,7 @@
         border: 0; background: #3b82f6; color: #fff; cursor: pointer; }
       #login button:hover { background: #2f6fe0; }
       #login .hint { font-size: 13px; color: #8893a7; max-width: 360px; text-align: center; line-height: 1.5; }
+      #login-error { font-size: 14px; color: #ef4444; min-height: 18px; text-align: center; }
       .hint-mobile { display: none; }
       @media (pointer: coarse) {
         .hint-desktop { display: none; }
@@ -41,6 +42,7 @@
         <input id="name" type="text" placeholder="Your name" maxlength="24" autocomplete="off" />
         <button id="enter" type="button">Enter World</button>
       </div>
+      <div id="login-error"></div>
       <div class="hint hint-desktop">Move: WASD / arrows · Target: click an entity (Esc to clear) · Attack: hold Space</div>
       <div class="hint hint-mobile">Move: drag the left side · Target: tap an enemy · Attack: hold the ⚔ button</div>
     </div>

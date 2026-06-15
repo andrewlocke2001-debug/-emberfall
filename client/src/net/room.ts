@@ -18,8 +18,8 @@ function resolveEndpoint(): string {
 }
 
 const ENDPOINT = resolveEndpoint();
-/** Same host, http(s) scheme — used to wake the server before joining. */
-const HTTP_BASE = ENDPOINT.replace(/^ws/, "http");
+/** Same host, http(s) scheme — used to wake the server and call /auth/*. */
+export const HTTP_BASE = ENDPOINT.replace(/^ws/, "http");
 
 export interface ZoneConnection {
   room: Room<ZoneState>;

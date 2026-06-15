@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import type { JoinZoneOptions } from "@mmo/shared";
 import { connectToZone } from "../net/room";
+import { clearToken } from "../net/auth";
 
 /**
  * Connects to the zone room, then hands the live connection to ZoneScene.
@@ -32,11 +33,14 @@ export class BootScene extends Phaser.Scene {
       .catch((err: unknown) => {
         console.error("[client] failed to connect:", err);
         const detail = err instanceof Error ? err.message : String(err);
+        // An expired/invalid token never fixes itself on retry — drop it so the
+        // reload logs in fresh (as a guest).
+        if (/auth|token|401/i.test(detail)) clearToken();
         status
           .setText(`Couldn't enter the world:\n${detail}\n\nTap or press any key to retry.`)
           .setColor("#ef4444");
         const retry = (): void => {
-          this.scene.restart();
+          window.location.reload();
         };
         this.input.once("pointerdown", retry);
         this.input.keyboard?.once("keydown", retry);

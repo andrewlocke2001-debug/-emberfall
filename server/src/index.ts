@@ -6,6 +6,7 @@ import { WebSocketTransport } from "@colyseus/ws-transport";
 import express from "express";
 import { ZONE_IDS } from "@mmo/shared/data/zones";
 import { ZoneRoom } from "./rooms/ZoneRoom";
+import { AuthError, registerAccount, loginAccount, guestAccount, type AuthResult } from "./auth";
 
 const PORT = Number(process.env["PORT"] ?? 2567);
 
@@ -29,6 +30,28 @@ const clientDist = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "cl
 const gameServer = new Server({
   transport: new WebSocketTransport(),
   express: (app) => {
+    app.use(express.json());
+
+    // Auth endpoints. The client posts credentials (or nothing, for a guest)
+    // and gets back a signed token it presents when joining a zone room.
+    const route =
+      (fn: (body: Record<string, string>) => Promise<AuthResult>) =>
+      async (req: express.Request, res: express.Response): Promise<void> => {
+        try {
+          res.json(await fn((req.body ?? {}) as Record<string, string>));
+        } catch (err) {
+          if (err instanceof AuthError) {
+            res.status(400).json({ error: err.message });
+          } else {
+            console.error("[auth] route error:", err);
+            res.status(500).json({ error: "Something went wrong." });
+          }
+        }
+      };
+    app.post("/auth/register", route((b) => registerAccount(b["username"]!, b["password"]!)));
+    app.post("/auth/login", route((b) => loginAccount(b["username"]!, b["password"]!)));
+    app.post("/auth/guest", route((b) => guestAccount(b["name"])));
+
     if (existsSync(clientDist)) {
       // index.html must never be cached, or players keep running a stale
       // client after a deploy (content-hashed assets are safe to cache).

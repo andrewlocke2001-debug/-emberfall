@@ -2,23 +2,50 @@ import Phaser from "phaser";
 import { DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
 import { BootScene } from "./scenes/BootScene";
 import { ZoneScene } from "./scenes/ZoneScene";
-import { getOrCreatePlayerId } from "./net/identity";
+import { getStoredToken, storeToken, guestLogin } from "./net/auth";
 
 const loginEl = document.getElementById("login") as HTMLDivElement;
 const nameInput = document.getElementById("name") as HTMLInputElement;
 const enterBtn = document.getElementById("enter") as HTMLButtonElement;
+const errorEl = document.getElementById("login-error") as HTMLDivElement;
 
 // Prefill the remembered name.
 nameInput.value = localStorage.getItem("mmo:name") ?? "";
 
-function start(): void {
-  const name = nameInput.value.trim() || "Adventurer";
-  localStorage.setItem("mmo:name", name);
-  loginEl.style.display = "none";
+let busy = false;
 
+/**
+ * Enter the world: reuse an existing session token if we have one, otherwise
+ * create a guest account (one tap — preserves instant play). The token is what
+ * the game presents to the server; identity is derived from it server-side.
+ */
+async function start(): Promise<void> {
+  if (busy) return;
+  busy = true;
+  enterBtn.disabled = true;
+  enterBtn.textContent = "Entering…";
+  errorEl.textContent = "";
+  try {
+    const name = nameInput.value.trim();
+    let token = getStoredToken();
+    if (!token) {
+      token = (await guestLogin(name || undefined)).token;
+      storeToken(token);
+    }
+    if (name) localStorage.setItem("mmo:name", name);
+    loginEl.style.display = "none";
+    bootGame(token);
+  } catch (err) {
+    errorEl.textContent = err instanceof Error ? err.message : "Couldn't start. Try again.";
+    enterBtn.disabled = false;
+    enterBtn.textContent = "Enter World";
+    busy = false;
+  }
+}
+
+function bootGame(token: string): void {
   // `?canvas=1` forces the Canvas renderer — WebGL doesn't paint into
-  // headless-Chromium screenshots, so this gives a capturable path for
-  // automated visual checks. Real browsers use AUTO (WebGL) for performance.
+  // headless-Chromium screenshots, so this gives a capturable automated path.
   const forceCanvas = new URLSearchParams(window.location.search).has("canvas");
 
   const game = new Phaser.Game({
@@ -34,16 +61,14 @@ function start(): void {
     scene: [BootScene, ZoneScene],
   });
 
-  // Pass join options + the starting zone to BootScene via the registry (set
-  // synchronously before the scene's deferred boot runs). The zone is the
-  // player's last-visited one (kept in localStorage), defaulting to the town.
+  // Starting zone = last visited (localStorage), defaulting to the town.
   const savedZone = localStorage.getItem("mmo:zone");
   const zone = savedZone && isZoneId(savedZone) ? savedZone : DEFAULT_ZONE;
   game.registry.set("zone", zone);
-  game.registry.set("joinOpts", { name, playerId: getOrCreatePlayerId() });
+  game.registry.set("joinOpts", { token });
 }
 
-enterBtn.addEventListener("click", start);
+enterBtn.addEventListener("click", () => void start());
 nameInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") start();
+  if (e.key === "Enter") void start();
 });
