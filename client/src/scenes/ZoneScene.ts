@@ -5,6 +5,8 @@ import {
   MOVE_SPEED,
   ServerMessage,
   type CombatEventPayload,
+  type JoinZoneOptions,
+  type TransferPayload,
 } from "@mmo/shared";
 import { stepWithCollision } from "@mmo/shared/systems/collision";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
@@ -255,6 +257,18 @@ export class ZoneScene extends Phaser.Scene {
       targetView.hitFlash();
       targetView.floatingDamage(evt.damage);
     });
+
+    // Zone travel: the server says we stepped on a gate → leave this room and
+    // re-boot into the target zone at the named entry. Re-booting cleanly
+    // tears down this scene's map/entities for the new zone.
+    this.connection.room.onMessage(ServerMessage.Transfer, (p: TransferPayload) => {
+      localStorage.setItem("mmo:zone", p.zone);
+      const opts = this.registry.get("joinOpts") as JoinZoneOptions;
+      this.registry.set("joinOpts", { ...opts, entry: p.entry });
+      this.registry.set("zone", p.zone);
+      void this.connection.room.leave();
+      this.scene.start("Boot");
+    });
   }
 
   // --- helpers ---------------------------------------------------------------
@@ -318,6 +332,7 @@ export class ZoneScene extends Phaser.Scene {
     (window as unknown as { __mmo?: unknown }).__mmo = {
       ready: true,
       sessionId: () => room.sessionId,
+      zone: () => room.state?.zoneId ?? null,
       playerCount: () => room.state?.players?.size ?? 0,
       enemyHp: (id: string) => room.state?.enemies?.get(id)?.hp ?? null,
       enemyMaxHp: (id: string) => room.state?.enemies?.get(id)?.maxHp ?? null,

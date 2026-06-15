@@ -81,18 +81,22 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   });
 }
 
-/** Connect to (or create) the single shared zone room with this identity. */
+/**
+ * Connect to (or create) a zone room by id (the room name == the zone id),
+ * with this identity. Travel = leaving one zone room and connecting to another.
+ */
 export async function connectToZone(
+  zoneId: string,
   options: JoinZoneOptions,
   onStatus: StatusFn = () => {},
 ): Promise<ZoneConnection> {
   await wakeServer(onStatus);
-  onStatus("Entering Verdant Vale…");
+  onStatus("Entering the realm…");
   const client = new Client(ENDPOINT);
   // A hung join (websocket connects but the room never confirms) would
-  // otherwise sit on "Entering…" forever. Surface it instead.
+  // otherwise sit on the loading screen forever. Surface it instead.
   const room = await withTimeout(
-    client.joinOrCreate<ZoneState>("zone", options),
+    client.joinOrCreate<ZoneState>(zoneId, options),
     20_000,
     "Joining the world failed",
   );

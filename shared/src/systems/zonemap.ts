@@ -71,6 +71,11 @@ export interface ZoneMap {
   enemies: readonly ZoneEnemy[];
 }
 
+/** The exit whose rectangle contains world point (x, y), if any. */
+export function exitAt(map: ZoneMap, x: number, y: number): ZoneExit | undefined {
+  return map.exits.find((e) => x >= e.x && x < e.x + e.w && y >= e.y && y < e.y + e.h);
+}
+
 function findLayer(map: TiledMap, name: string): TiledLayer {
   const l = map.layers.find((x) => x.name === name);
   if (!l) throw new Error(`map missing layer '${name}'`);

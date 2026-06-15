@@ -14,8 +14,9 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     const opts = this.registry.get("joinOpts") as JoinZoneOptions;
+    const zone = (this.registry.get("zone") as string | undefined) ?? "meadowbrook";
     const status = this.add
-      .text(this.scale.width / 2, this.scale.height / 2, "Entering Verdant Vale…", {
+      .text(this.scale.width / 2, this.scale.height / 2, "Entering the realm…", {
         fontFamily: "system-ui, sans-serif",
         fontSize: "20px",
         color: "#e6e6e6",
@@ -24,7 +25,7 @@ export class BootScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    connectToZone(opts, (msg) => status.setText(msg))
+    connectToZone(zone, opts, (msg) => status.setText(msg))
       .then((connection) => {
         this.scene.start("Zone", { connection });
       })

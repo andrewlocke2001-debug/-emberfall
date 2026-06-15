@@ -11,6 +11,8 @@ export interface JoinZoneOptions {
   /** Stable, client-persisted id so a refresh restores the same character. */
   playerId: string;
   name: string;
+  /** When arriving via a zone exit, the named entry point to spawn at. */
+  entry?: string;
 }
 
 /** Client → server message types. */

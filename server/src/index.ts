@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import express from "express";
+import { ZONE_IDS } from "@mmo/shared/data/zones";
 import { ZoneRoom } from "./rooms/ZoneRoom";
 
 const PORT = Number(process.env["PORT"] ?? 2567);
@@ -53,10 +54,13 @@ const gameServer = new Server({
   },
 });
 
-// One registered room type for M0. "zone" is the matchmaking name the client
-// passes to joinOrCreate(). A single room instance serves the whole world for
-// now; this is the unit we later replicate/shard toward "massive" scale.
-gameServer.define("zone", ZoneRoom);
+// One room type per zone — the room name IS the zone id, so the client joins a
+// specific zone by name and travels by leaving and joining another. Each zone
+// is a single room instance for now; this is the unit we later replicate/shard
+// toward "massive" scale.
+for (const zoneId of ZONE_IDS) {
+  gameServer.define(zoneId, ZoneRoom, { zoneId });
+}
 
 gameServer
   .listen(PORT)

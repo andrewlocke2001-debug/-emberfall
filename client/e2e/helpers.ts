@@ -3,6 +3,7 @@ import { type Page } from "@playwright/test";
 /** Shape of the in-page test API exposed by ZoneScene (see exposeTestApi). */
 export interface MmoTestApi {
   ready: boolean;
+  zone(): string | null;
   playerCount(): number;
   enemyHp(id: string): number | null;
   me(): { x: number; y: number; hp: number; name: string; level: number } | null;

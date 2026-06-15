@@ -5,6 +5,7 @@ import { prisma } from "./db";
 export interface SavedCharacter {
   playerId: string;
   name: string;
+  zone: string;
   x: number;
   y: number;
   hp: number;
@@ -22,15 +23,17 @@ class CharacterStore {
   async loadOrCreate(
     playerId: string,
     name: string,
+    zone: string,
     spawn: { x: number; y: number },
   ): Promise<SavedCharacter> {
     const row = await prisma.player.upsert({
       where: { id: playerId },
-      // Rejoin: keep the latest chosen name, refresh lastSeen (@updatedAt).
-      update: { name },
+      // Rejoin: keep the latest name + the zone they're entering now.
+      update: { name, zone },
       create: {
         id: playerId,
         name,
+        zone,
         x: spawn.x,
         y: spawn.y,
         hp: BASE_MAX_HP,
@@ -43,7 +46,15 @@ class CharacterStore {
 
   /** Snapshot a character's current state. Upsert: defensive against wipes. */
   async save(c: SavedCharacter): Promise<void> {
-    const data = { name: c.name, x: c.x, y: c.y, hp: c.hp, maxHp: c.maxHp, level: c.level };
+    const data = {
+      name: c.name,
+      zone: c.zone,
+      x: c.x,
+      y: c.y,
+      hp: c.hp,
+      maxHp: c.maxHp,
+      level: c.level,
+    };
     await prisma.player.upsert({
       where: { id: c.playerId },
       update: data,
@@ -55,6 +66,7 @@ class CharacterStore {
 function toSavedCharacter(row: {
   id: string;
   name: string;
+  zone: string;
   x: number;
   y: number;
   hp: number;
@@ -64,6 +76,7 @@ function toSavedCharacter(row: {
   return {
     playerId: row.id,
     name: row.name,
+    zone: row.zone,
     x: row.x,
     y: row.y,
     hp: row.hp,

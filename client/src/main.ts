@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
 import { BootScene } from "./scenes/BootScene";
 import { ZoneScene } from "./scenes/ZoneScene";
 import { getOrCreatePlayerId } from "./net/identity";
@@ -33,8 +34,12 @@ function start(): void {
     scene: [BootScene, ZoneScene],
   });
 
-  // Pass join options to BootScene via the registry (set synchronously before
-  // the scene's deferred boot runs).
+  // Pass join options + the starting zone to BootScene via the registry (set
+  // synchronously before the scene's deferred boot runs). The zone is the
+  // player's last-visited one (kept in localStorage), defaulting to the town.
+  const savedZone = localStorage.getItem("mmo:zone");
+  const zone = savedZone && isZoneId(savedZone) ? savedZone : DEFAULT_ZONE;
+  game.registry.set("zone", zone);
   game.registry.set("joinOpts", { name, playerId: getOrCreatePlayerId() });
 }
 

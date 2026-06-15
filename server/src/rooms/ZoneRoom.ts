@@ -12,12 +12,13 @@ import {
   type MovePayload,
   type UseAbilityPayload,
   type WelcomePayload,
+  type TransferPayload,
 } from "@mmo/shared";
 import { EnemySchema, PlayerSchema, ZoneState } from "@mmo/shared/schema/state";
 import { MoveSchema, UseAbilitySchema } from "@mmo/shared/protocol/schemas";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
-import type { ZoneMap } from "@mmo/shared/systems/zonemap";
+import { exitAt, type ZoneMap } from "@mmo/shared/systems/zonemap";
 import { characterStore, type SavedCharacter } from "../persistence/store";
 
 const DUMMY_MAX_HP = 200;
@@ -51,6 +52,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
   private inputs = new Map<string, InputState>();
   private map!: ZoneMap;
+  /** Sessions already handed off to another zone (don't re-trigger the exit). */
+  private transferring = new Set<string>();
 
   override onCreate(options?: { zoneId?: string }): void {
     const zoneId =
@@ -88,13 +91,21 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const name = (options?.name?.trim() || "Adventurer").slice(0, 24);
 
     const def = this.map.entries["default"]!;
-    const saved = await characterStore.loadOrCreate(playerId, name, def);
+    const saved = await characterStore.loadOrCreate(playerId, name, this.map.id, def);
 
-    // If the saved spot is now blocked or off-map (e.g. after a map change),
-    // fall back to the zone's default entry so nobody spawns inside a wall.
-    let spawnX = saved.x;
-    let spawnY = saved.y;
-    if (!isBoxFree(this.map.collision, spawnX, spawnY, PLAYER_HALF)) {
+    // Spawn priority: a named entry (arriving through a gate) wins; otherwise
+    // the saved position, unless it's from another zone or now blocked/off-map
+    // (e.g. after a map change) — then fall back to the zone's default entry.
+    const namedEntry = options?.entry ? this.map.entries[options.entry] : undefined;
+    let spawnX: number;
+    let spawnY: number;
+    if (namedEntry) {
+      spawnX = namedEntry.x;
+      spawnY = namedEntry.y;
+    } else if (saved.zone === this.map.id && isBoxFree(this.map.collision, saved.x, saved.y, PLAYER_HALF)) {
+      spawnX = saved.x;
+      spawnY = saved.y;
+    } else {
       spawnX = def.x;
       spawnY = def.y;
     }
@@ -119,9 +130,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   override async onLeave(client: Client): Promise<void> {
     const player = this.state.players.get(client.sessionId);
     this.inputs.delete(client.sessionId);
+    this.transferring.delete(client.sessionId);
     if (!player) return;
 
-    const snapshot = toSaved(player);
+    const snapshot = toSaved(player, this.map.id);
     this.state.players.delete(client.sessionId);
     try {
       await characterStore.save(snapshot);
@@ -216,6 +228,17 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       player.y = next.y;
     });
 
+    // Zone exits: stepping onto a gate hands the player off to another zone.
+    // We only signal; the client leaves and re-joins the target zone's room.
+    this.state.players.forEach((player, sessionId) => {
+      if (this.transferring.has(sessionId)) return;
+      const exit = exitAt(this.map, player.x, player.y);
+      if (!exit) return;
+      this.transferring.add(sessionId);
+      const payload: TransferPayload = { zone: exit.to, entry: exit.entry };
+      this.clients.find((c) => c.sessionId === sessionId)?.send(ServerMessage.Transfer, payload);
+    });
+
     // Respawn any dead enemy whose timer has elapsed.
     const now = Date.now();
     this.state.enemies.forEach((enemy) => {
@@ -229,7 +252,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
   private async snapshotAll(): Promise<void> {
     const snapshots: SavedCharacter[] = [];
-    this.state.players.forEach((player) => snapshots.push(toSaved(player)));
+    this.state.players.forEach((player) => snapshots.push(toSaved(player, this.map.id)));
     const results = await Promise.allSettled(snapshots.map((s) => characterStore.save(s)));
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
@@ -246,6 +269,6 @@ function toCombatant(e: PlayerSchema | EnemySchema): Combatant {
   return { x: e.x, y: e.y, hp: e.hp, maxHp: e.maxHp, alive: e.alive };
 }
 
-function toSaved(p: PlayerSchema): SavedCharacter {
-  return { playerId: p.id, name: p.name, x: p.x, y: p.y, hp: p.hp, maxHp: p.maxHp, level: p.level };
+function toSaved(p: PlayerSchema, zone: string): SavedCharacter {
+  return { playerId: p.id, name: p.name, zone, x: p.x, y: p.y, hp: p.hp, maxHp: p.maxHp, level: p.level };
 }
