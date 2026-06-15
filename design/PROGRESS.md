@@ -13,9 +13,12 @@ proven. One URL serves client + websocket (no Netlify). Single Fly machine
 (keep at 1 until P11 Redis).
 
 **Now: P1 — "A world worth standing in."** Done: P1.1 (zod validation),
-P1.2 (ASCII→Tiled maps Meadowbrook/Greenreach + collision system, 31 tests
-green). Next: P1.3 (serve the real maps in-game — zone rooms, collision,
-travel, tilemap rendering replacing the empty grid).
+P1.2 (ASCII→Tiled maps + collision, 31 tests), mobile touch controls,
+**P1.3a (real Meadowbrook town in-game)** — server loads the map, enforces
+collision, spawns players at map entries + dummies from map markers; client
+renders the tilemap with per-map camera bounds; both e2e green on the new
+map. Next: **P1.3b** — zone travel (step on the east gate → Greenreach via a
+Transfer message; persist Player.zone). Then P1.4 auth, P1.5 chat.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +

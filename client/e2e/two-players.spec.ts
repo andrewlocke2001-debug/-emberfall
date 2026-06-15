@@ -20,10 +20,10 @@ test("two players share a zone and combat lowers the dummy's HP for both", async
   expect(dummyHpBefore).not.toBeNull();
   expect(dummyHpBefore!).toBeGreaterThan(0);
 
-  // Close the gap to the dummy (spawn is below it), then strike repeatedly.
+  // Close the gap to the dummy (it sits west of the town spawn), then strike.
   await pageA.evaluate(() => window.__mmo!.setTarget("dummy-1"));
-  await pageA.evaluate(() => window.__mmo!.move(0, -1));
-  await pageA.waitForTimeout(1500);
+  await pageA.evaluate(() => window.__mmo!.move(-1, 0));
+  await pageA.waitForTimeout(1000);
   await pageA.evaluate(() => window.__mmo!.move(0, 0));
 
   for (let i = 0; i < 8; i++) {

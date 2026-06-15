@@ -5,10 +5,7 @@ import {
   MOVE_SPEED,
   ServerMessage,
   TICK_MS,
-  ZONE_HEIGHT,
-  ZONE_WIDTH,
   resolveAbility,
-  stepPosition,
   type Combatant,
   type CombatEventPayload,
   type JoinZoneOptions,
@@ -18,12 +15,15 @@ import {
 } from "@mmo/shared";
 import { EnemySchema, PlayerSchema, ZoneState } from "@mmo/shared/schema/state";
 import { MoveSchema, UseAbilitySchema } from "@mmo/shared/protocol/schemas";
+import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
+import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
+import type { ZoneMap } from "@mmo/shared/systems/zonemap";
 import { characterStore, type SavedCharacter } from "../persistence/store";
 
-const DUMMY_ID = "dummy-1";
 const DUMMY_MAX_HP = 200;
 const DUMMY_RESPAWN_MS = 4000;
 const SNAPSHOT_INTERVAL_MS = 15_000;
+const PLAYER_HALF = 12; // half-extent of a player's collision box, world units
 
 /** Per-session transient input — never synced, never trusted as state. */
 interface InputState {
@@ -50,10 +50,16 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   override maxMessagesPerSecond = 30;
 
   private inputs = new Map<string, InputState>();
+  private map!: ZoneMap;
 
-  override onCreate(): void {
+  override onCreate(options?: { zoneId?: string }): void {
+    const zoneId =
+      options?.zoneId && isZoneId(options.zoneId) ? options.zoneId : DEFAULT_ZONE;
+    this.map = ZONES[zoneId];
+
     this.state = new ZoneState();
-    this.spawnDummy();
+    this.state.zoneId = this.map.id;
+    this.spawnEnemies();
 
     // Every inbound message is zod-validated by Colyseus before our handler
     // runs (kit rule #2). A payload that fails the schema gets the client
@@ -81,14 +87,23 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const playerId = options?.playerId?.trim() || client.sessionId;
     const name = (options?.name?.trim() || "Adventurer").slice(0, 24);
 
-    const spawn = { x: ZONE_WIDTH / 2, y: ZONE_HEIGHT / 2 + 220 };
-    const saved = await characterStore.loadOrCreate(playerId, name, spawn);
+    const def = this.map.entries["default"]!;
+    const saved = await characterStore.loadOrCreate(playerId, name, def);
+
+    // If the saved spot is now blocked or off-map (e.g. after a map change),
+    // fall back to the zone's default entry so nobody spawns inside a wall.
+    let spawnX = saved.x;
+    let spawnY = saved.y;
+    if (!isBoxFree(this.map.collision, spawnX, spawnY, PLAYER_HALF)) {
+      spawnX = def.x;
+      spawnY = def.y;
+    }
 
     const player = new PlayerSchema();
     player.id = playerId;
     player.name = saved.name;
-    player.x = saved.x;
-    player.y = saved.y;
+    player.x = spawnX;
+    player.y = spawnY;
     player.hp = saved.hp;
     player.maxHp = saved.maxHp;
     player.level = saved.level;
@@ -121,16 +136,19 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
   // --- internals -----------------------------------------------------------
 
-  private spawnDummy(): void {
-    const dummy = new EnemySchema();
-    dummy.id = DUMMY_ID;
-    dummy.name = "Training Dummy";
-    dummy.x = ZONE_WIDTH / 2;
-    dummy.y = ZONE_HEIGHT / 2;
-    dummy.hp = DUMMY_MAX_HP;
-    dummy.maxHp = DUMMY_MAX_HP;
-    dummy.alive = true;
-    this.state.enemies.set(dummy.id, dummy);
+  /** Spawn this zone's training dummies from the map's enemy markers. */
+  private spawnEnemies(): void {
+    this.map.enemies.forEach((marker, i) => {
+      const enemy = new EnemySchema();
+      enemy.id = `dummy-${i + 1}`;
+      enemy.name = "Training Dummy";
+      enemy.x = marker.x;
+      enemy.y = marker.y;
+      enemy.hp = DUMMY_MAX_HP;
+      enemy.maxHp = DUMMY_MAX_HP;
+      enemy.alive = true;
+      this.state.enemies.set(enemy.id, enemy);
+    });
   }
 
   private handleUseAbility(client: Client, msg: UseAbilityPayload): void {
@@ -186,12 +204,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (!player.alive) return;
       const input = this.inputs.get(sessionId);
       if (!input || (input.dx === 0 && input.dy === 0)) return;
-      const next = stepPosition(
+      const next = stepWithCollision(
         { x: player.x, y: player.y },
         { dx: input.dx, dy: input.dy },
         dt,
         MOVE_SPEED,
-        { width: ZONE_WIDTH, height: ZONE_HEIGHT },
+        this.map.collision,
+        PLAYER_HALF,
       );
       player.x = next.x;
       player.y = next.y;

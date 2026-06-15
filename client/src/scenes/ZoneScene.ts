@@ -4,11 +4,11 @@ import {
   ClientMessage,
   MOVE_SPEED,
   ServerMessage,
-  ZONE_HEIGHT,
-  ZONE_WIDTH,
-  stepPosition,
   type CombatEventPayload,
 } from "@mmo/shared";
+import { stepWithCollision } from "@mmo/shared/systems/collision";
+import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
+import type { ZoneMap } from "@mmo/shared/systems/zonemap";
 import type { EnemySchema, PlayerSchema } from "@mmo/shared/schema/state";
 import type { ZoneConnection } from "../net/room";
 import { EntityView } from "../ui/EntityView";
@@ -17,6 +17,13 @@ import { TouchControls } from "../ui/TouchControls";
 const STRIKE = ABILITIES.strike;
 const RECONCILE_SNAP = 64; // px of drift beyond which we hard-snap the local player
 const REMOTE_LERP = 0.25; // interpolation factor for remote entities
+const PLAYER_HALF = 12; // must match the server's collision box half-extent
+
+// Tile colors keyed by gid (see tools/mapgen). Trees render as a canopy
+// circle (TREE_GID) for a softer look; everything else fills its tile.
+const TREE_GID = 4;
+const GROUND_COLORS: Record<number, number> = { 1: 0x243a1c, 2: 0x4a3f2c, 6: 0x5a4631 };
+const OBSTACLE_COLORS: Record<number, number> = { 3: 0x6b6660, 5: 0x21406b, 7: 0x6b573c };
 
 /**
  * The playable zone. Renders authoritative server state, predicts the local
@@ -48,6 +55,9 @@ export class ZoneScene extends Phaser.Scene {
   /** On-screen joystick + attack button; only created on touch devices. */
   private touch?: TouchControls;
 
+  /** The current zone's map; resolved from server state on the first frame. */
+  private map?: ZoneMap;
+
   constructor() {
     super("Zone");
   }
@@ -59,8 +69,8 @@ export class ZoneScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor("#0d1018");
-    this.drawWorld();
-    this.cameras.main.setBounds(0, 0, ZONE_WIDTH, ZONE_HEIGHT);
+    // The tilemap + camera bounds are set on the first state frame, once we
+    // know which zone the server put us in (see ensureWorld).
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
@@ -99,6 +109,9 @@ export class ZoneScene extends Phaser.Scene {
     // Bail until the synced collections exist.
     if (!room.state?.players || !room.state.enemies) return;
 
+    // Draw the zone's tilemap once we know which zone we're in.
+    this.ensureWorld();
+
     // --- read input → movement intent (keyboard digital + joystick analog)
     let dx = 0;
     let dy = 0;
@@ -129,15 +142,19 @@ export class ZoneScene extends Phaser.Scene {
 
     // --- local player prediction + reconciliation
     const self = room.state.players.get(this.localSessionId);
-    if (self) {
+    if (self && this.map) {
       if (!this.predictionReady) {
         this.predicted = { x: self.x, y: self.y };
         this.predictionReady = true;
       }
-      this.predicted = stepPosition(this.predicted, { dx, dy }, dt, MOVE_SPEED, {
-        width: ZONE_WIDTH,
-        height: ZONE_HEIGHT,
-      });
+      this.predicted = stepWithCollision(
+        this.predicted,
+        { dx, dy },
+        dt,
+        MOVE_SPEED,
+        this.map.collision,
+        PLAYER_HALF,
+      );
       const drift = Phaser.Math.Distance.Between(this.predicted.x, this.predicted.y, self.x, self.y);
       if (drift > RECONCILE_SNAP) {
         this.predicted = { x: self.x, y: self.y };
@@ -242,13 +259,36 @@ export class ZoneScene extends Phaser.Scene {
 
   // --- helpers ---------------------------------------------------------------
 
-  private drawWorld(): void {
-    const g = this.add.graphics().setDepth(0);
-    g.fillStyle(0x0d1018, 1).fillRect(0, 0, ZONE_WIDTH, ZONE_HEIGHT);
-    g.lineStyle(1, 0x1b2233, 1);
-    for (let x = 0; x <= ZONE_WIDTH; x += 80) g.lineBetween(x, 0, x, ZONE_HEIGHT);
-    for (let y = 0; y <= ZONE_HEIGHT; y += 80) g.lineBetween(0, y, ZONE_WIDTH, y);
-    g.lineStyle(3, 0x3b4a66, 1).strokeRect(0, 0, ZONE_WIDTH, ZONE_HEIGHT);
+  /** Resolve the current zone from server state and draw it once. */
+  private ensureWorld(): void {
+    if (this.map) return;
+    const zoneId = isZoneId(this.connection.room.state.zoneId)
+      ? this.connection.room.state.zoneId
+      : DEFAULT_ZONE;
+    this.map = ZONES[zoneId];
+    this.drawTilemap(this.map);
+    this.cameras.main.setBounds(0, 0, this.map.pixelWidth, this.map.pixelHeight);
+  }
+
+  /** Render the zone's ground + obstacle tiles once into a static graphic. */
+  private drawTilemap(map: ZoneMap): void {
+    const g = this.add.graphics().setDepth(-10);
+    const t = map.tileSize;
+    for (let i = 0; i < map.ground.length; i++) {
+      const x = (i % map.cols) * t;
+      const y = Math.floor(i / map.cols) * t;
+      g.fillStyle(GROUND_COLORS[map.ground[i]!] ?? 0x1a2417, 1);
+      g.fillRect(x, y, t, t);
+
+      const obstacle = map.obstacles[i]!;
+      if (obstacle === TREE_GID) {
+        g.fillStyle(0x14361f, 1);
+        g.fillCircle(x + t / 2, y + t / 2, t * 0.5);
+      } else if (obstacle !== 0) {
+        g.fillStyle(OBSTACLE_COLORS[obstacle] ?? 0x444444, 1);
+        g.fillRect(x, y, t, t);
+      }
+    }
   }
 
   private selectTarget(id: string | null): void {
