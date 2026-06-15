@@ -2,12 +2,22 @@ import Phaser from "phaser";
 import { DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
 import { BootScene } from "./scenes/BootScene";
 import { ZoneScene } from "./scenes/ZoneScene";
-import { getStoredToken, storeToken, guestLogin } from "./net/auth";
+import {
+  getStoredToken,
+  storeToken,
+  guestLogin,
+  loginAccount,
+  registerAccount,
+} from "./net/auth";
 
 const loginEl = document.getElementById("login") as HTMLDivElement;
 const nameInput = document.getElementById("name") as HTMLInputElement;
+const passwordInput = document.getElementById("password") as HTMLInputElement;
 const enterBtn = document.getElementById("enter") as HTMLButtonElement;
+const loginBtn = document.getElementById("btn-login") as HTMLButtonElement;
+const registerBtn = document.getElementById("btn-register") as HTMLButtonElement;
 const errorEl = document.getElementById("login-error") as HTMLDivElement;
+const buttons = [enterBtn, loginBtn, registerBtn];
 
 // Prefill the remembered name.
 nameInput.value = localStorage.getItem("mmo:name") ?? "";
@@ -15,32 +25,34 @@ nameInput.value = localStorage.getItem("mmo:name") ?? "";
 let busy = false;
 
 /**
- * Enter the world: reuse an existing session token if we have one, otherwise
- * create a guest account (one tap — preserves instant play). The token is what
- * the game presents to the server; identity is derived from it server-side.
+ * Run an auth action, then boot the game with the resulting token. Identity is
+ * derived server-side from the token, so all three paths (guest / login /
+ * register) converge here.
  */
-async function start(): Promise<void> {
+async function authenticate(getToken: () => Promise<string>): Promise<void> {
   if (busy) return;
   busy = true;
-  enterBtn.disabled = true;
-  enterBtn.textContent = "Entering…";
+  buttons.forEach((b) => (b.disabled = true));
   errorEl.textContent = "";
   try {
+    const token = await getToken();
+    storeToken(token);
     const name = nameInput.value.trim();
-    let token = getStoredToken();
-    if (!token) {
-      token = (await guestLogin(name || undefined)).token;
-      storeToken(token);
-    }
     if (name) localStorage.setItem("mmo:name", name);
     loginEl.style.display = "none";
     bootGame(token);
   } catch (err) {
     errorEl.textContent = err instanceof Error ? err.message : "Couldn't start. Try again.";
-    enterBtn.disabled = false;
-    enterBtn.textContent = "Enter World";
+    buttons.forEach((b) => (b.disabled = false));
     busy = false;
   }
+}
+
+function requireCredentials(): { username: string; password: string } {
+  const username = nameInput.value.trim();
+  const password = passwordInput.value;
+  if (!username || !password) throw new Error("Enter a username and password.");
+  return { username, password };
 }
 
 function bootGame(token: string): void {
@@ -68,7 +80,29 @@ function bootGame(token: string): void {
   game.registry.set("joinOpts", { token });
 }
 
-enterBtn.addEventListener("click", () => void start());
+// Guest: reuse an existing session if present, else create a guest account.
+enterBtn.addEventListener("click", () =>
+  void authenticate(
+    async () => getStoredToken() ?? (await guestLogin(nameInput.value.trim() || undefined)).token,
+  ),
+);
+// Log in / Register always (re)authenticate to the named account.
+loginBtn.addEventListener("click", () =>
+  void authenticate(async () => {
+    const { username, password } = requireCredentials();
+    return (await loginAccount(username, password)).token;
+  }),
+);
+registerBtn.addEventListener("click", () =>
+  void authenticate(async () => {
+    const { username, password } = requireCredentials();
+    return (await registerAccount(username, password)).token;
+  }),
+);
+
 nameInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") void start();
+  if (e.key === "Enter") enterBtn.click();
+});
+passwordInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") loginBtn.click();
 });

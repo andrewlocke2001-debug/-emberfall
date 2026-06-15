@@ -19,14 +19,14 @@ spawns/dummies; **zone travel** (one Colyseus room per zone; stepping on a
 gate sends a Transfer → client re-boots into the target zone at the named
 entry; Player.zone persisted; arrival spawns at the entry, blocked/cross-zone
 saved positions fall back to the default entry). 34 unit + 2 e2e green.
-**P1.4a done** — auth backend: Account model (argon2 password hashes) +
-HS256 JWT sessions (jose); `/auth/register|login|guest` endpoints; the room
-verifies the token on join and derives identity from it (client-supplied ids
-no longer trusted — closes the pre-auth gap); one-tap guest login keeps
-instant play; token in localStorage, reused across reloads. 34 unit + 2 e2e
-green. Next: **P1.4b** — the username/password login/register UI in the
-overlay (backend already supports it), then **P1.5 chat**. NOT DEPLOYED —
-Fly trial ended; building locally until hosting is settled.
+**P1.4 done** — accounts & auth. Backend: Account model (argon2 hashes) +
+HS256 JWT (jose); `/auth/register|login|guest`; room verifies the token on
+join → identity from it (client ids no longer trusted; pre-auth gap closed);
+one-tap guest keeps instant play; token in localStorage. UI: start screen
+has username/password with Play-as-Guest / Log In / Register. 34 unit + 3 e2e
+green (the new auth spec proves register → reload → log in → same character).
+Next: **P1.5 chat** (zone + global), the last P1 piece. NOT DEPLOYED — Fly
+trial ended; building locally until hosting is settled.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
