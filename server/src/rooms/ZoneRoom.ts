@@ -16,12 +16,19 @@ import {
   type TransferPayload,
   type ChatPayload,
   type ChatBroadcastPayload,
+  type LevelUpPayload,
+  type SkillId,
 } from "@mmo/shared";
 import { EnemySchema, PlayerSchema, ZoneState } from "@mmo/shared/schema/state";
 import { MoveSchema, UseAbilitySchema, ChatSchema } from "@mmo/shared/protocol/schemas";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
 import { resolveAttack, type CombatStats } from "@mmo/shared/systems/combatmath";
-import { combatStatsFromLevel } from "@mmo/shared/systems/progression";
+import {
+  combatStatsFromLevel,
+  gainXp,
+  levelForXp,
+  maxHpForVitality,
+} from "@mmo/shared/systems/progression";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
 import { mobDef } from "@mmo/shared/data/mobs";
 import { exitAt, type ZoneMap } from "@mmo/shared/systems/zonemap";
@@ -35,6 +42,8 @@ const SNAPSHOT_INTERVAL_MS = 15_000;
 const PLAYER_HALF = 12; // half-extent of a player's collision box, world units
 const ENEMY_HALF = 12; // half-extent of a mob's collision box
 const PLAYER_RESPAWN_MS = 5000; // delay before a slain player respawns
+/** Fraction of a kill's melee XP that also feeds Vitality (HP) growth. */
+const VITALITY_XP_FRACTION = 1 / 3;
 
 /** Per-session transient input — never synced, never trusted as state. */
 interface InputState {
@@ -73,6 +82,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     string,
     { homeX: number; homeY: number; target: string | null; lastAttackAt: number }
   >();
+  /**
+   * Per-enemy set of session ids that have damaged it this life. Everyone who
+   * contributed shares full kill credit (GW2-style tagging) — no last-hit or
+   * damage-weighted stealing. Cleared when the mob dies (XP awarded) or
+   * respawns (fresh life).
+   */
+  private readonly mobContributors = new Map<string, Set<string>>();
   /** Dead players → the server time at which they respawn. */
   private readonly deadUntil = new Map<string, number>();
   /** Per-session global-cooldown expiry (server time, ms). */
@@ -152,9 +168,14 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     player.name = saved.name;
     player.x = spawnX;
     player.y = spawnY;
-    player.hp = saved.hp;
-    player.maxHp = saved.maxHp;
-    player.level = saved.level;
+    // Levels are derived from the authoritative XP totals, never trusted from
+    // the saved level/maxHp columns (which are denormalized convenience only).
+    player.meleeXp = saved.meleeXp;
+    player.vitalityXp = saved.vitalityXp;
+    player.level = levelForXp(saved.meleeXp);
+    player.maxHp = maxHpForVitality(levelForXp(saved.vitalityXp));
+    // Saved hp can exceed maxHp only if the curve changed; clamp defensively.
+    player.hp = Math.min(saved.hp, player.maxHp);
     player.alive = saved.hp > 0;
     this.state.players.set(client.sessionId, player);
     this.inputs.set(client.sessionId, { dx: 0, dy: 0, playerId });
@@ -175,6 +196,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.enemyAI.forEach((ai) => {
       if (ai.target === client.sessionId) ai.target = null;
     });
+    this.mobContributors.forEach((set) => set.delete(client.sessionId));
     if (!player) return;
 
     const snapshot = toSaved(player, this.map.id);
@@ -208,6 +230,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       enemy.alive = true;
       this.state.enemies.set(enemy.id, enemy);
       this.enemyAI.set(enemy.id, { homeX: marker.x, homeY: marker.y, target: null, lastAttackAt: 0 });
+      this.mobContributors.set(enemy.id, new Set());
     });
   }
 
@@ -260,6 +283,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
     if (result.hit) {
       enemy.hp = result.targetHpAfter;
+      // Tag this player as a contributor — landing a hit earns kill credit.
+      this.mobContributors.get(enemy.id)?.add(sessionId);
       const evt: CombatEventPayload = {
         attackerId: sessionId,
         targetId: enemy.id,
@@ -270,8 +295,56 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (result.targetDied) {
         enemy.alive = false;
         enemy.respawnAt = now + mobDef(enemy.kind).respawnMs;
+        this.awardKill(enemy);
       }
     }
+  }
+
+  /**
+   * Grant a slain mob's XP to every player who tagged it (shared credit), then
+   * clear the tag set for its next life. Players who have since left the room
+   * are skipped — their progress was already written on leave.
+   */
+  private awardKill(enemy: EnemySchema): void {
+    const contributors = this.mobContributors.get(enemy.id);
+    if (!contributors || contributors.size === 0) return;
+    const def = mobDef(enemy.kind);
+    const meleeAmt = def.xpReward;
+    const vitalityAmt = Math.floor(def.xpReward * VITALITY_XP_FRACTION);
+    contributors.forEach((sessionId) => {
+      const player = this.state.players.get(sessionId);
+      if (player) this.grantXp(sessionId, player, meleeAmt, vitalityAmt);
+    });
+    contributors.clear();
+  }
+
+  /**
+   * Apply XP to a player's two skills, leveling them and broadcasting feedback.
+   * Melee level drives combat stats (kept in `player.level`); Vitality level
+   * drives maxHp — a Vitality level-up raises maxHp and heals by the gain so a
+   * fresh level is never a downgrade mid-fight.
+   */
+  private grantXp(sessionId: string, player: PlayerSchema, meleeAmt: number, vitalityAmt: number): void {
+    const melee = gainXp(player.meleeXp, meleeAmt);
+    player.meleeXp = melee.xp;
+    player.level = melee.level; // keep level == melee level even without a tick-up
+    if (melee.leveledUp) this.sendLevelUp(sessionId, "melee", melee.level);
+
+    const vitality = gainXp(player.vitalityXp, vitalityAmt);
+    player.vitalityXp = vitality.xp;
+    if (vitality.leveledUp) {
+      const newMax = maxHpForVitality(vitality.level);
+      const delta = newMax - player.maxHp;
+      player.maxHp = newMax;
+      if (delta > 0) player.hp = Math.min(newMax, player.hp + delta);
+      this.sendLevelUp(sessionId, "vitality", vitality.level);
+    }
+  }
+
+  /** Tell just the leveling player which skill ticked up (for UI feedback). */
+  private sendLevelUp(sessionId: string, skill: SkillId, level: number): void {
+    const payload: LevelUpPayload = { skill, level };
+    this.clients.find((c) => c.sessionId === sessionId)?.send(ServerMessage.LevelUp, payload);
   }
 
   /** Start the GCD (if applicable) and this ability's own cooldown. */
@@ -372,6 +445,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         enemy.hp = enemy.maxHp;
         enemy.alive = true;
         enemy.respawnAt = 0;
+        this.mobContributors.get(enemy.id)?.clear(); // fresh life, fresh credit
         const ai = this.enemyAI.get(enemy.id);
         if (ai) {
           enemy.x = ai.homeX;
@@ -501,5 +575,16 @@ function mobCombatStats(enemy: EnemySchema): CombatStats {
 }
 
 function toSaved(p: PlayerSchema, zone: string): SavedCharacter {
-  return { playerId: p.id, name: p.name, zone, x: p.x, y: p.y, hp: p.hp, maxHp: p.maxHp, level: p.level };
+  return {
+    playerId: p.id,
+    name: p.name,
+    zone,
+    x: p.x,
+    y: p.y,
+    hp: p.hp,
+    maxHp: p.maxHp,
+    level: p.level,
+    meleeXp: p.meleeXp,
+    vitalityXp: p.vitalityXp,
+  };
 }

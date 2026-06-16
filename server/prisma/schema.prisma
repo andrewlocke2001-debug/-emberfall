@@ -31,14 +31,16 @@ model Account {
 // migration was needed). Pre-auth rows (id = old client playerId) are simply
 // orphaned and never loaded.
 model Player {
-  id        String   @id
-  name      String
-  zone      String   @default("meadowbrook")
-  x         Float
-  y         Float
-  hp        Int
-  maxHp     Int
-  level     Int      @default(1)
-  createdAt DateTime @default(now())
-  lastSeen  DateTime @updatedAt
+  id         String   @id
+  name       String
+  zone       String   @default("meadowbrook")
+  x          Float
+  y          Float
+  hp         Int
+  maxHp      Int
+  level      Int      @default(1)
+  meleeXp    Int      @default(0)
+  vitalityXp Int      @default(0)
+  createdAt  DateTime @default(now())
+  lastSeen   DateTime @updatedAt
 }

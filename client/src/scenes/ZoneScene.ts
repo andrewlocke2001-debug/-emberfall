@@ -9,8 +9,10 @@ import {
   type JoinZoneOptions,
   type TransferPayload,
   type ChatBroadcastPayload,
+  type LevelUpPayload,
 } from "@mmo/shared";
 import { stepWithCollision } from "@mmo/shared/systems/collision";
+import { levelForXp } from "@mmo/shared/systems/progression";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
 import { MOBS } from "@mmo/shared/data/mobs";
 import type { ZoneMap } from "@mmo/shared/systems/zonemap";
@@ -157,8 +159,13 @@ export class ZoneScene extends Phaser.Scene {
     // Draw the zone's tilemap once we know which zone we're in.
     this.ensureWorld();
 
-    // Zone HUD (name + live player count), refreshed only when it changes.
-    const hud = `${this.map?.displayName ?? ""} — ${room.state.players.size} online`;
+    // Zone + character HUD (name, player count, skill levels), refreshed only
+    // when the string changes. Melee level is authoritative on the schema;
+    // Vitality is derived from its XP with the same shared curve the server uses.
+    const me = room.state.players.get(this.localSessionId);
+    const meleeLvl = me?.level ?? 1;
+    const vitalityLvl = me ? levelForXp(me.vitalityXp) : 1;
+    const hud = `${this.map?.displayName ?? ""} — ${room.state.players.size} online · ⚔${meleeLvl} · ♥${vitalityLvl}`;
     if (hud !== this.lastHud) {
       this.chat?.setHud(hud);
       this.lastHud = hud;
@@ -346,6 +353,10 @@ export class ZoneScene extends Phaser.Scene {
       }
     });
 
+    this.connection.room.onMessage(ServerMessage.LevelUp, (p: LevelUpPayload) => {
+      this.showLevelUp(p);
+    });
+
     // Zone travel: the server says we stepped on a gate → leave this room and
     // re-boot into the target zone at the named entry. Re-booting cleanly
     // tears down this scene's map/entities for the new zone.
@@ -397,6 +408,29 @@ export class ZoneScene extends Phaser.Scene {
     }
   }
 
+  /** A brief gold banner when a skill levels up — pure feedback, no state. */
+  private showLevelUp(p: LevelUpPayload): void {
+    const label = p.skill === "vitality" ? "Vitality" : "Melee";
+    const toast = this.add
+      .text(this.scale.width / 2, this.scale.height * 0.32, `${label} level ${p.level}!`, {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "26px",
+        color: "#ffe066",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(600);
+    this.tweens.add({
+      targets: toast,
+      y: toast.y - 40,
+      alpha: { from: 1, to: 0 },
+      duration: 1600,
+      ease: "Cubic.easeIn",
+      onComplete: () => toast.destroy(),
+    });
+  }
+
   private selectTarget(id: string | null): void {
     this.selectedTargetId = id;
     if (!id) this.selectionRing.setVisible(false);
@@ -431,7 +465,19 @@ export class ZoneScene extends Phaser.Scene {
       me: () => {
         const p = room.state?.players?.get(room.sessionId);
         return p
-          ? { x: p.x, y: p.y, hp: p.hp, energy: p.energy, name: p.name, level: p.level }
+          ? {
+              x: p.x,
+              y: p.y,
+              hp: p.hp,
+              maxHp: p.maxHp,
+              energy: p.energy,
+              name: p.name,
+              level: p.level,
+              meleeXp: p.meleeXp,
+              vitalityXp: p.vitalityXp,
+              meleeLevel: p.level,
+              vitalityLevel: levelForXp(p.vitalityXp),
+            }
           : null;
       },
       energy: () => room.state?.players?.get(room.sessionId)?.energy ?? 0,

@@ -1,4 +1,4 @@
-import type { AbilityId } from "../types";
+import type { AbilityId, SkillId } from "../types";
 
 /**
  * The wire protocol between client and server: message type identifiers and
@@ -27,6 +27,7 @@ export const ServerMessage = {
   CombatEvent: "combat",
   Chat: "chatMsg",
   Transfer: "transfer",
+  LevelUp: "levelUp",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -89,4 +90,14 @@ export interface ChatBroadcastPayload {
 export interface TransferPayload {
   zone: string;
   entry: string;
+}
+
+/**
+ * Server → client: a skill just gained a level (for level-up feedback). Sent
+ * only to the player who leveled — XP totals themselves stream via the synced
+ * PlayerSchema, so the client can always recompute exact levels too.
+ */
+export interface LevelUpPayload {
+  skill: SkillId;
+  level: number;
 }

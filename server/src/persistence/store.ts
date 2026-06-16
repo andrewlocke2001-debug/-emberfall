@@ -10,7 +10,10 @@ export interface SavedCharacter {
   y: number;
   hp: number;
   maxHp: number;
+  /** Melee level (= levelForXp(meleeXp)); persisted for convenience/queries. */
   level: number;
+  meleeXp: number;
+  vitalityXp: number;
 }
 
 /**
@@ -39,6 +42,8 @@ class CharacterStore {
         hp: BASE_MAX_HP,
         maxHp: BASE_MAX_HP,
         level: 1,
+        meleeXp: 0,
+        vitalityXp: 0,
       },
     });
     return toSavedCharacter(row);
@@ -54,6 +59,8 @@ class CharacterStore {
       hp: c.hp,
       maxHp: c.maxHp,
       level: c.level,
+      meleeXp: c.meleeXp,
+      vitalityXp: c.vitalityXp,
     };
     await prisma.player.upsert({
       where: { id: c.playerId },
@@ -72,6 +79,8 @@ function toSavedCharacter(row: {
   hp: number;
   maxHp: number;
   level: number;
+  meleeXp: number;
+  vitalityXp: number;
 }): SavedCharacter {
   return {
     playerId: row.id,
@@ -82,6 +91,8 @@ function toSavedCharacter(row: {
     hp: row.hp,
     maxHp: row.maxHp,
     level: row.level,
+    meleeXp: row.meleeXp,
+    vitalityXp: row.vitalityXp,
   };
 }
 

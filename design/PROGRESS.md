@@ -49,7 +49,16 @@ yet on real devices because we're not deployed.
   an off-GCD self-heal. Client ability bar (energy meter, cooldown sweeps,
   keys 1/2/3 + click/tap, Space = Strike) + green heal numbers. 51 unit + 6
   e2e green (new energy-spend e2e).
-- Next: **P2.4** XP+leveling+shared credit, **P2.5** bots + GM commands.
+- **P2.4 done**: XP, leveling & **shared kill credit** (GW2-style). Two skills
+  now live on the synced PlayerSchema as XP totals (`meleeXp`, `vitalityXp`);
+  Melee level (= `level`) drives combat stats, Vitality level drives maxHp
+  (a Vitality level-up raises maxHp and heals by the gain). Every player who
+  lands a hit on a mob is tagged a contributor; on death ALL contributors get
+  full XP (`gainXp` on the shared RS curve) — no last-hit stealing. Level-ups
+  send a `LevelUp` message → gold client toast; HUD shows ⚔/♥ levels. XP
+  persists (Prisma `add_skills` migration: `meleeXp`/`vitalityXp` Int default 0,
+  applied to Neon via `migrate deploy`). 56 unit + 6 e2e green; typecheck clean.
+- Next: **P2.5** bots + GM commands + P2 close-out.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
@@ -62,6 +71,28 @@ yet on real devices because we're not deployed.
   moving prisma migrate out of boot (release_command) for fast cold starts.
 
 ## Shipped
+
+### 2026-06-16 — P2.4 XP, leveling & shared kill credit ✅
+- `gainXp(currentXp, amount)` on the shared RS curve (clamps negatives, reports
+  level + leveledUp) — 5 new unit tests.
+- PlayerSchema gains synced `meleeXp` / `vitalityXp`; `level` is now the Melee
+  level (drives combat stats), maxHp is derived from the Vitality level. Levels
+  are recomputed from XP on join — the saved `level`/`maxHp` columns are
+  denormalized convenience only, never trusted.
+- ZoneRoom tracks per-mob contributor sets; landing a hit tags you; on death
+  every living contributor is awarded full XP (`awardKill` → `grantXp`). A
+  Vitality level-up raises maxHp and heals by the delta. Contributors cleared
+  on death (after award) and on respawn; pruned on leave.
+- `ServerMessage.LevelUp` (+ `LevelUpPayload {skill, level}`) sent only to the
+  leveler → gold fading client toast; HUD shows ⚔/♥ levels (Vitality derived
+  client-side with the same shared curve). Test API `me()` exposes XP + levels.
+- Prisma `add_skills` migration (additive: `meleeXp`/`vitalityXp` Int default 0)
+  applied to Neon via `migrate deploy`. 56 unit + 6 e2e green; typecheck clean.
+- Exploit pass: XP is fully server-authoritative — it only flows from a real,
+  in-range, GCD/energy/cooldown-gated hit resolved server-side, so a client
+  can't grant itself XP, levels, or HP. Shared credit only includes sessions
+  that actually damaged the mob; leavers are skipped on award (no dup, no
+  crash) since their progress already persisted on leave.
 
 ### 2026-06-14 — P0 closed + the actual freeze fixed + P1.1/P1.2 ✅
 - **Real root cause of "stuck on Entering" found via the user's browser

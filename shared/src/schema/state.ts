@@ -27,7 +27,12 @@ export class PlayerSchema extends Schema {
   declare maxHp: number;
   declare energy: number;
   declare maxEnergy: number;
+  /** Melee skill level (= levelForXp(meleeXp)) — drives combat stats. */
   declare level: number;
+  /** Total Melee XP (drives attack/strength/defence via the skill curve). */
+  declare meleeXp: number;
+  /** Total Vitality XP (drives maxHp via the skill curve). */
+  declare vitalityXp: number;
   declare alive: boolean;
   /** Server time (ms) of last ability use — drives cooldown enforcement. */
   declare lastAbilityAt: number;
@@ -43,6 +48,8 @@ export class PlayerSchema extends Schema {
     this.energy = BASE_MAX_ENERGY;
     this.maxEnergy = BASE_MAX_ENERGY;
     this.level = 1;
+    this.meleeXp = 0;
+    this.vitalityXp = 0;
     this.alive = true;
     this.lastAbilityAt = 0;
   }
@@ -57,6 +64,8 @@ defineTypes(PlayerSchema, {
   energy: "number",
   maxEnergy: "number",
   level: "number",
+  meleeXp: "number",
+  vitalityXp: "number",
   alive: "boolean",
   lastAbilityAt: "number",
 });
