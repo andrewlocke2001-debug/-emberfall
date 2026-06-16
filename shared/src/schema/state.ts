@@ -58,6 +58,8 @@ defineTypes(PlayerSchema, {
 /** A non-player combatant. M0 ships one stationary training dummy. */
 export class EnemySchema extends Schema {
   declare id: string;
+  /** Mob family key (see @mmo/shared/data/mobs) — drives stats + render tint. */
+  declare kind: string;
   declare name: string;
   declare x: number;
   declare y: number;
@@ -70,6 +72,7 @@ export class EnemySchema extends Schema {
   constructor() {
     super();
     this.id = "";
+    this.kind = "dummy";
     this.name = "Training Dummy";
     this.x = 0;
     this.y = 0;
@@ -81,6 +84,7 @@ export class EnemySchema extends Schema {
 }
 defineTypes(EnemySchema, {
   id: "string",
+  kind: "string",
   name: "string",
   x: "number",
   y: "number",

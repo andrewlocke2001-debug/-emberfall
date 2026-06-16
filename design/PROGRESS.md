@@ -34,7 +34,17 @@ yet on real devices because we're not deployed.
 ## P1.6 close-out — remaining
 - **Deploy** (blocked): Fly trial ended; add a card (~$0–5/mo) → redeploy →
   on-device P1 exit test. Everything since the empty-grid version is local-only.
-- Then **P2 — combat core** (the kit's "the game becomes a game" phase).
+
+## P2 — combat core (in progress, local)
+- **P2.1 done**: stat-based combat math (hitChance/maxHit/resolveAttack) + XP
+  curve + skill→stat helpers, pure & tested.
+- **P2.2 done**: mob roster (emberling/wolf/bandit + passive dummy) spawned
+  from map markers; mob AI (aggro/chase/attack-on-cadence/leash-home);
+  players take damage, die → respawn at the zone entry; mobs respawn home;
+  client mob colors + dead-dimming + death banner. Greenreach is now
+  dangerous; Meadowbrook stays safe. 51 unit + 5 e2e green (new mob-aggro e2e).
+- Next: **P2.3** abilities/energy/GCD, **P2.4** XP+leveling+shared credit,
+  **P2.5** bots + GM commands.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +

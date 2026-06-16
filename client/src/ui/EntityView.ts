@@ -6,6 +6,8 @@ interface EntityViewOptions {
   x: number;
   y: number;
   name: string;
+  /** Optional body color override (e.g. per mob family). */
+  color?: number;
   /** Called when the body is clicked (for tab-targeting). */
   onClick: () => void;
 }
@@ -37,7 +39,7 @@ export class EntityView {
   constructor(scene: Phaser.Scene, kind: EntityKind, opts: EntityViewOptions) {
     this.scene = scene;
     this.radius = kind === "enemy" ? 22 : 16;
-    this.baseColor = COLORS[kind];
+    this.baseColor = opts.color ?? COLORS[kind];
 
     const body =
       kind === "enemy"
@@ -84,6 +86,11 @@ export class EntityView {
     const pct = maxHp > 0 ? Phaser.Math.Clamp(hp / maxHp, 0, 1) : 0;
     this.hpBar.width = BAR_WIDTH * pct;
     this.hpBar.fillColor = pct > 0.5 ? 0x4ade80 : pct > 0.25 ? 0xfacc15 : 0xef4444;
+  }
+
+  /** Dim the whole entity while it's dead (downed player / slain mob). */
+  setAlive(alive: boolean): void {
+    this.container.setAlpha(alive ? 1 : 0.3);
   }
 
   /** Snap to a world position (used on spawn and for the predicted local player). */

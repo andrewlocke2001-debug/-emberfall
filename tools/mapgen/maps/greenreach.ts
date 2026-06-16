@@ -51,10 +51,13 @@ function paint(): string[] {
     p.set(x, y, "T");
   }
 
-  // Training dummies (P2: real mob camps replace these markers).
-  p.set(36, 20, "D"); // north glade
-  p.set(30, 38, "D"); // mid meadow
-  p.set(50, 24, "D"); // east fields
+  // Mob camps. A lone wolf patrols the road just east of the entrance; the
+  // tougher families sit deeper in (emberlings north, bandit east).
+  p.set(12, 30, "w"); // road wolf near the gate
+  p.set(36, 20, "e"); // emberling, north glade
+  p.set(38, 21, "e"); // emberling, north glade
+  p.set(30, 38, "w"); // wolf, mid meadow
+  p.set(50, 24, "b"); // bandit, east fields
 
   // West entry (arrivals from Meadowbrook) + default spawn near the gate.
   p.set(4, 29, "1");

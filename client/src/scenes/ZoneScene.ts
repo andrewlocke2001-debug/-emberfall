@@ -11,6 +11,7 @@ import {
 } from "@mmo/shared";
 import { stepWithCollision } from "@mmo/shared/systems/collision";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
+import { MOBS } from "@mmo/shared/data/mobs";
 import type { ZoneMap } from "@mmo/shared/systems/zonemap";
 import type { EnemySchema, PlayerSchema } from "@mmo/shared/schema/state";
 import type { ZoneConnection } from "../net/room";
@@ -66,6 +67,9 @@ export class ZoneScene extends Phaser.Scene {
   private chat?: ChatBox;
   private lastHud = "";
 
+  /** Screen-fixed "you died" banner, shown while the local player is down. */
+  private deathText?: Phaser.GameObjects.Text;
+
   constructor() {
     super("Zone");
   }
@@ -93,6 +97,21 @@ export class ZoneScene extends Phaser.Scene {
       .setDepth(5);
 
     this.escKey.on("down", () => this.selectTarget(null));
+
+    this.deathText = this.add
+      .text(this.scale.width / 2, this.scale.height / 2, "You fell — respawning…", {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "28px",
+        color: "#ef4444",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(500)
+      .setVisible(false);
+    this.scale.on("resize", () =>
+      this.deathText?.setPosition(this.scale.width / 2, this.scale.height / 2),
+    );
 
     // On touch / coarse-pointer devices, add the on-screen joystick + attack
     // button. Keyboard handlers stay active too (hybrid devices just work).
@@ -172,22 +191,34 @@ export class ZoneScene extends Phaser.Scene {
         this.predicted = { x: self.x, y: self.y };
         this.predictionReady = true;
       }
-      this.predicted = stepWithCollision(
-        this.predicted,
-        { dx, dy },
-        dt,
-        MOVE_SPEED,
-        this.map.collision,
-        PLAYER_HALF,
-      );
-      const drift = Phaser.Math.Distance.Between(this.predicted.x, this.predicted.y, self.x, self.y);
-      if (drift > RECONCILE_SNAP) {
+      if (!self.alive) {
+        // While dead, don't predict — just follow the authoritative position
+        // (it snaps to the respawn point when the server revives us).
         this.predicted = { x: self.x, y: self.y };
-      } else if (drift > 2) {
-        this.predicted.x = Phaser.Math.Linear(this.predicted.x, self.x, 0.1);
-        this.predicted.y = Phaser.Math.Linear(this.predicted.y, self.y, 0.1);
+      } else {
+        this.predicted = stepWithCollision(
+          this.predicted,
+          { dx, dy },
+          dt,
+          MOVE_SPEED,
+          this.map.collision,
+          PLAYER_HALF,
+        );
+        const drift = Phaser.Math.Distance.Between(
+          this.predicted.x,
+          this.predicted.y,
+          self.x,
+          self.y,
+        );
+        if (drift > RECONCILE_SNAP) {
+          this.predicted = { x: self.x, y: self.y };
+        } else if (drift > 2) {
+          this.predicted.x = Phaser.Math.Linear(this.predicted.x, self.x, 0.1);
+          this.predicted.y = Phaser.Math.Linear(this.predicted.y, self.y, 0.1);
+        }
       }
     }
+    this.deathText?.setVisible(!!self && !self.alive);
 
     // --- render entities from authoritative state
     room.state.players.forEach((player, sessionId) => {
@@ -199,12 +230,14 @@ export class ZoneScene extends Phaser.Scene {
         view.lerpTo(player.x, player.y, REMOTE_LERP);
       }
       view.setHp(player.hp, player.maxHp);
+      view.setAlive(player.alive);
     });
     room.state.enemies.forEach((enemy, id) => {
       const view = this.enemies.get(id);
       if (!view) return;
       view.lerpTo(enemy.x, enemy.y, REMOTE_LERP);
       view.setHp(enemy.hp, enemy.maxHp);
+      view.setAlive(enemy.alive);
     });
 
     this.updateSelectionRing();
@@ -256,6 +289,7 @@ export class ZoneScene extends Phaser.Scene {
         x: enemy.x,
         y: enemy.y,
         name: enemy.name,
+        color: MOBS[enemy.kind]?.color ?? 0xef4444,
         onClick: () => this.selectTarget(id),
       });
       view.setHp(enemy.hp, enemy.maxHp);

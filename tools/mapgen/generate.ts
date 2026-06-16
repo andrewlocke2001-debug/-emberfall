@@ -28,9 +28,15 @@ const GROUND: Record<string, number> = {
   f: 1,
   s: 2,
   D: 1,
+  e: 1,
+  w: 1,
+  b: 1,
   E: 2,
 };
 const OBSTACLE: Record<string, number> = { "#": 3, T: 4, "~": 5, f: 7 };
+
+/** Map chars to mob families (see @mmo/shared/data/mobs). */
+const ENEMY_CHARS: Record<string, string> = { D: "dummy", e: "emberling", w: "wolf", b: "bandit" };
 
 const MAPS: MapSource[] = [meadowbrook, greenreach];
 
@@ -97,10 +103,11 @@ function compile(src: MapSource): object {
         if (sawSpawn) throw new Error(`${src.id}: more than one default spawn 's'`);
         sawSpawn = true;
         objects.push(point(nextObjectId++, "entry:default", "entry", cx, cy));
-      } else if (ch === "D") {
+      } else if (ENEMY_CHARS[ch]) {
+        const kind = ENEMY_CHARS[ch];
         objects.push({
-          ...point(nextObjectId++, "enemy:dummy", "enemy", cx, cy),
-          properties: [{ name: "kind", type: "string", value: "dummy" }],
+          ...point(nextObjectId++, `enemy:${kind}`, "enemy", cx, cy),
+          properties: [{ name: "kind", type: "string", value: kind }],
         });
       }
     }

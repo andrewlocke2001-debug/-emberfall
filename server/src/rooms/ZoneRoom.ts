@@ -19,7 +19,10 @@ import {
 import { EnemySchema, PlayerSchema, ZoneState } from "@mmo/shared/schema/state";
 import { MoveSchema, UseAbilitySchema, ChatSchema } from "@mmo/shared/protocol/schemas";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
+import { resolveAttack } from "@mmo/shared/systems/combatmath";
+import { combatStatsFromLevel } from "@mmo/shared/systems/progression";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
+import { mobDef } from "@mmo/shared/data/mobs";
 import { exitAt, type ZoneMap } from "@mmo/shared/systems/zonemap";
 import { RateLimiter } from "@mmo/shared/systems/ratelimit";
 import { verifyToken } from "../auth";
@@ -27,10 +30,10 @@ import { censorText } from "../chat";
 import { globalBus } from "../services/globalBus";
 import { characterStore, type SavedCharacter } from "../persistence/store";
 
-const DUMMY_MAX_HP = 200;
-const DUMMY_RESPAWN_MS = 4000;
 const SNAPSHOT_INTERVAL_MS = 15_000;
 const PLAYER_HALF = 12; // half-extent of a player's collision box, world units
+const ENEMY_HALF = 12; // half-extent of a mob's collision box
+const PLAYER_RESPAWN_MS = 5000; // delay before a slain player respawns
 
 /** Per-session transient input — never synced, never trusted as state. */
 interface InputState {
@@ -64,6 +67,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly chatLimiter = new RateLimiter(5, 10_000);
   /** Unsubscribe handle for the global-chat bus (set in onCreate). */
   private unsubscribeGlobal?: () => void;
+  /** Per-enemy AI: spawn home, current target session, last attack time. */
+  private readonly enemyAI = new Map<
+    string,
+    { homeX: number; homeY: number; target: string | null; lastAttackAt: number }
+  >();
+  /** Dead players → the server time at which they respawn. */
+  private readonly deadUntil = new Map<string, number>();
 
   override onCreate(options?: { zoneId?: string }): void {
     const zoneId =
@@ -154,6 +164,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.inputs.delete(client.sessionId);
     this.transferring.delete(client.sessionId);
     this.chatLimiter.forget(client.sessionId);
+    this.deadUntil.delete(client.sessionId);
+    this.enemyAI.forEach((ai) => {
+      if (ai.target === client.sessionId) ai.target = null;
+    });
     if (!player) return;
 
     const snapshot = toSaved(player, this.map.id);
@@ -172,18 +186,21 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
   // --- internals -----------------------------------------------------------
 
-  /** Spawn this zone's training dummies from the map's enemy markers. */
+  /** Spawn this zone's mobs from the map's enemy markers (stats from data). */
   private spawnEnemies(): void {
     this.map.enemies.forEach((marker, i) => {
+      const def = mobDef(marker.kind);
       const enemy = new EnemySchema();
-      enemy.id = `dummy-${i + 1}`;
-      enemy.name = "Training Dummy";
+      enemy.id = `${def.kind}-${i + 1}`;
+      enemy.kind = def.kind;
+      enemy.name = def.name;
       enemy.x = marker.x;
       enemy.y = marker.y;
-      enemy.hp = DUMMY_MAX_HP;
-      enemy.maxHp = DUMMY_MAX_HP;
+      enemy.hp = def.maxHp;
+      enemy.maxHp = def.maxHp;
       enemy.alive = true;
       this.state.enemies.set(enemy.id, enemy);
+      this.enemyAI.set(enemy.id, { homeX: marker.x, homeY: marker.y, target: null, lastAttackAt: 0 });
     });
   }
 
@@ -216,7 +233,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       enemy.hp = result.targetHpAfter;
       if (result.targetDied) {
         enemy.alive = false;
-        enemy.respawnAt = now + DUMMY_RESPAWN_MS;
+        enemy.respawnAt = now + mobDef(enemy.kind).respawnMs;
       }
     } else if (targetPlayer) {
       targetPlayer.hp = result.targetHpAfter;
@@ -284,14 +301,140 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.clients.find((c) => c.sessionId === sessionId)?.send(ServerMessage.Transfer, payload);
     });
 
-    // Respawn any dead enemy whose timer has elapsed.
     const now = Date.now();
+
+    // Mob AI: aggro the nearest player, chase, attack on cadence, leash home.
+    this.state.enemies.forEach((enemy) => {
+      if (!enemy.alive) return;
+      this.updateMob(enemy, dt, now);
+    });
+
+    // Respawn dead players at their zone's default entry.
+    this.state.players.forEach((player, sessionId) => {
+      if (player.alive) return;
+      const at = this.deadUntil.get(sessionId);
+      if (at !== undefined && now >= at) {
+        const entry = this.map.entries["default"]!;
+        player.x = entry.x;
+        player.y = entry.y;
+        player.hp = player.maxHp;
+        player.alive = true;
+        this.deadUntil.delete(sessionId);
+      }
+    });
+
+    // Respawn any dead enemy whose timer has elapsed (back at its home).
     this.state.enemies.forEach((enemy) => {
       if (!enemy.alive && enemy.respawnAt > 0 && now >= enemy.respawnAt) {
         enemy.hp = enemy.maxHp;
         enemy.alive = true;
         enemy.respawnAt = 0;
+        const ai = this.enemyAI.get(enemy.id);
+        if (ai) {
+          enemy.x = ai.homeX;
+          enemy.y = ai.homeY;
+          ai.target = null;
+          ai.lastAttackAt = 0;
+        }
       }
+    });
+  }
+
+  /** One mob's behavior for a tick: acquire/keep a target, chase, attack, leash. */
+  private updateMob(enemy: EnemySchema, dt: number, now: number): void {
+    const def = mobDef(enemy.kind);
+    if (def.aggroRadius <= 0) return; // passive (training dummy)
+    const ai = this.enemyAI.get(enemy.id);
+    if (!ai) return;
+
+    const homeDist = Math.hypot(enemy.x - ai.homeX, enemy.y - ai.homeY);
+
+    // Drop a target that died, left, wandered out of leash, or pulled us too far.
+    let target = ai.target ? this.state.players.get(ai.target) : undefined;
+    if (
+      target &&
+      (!target.alive ||
+        homeDist > def.leashRadius ||
+        Math.hypot(enemy.x - target.x, enemy.y - target.y) > def.leashRadius)
+    ) {
+      target = undefined;
+      ai.target = null;
+    }
+
+    // Acquire the nearest in-range living player (only while near home).
+    if (!target && homeDist <= def.leashRadius) {
+      let bestDist = def.aggroRadius;
+      this.state.players.forEach((p, sid) => {
+        if (!p.alive) return;
+        const d = Math.hypot(enemy.x - p.x, enemy.y - p.y);
+        if (d <= bestDist) {
+          bestDist = d;
+          target = p;
+          ai.target = sid;
+        }
+      });
+    }
+
+    if (target && ai.target) {
+      const d = Math.hypot(enemy.x - target.x, enemy.y - target.y);
+      if (d > def.attackRange) {
+        this.moveToward(enemy, target.x, target.y, def.moveSpeed, dt);
+      } else if (now - ai.lastAttackAt >= def.attackCooldownMs) {
+        ai.lastAttackAt = now;
+        const mobStats = {
+          attack: def.attack,
+          strength: def.strength,
+          defence: def.defence,
+          hp: enemy.hp,
+          maxHp: enemy.maxHp,
+          alive: enemy.alive,
+        };
+        const result = resolveAttack(
+          mobStats,
+          combatStatsFromLevel(target.level, target.hp, target.maxHp),
+        );
+        if (result.hit) {
+          target.hp = result.targetHpAfter;
+          const evt: CombatEventPayload = {
+            attackerId: enemy.id,
+            targetId: ai.target,
+            damage: result.damage,
+            targetDied: result.targetDied,
+          };
+          this.broadcast(ServerMessage.CombatEvent, evt);
+          if (result.targetDied) this.killPlayer(target, ai.target, now);
+        }
+      }
+    } else if (homeDist > 4) {
+      this.moveToward(enemy, ai.homeX, ai.homeY, def.moveSpeed, dt); // drift home
+    }
+  }
+
+  private moveToward(enemy: EnemySchema, tx: number, ty: number, speed: number, dt: number): void {
+    const next = stepWithCollision(
+      { x: enemy.x, y: enemy.y },
+      { dx: tx - enemy.x, dy: ty - enemy.y },
+      dt,
+      speed,
+      this.map.collision,
+      ENEMY_HALF,
+    );
+    enemy.x = next.x;
+    enemy.y = next.y;
+  }
+
+  /** Mark a player slain: stop them, schedule respawn, drop mob aggro on them. */
+  private killPlayer(player: PlayerSchema, sessionId: string, now: number): void {
+    player.alive = false;
+    player.hp = 0;
+    this.deadUntil.set(sessionId, now + PLAYER_RESPAWN_MS);
+    const input = this.inputs.get(sessionId);
+    if (input) {
+      input.dx = 0;
+      input.dy = 0;
+    }
+    this.enemyAI.forEach((ai) => {
+      if (ai.target === sessionId) ai.target = null;
     });
   }
 

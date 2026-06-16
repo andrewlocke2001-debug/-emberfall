@@ -1,4 +1,5 @@
 import { BASE_MAX_HP, HP_PER_VITALITY, LEVEL_CAP } from "../types";
+import type { CombatStats } from "./combatmath";
 
 /**
  * XP curve + skill→stat derivation. The curve is the classic RuneScape one
@@ -34,4 +35,14 @@ export function xpToNextLevel(xp: number): number {
 /** Max HP for a given Vitality level. */
 export function maxHpForVitality(vitalityLevel: number): number {
   return BASE_MAX_HP + (Math.max(1, vitalityLevel) - 1) * HP_PER_VITALITY;
+}
+
+/**
+ * A player's combat stats for resolveAttack. P2.2 derives attack/strength/
+ * defence from a single character level; P2.4 will split these out into the
+ * Melee/Vitality skills. `hp`/`maxHp` are passed through from live state.
+ */
+export function combatStatsFromLevel(level: number, hp: number, maxHp: number): CombatStats {
+  const s = 4 + Math.max(1, level);
+  return { attack: s, strength: s, defence: s, hp, maxHp, alive: hp > 0 };
 }
