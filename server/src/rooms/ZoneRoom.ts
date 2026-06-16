@@ -5,8 +5,9 @@ import {
   MOVE_SPEED,
   ServerMessage,
   TICK_MS,
-  resolveAbility,
-  type Combatant,
+  GCD_MS,
+  ENERGY_REGEN_PER_SEC,
+  distSq,
   type CombatEventPayload,
   type JoinZoneOptions,
   type MovePayload,
@@ -19,7 +20,7 @@ import {
 import { EnemySchema, PlayerSchema, ZoneState } from "@mmo/shared/schema/state";
 import { MoveSchema, UseAbilitySchema, ChatSchema } from "@mmo/shared/protocol/schemas";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
-import { resolveAttack } from "@mmo/shared/systems/combatmath";
+import { resolveAttack, type CombatStats } from "@mmo/shared/systems/combatmath";
 import { combatStatsFromLevel } from "@mmo/shared/systems/progression";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
 import { mobDef } from "@mmo/shared/data/mobs";
@@ -74,6 +75,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   >();
   /** Dead players → the server time at which they respawn. */
   private readonly deadUntil = new Map<string, number>();
+  /** Per-session global-cooldown expiry (server time, ms). */
+  private readonly gcdUntil = new Map<string, number>();
+  /** Per-session per-ability cooldown expiry (server time, ms). */
+  private readonly abilityCooldowns = new Map<string, Map<string, number>>();
 
   override onCreate(options?: { zoneId?: string }): void {
     const zoneId =
@@ -165,6 +170,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.transferring.delete(client.sessionId);
     this.chatLimiter.forget(client.sessionId);
     this.deadUntil.delete(client.sessionId);
+    this.gcdUntil.delete(client.sessionId);
+    this.abilityCooldowns.delete(client.sessionId);
     this.enemyAI.forEach((ai) => {
       if (ai.target === client.sessionId) ai.target = null;
     });
@@ -205,48 +212,79 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   }
 
   private handleUseAbility(client: Client, msg: UseAbilityPayload): void {
-    const attacker = this.state.players.get(client.sessionId);
-    if (!attacker || !attacker.alive || !msg) return;
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive) return;
 
     const ability = ABILITIES[msg.abilityId];
     if (!ability) return;
 
+    // Gate on the global cooldown, this ability's own cooldown, and energy.
     const now = Date.now();
-    if (now - attacker.lastAbilityAt < ability.cooldownMs) return;
+    const onGcd = ability.onGcd ?? true;
+    if (onGcd && now < (this.gcdUntil.get(sessionId) ?? 0)) return;
+    if (now < (this.abilityCooldowns.get(sessionId)?.get(ability.id) ?? 0)) return;
+    const cost = ability.energyCost ?? 0;
+    if (player.energy < cost) return;
 
-    // Resolve the target by its state-map key: enemies first, then players.
+    if (ability.kind === "heal") {
+      const before = player.hp;
+      player.hp = Math.min(player.maxHp, player.hp + (ability.heal ?? 0));
+      this.commitAbility(sessionId, ability, now);
+      player.energy -= cost;
+      const restored = player.hp - before;
+      if (restored > 0) {
+        this.broadcast(ServerMessage.CombatEvent, {
+          attackerId: sessionId,
+          targetId: sessionId,
+          damage: restored,
+          targetDied: false,
+          heal: true,
+        });
+      }
+      return;
+    }
+
+    // Attack — enemies only (no open-world PvP in P2).
     const enemy = this.state.enemies.get(msg.targetId);
-    const targetPlayer = enemy ? undefined : this.state.players.get(msg.targetId);
-    const targetCombatant: Combatant | undefined = enemy
-      ? toCombatant(enemy)
-      : targetPlayer
-        ? toCombatant(targetPlayer)
-        : undefined;
-    if (!targetCombatant) return;
+    if (!enemy || !enemy.alive) return;
+    if (distSq(player.x, player.y, enemy.x, enemy.y) > ability.range * ability.range) return;
 
-    const result = resolveAbility(toCombatant(attacker), targetCombatant, ability);
-    if (!result.ok) return;
+    const atk = combatStatsFromLevel(player.level, player.hp, player.maxHp);
+    atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
+    const result = resolveAttack(atk, mobCombatStats(enemy));
 
-    attacker.lastAbilityAt = now;
+    // The swing happens regardless of hit/miss → it costs energy + cooldown.
+    this.commitAbility(sessionId, ability, now);
+    player.energy -= cost;
 
-    if (enemy) {
+    if (result.hit) {
       enemy.hp = result.targetHpAfter;
+      const evt: CombatEventPayload = {
+        attackerId: sessionId,
+        targetId: enemy.id,
+        damage: result.damage,
+        targetDied: result.targetDied,
+      };
+      this.broadcast(ServerMessage.CombatEvent, evt);
       if (result.targetDied) {
         enemy.alive = false;
         enemy.respawnAt = now + mobDef(enemy.kind).respawnMs;
       }
-    } else if (targetPlayer) {
-      targetPlayer.hp = result.targetHpAfter;
-      if (result.targetDied) targetPlayer.alive = false;
     }
+  }
 
-    const evt: CombatEventPayload = {
-      attackerId: client.sessionId,
-      targetId: msg.targetId,
-      damage: result.damage,
-      targetDied: result.targetDied,
-    };
-    this.broadcast(ServerMessage.CombatEvent, evt);
+  /** Start the GCD (if applicable) and this ability's own cooldown. */
+  private commitAbility(sessionId: string, ability: { id: string; cooldownMs: number; onGcd?: boolean }, now: number): void {
+    if (ability.onGcd ?? true) this.gcdUntil.set(sessionId, now + GCD_MS);
+    if (ability.cooldownMs > 0) {
+      let cds = this.abilityCooldowns.get(sessionId);
+      if (!cds) {
+        cds = new Map();
+        this.abilityCooldowns.set(sessionId, cds);
+      }
+      cds.set(ability.id, now + ability.cooldownMs);
+    }
   }
 
   private handleChat(client: Client, msg: ChatPayload): void {
@@ -273,8 +311,12 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private update(deltaMs: number): void {
     const dt = deltaMs / 1000;
 
-    // Integrate movement for every player from their latest input.
+    // Integrate movement + regen energy for every player.
     this.state.players.forEach((player, sessionId) => {
+      if (player.energy < player.maxEnergy) {
+        const e = Math.min(player.maxEnergy, player.energy + ENERGY_REGEN_PER_SEC * dt);
+        if (e !== player.energy) player.energy = e;
+      }
       if (!player.alive) return;
       const input = this.inputs.get(sessionId);
       if (!input || (input.dx === 0 && input.dy === 0)) return;
@@ -318,6 +360,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         player.x = entry.x;
         player.y = entry.y;
         player.hp = player.maxHp;
+        player.energy = player.maxEnergy;
         player.alive = true;
         this.deadUntil.delete(sessionId);
       }
@@ -381,16 +424,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         this.moveToward(enemy, target.x, target.y, def.moveSpeed, dt);
       } else if (now - ai.lastAttackAt >= def.attackCooldownMs) {
         ai.lastAttackAt = now;
-        const mobStats = {
-          attack: def.attack,
-          strength: def.strength,
-          defence: def.defence,
-          hp: enemy.hp,
-          maxHp: enemy.maxHp,
-          alive: enemy.alive,
-        };
         const result = resolveAttack(
-          mobStats,
+          mobCombatStats(enemy),
           combatStatsFromLevel(target.level, target.hp, target.maxHp),
         );
         if (result.hit) {
@@ -453,8 +488,16 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
 // --- pure helpers ----------------------------------------------------------
 
-function toCombatant(e: PlayerSchema | EnemySchema): Combatant {
-  return { x: e.x, y: e.y, hp: e.hp, maxHp: e.maxHp, alive: e.alive };
+function mobCombatStats(enemy: EnemySchema): CombatStats {
+  const d = mobDef(enemy.kind);
+  return {
+    attack: d.attack,
+    strength: d.strength,
+    defence: d.defence,
+    hp: enemy.hp,
+    maxHp: enemy.maxHp,
+    alive: enemy.alive,
+  };
 }
 
 function toSaved(p: PlayerSchema, zone: string): SavedCharacter {

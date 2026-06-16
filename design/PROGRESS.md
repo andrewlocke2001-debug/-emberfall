@@ -43,8 +43,13 @@ yet on real devices because we're not deployed.
   players take damage, die → respawn at the zone entry; mobs respawn home;
   client mob colors + dead-dimming + death banner. Greenreach is now
   dangerous; Meadowbrook stays safe. 51 unit + 5 e2e green (new mob-aggro e2e).
-- Next: **P2.3** abilities/energy/GCD, **P2.4** XP+leveling+shared credit,
-  **P2.5** bots + GM commands.
+- **P2.3 done**: 3 data-driven abilities (Strike, Power Strike, Mend) with an
+  Energy resource (+regen), a ~1.5s global cooldown + per-ability cooldowns
+  (server-authoritative); strike/power are stat-based (resolveAttack), Mend is
+  an off-GCD self-heal. Client ability bar (energy meter, cooldown sweeps,
+  keys 1/2/3 + click/tap, Space = Strike) + green heal numbers. 51 unit + 6
+  e2e green (new energy-spend e2e).
+- Next: **P2.4** XP+leveling+shared credit, **P2.5** bots + GM commands.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +

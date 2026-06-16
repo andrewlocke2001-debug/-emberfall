@@ -53,8 +53,11 @@ export interface CombatEventPayload {
   attackerId: string;
   /** State-map key of the target (enemy id or player session id). */
   targetId: string;
+  /** Amount of damage dealt, or HP restored when `heal` is true. */
   damage: number;
   targetDied: boolean;
+  /** True for a heal (client shows a green +N instead of damage). */
+  heal?: boolean;
 }
 
 /** Chat channels available in P1. Party/guild channels arrive with P6. */

@@ -13,7 +13,7 @@ export type ClassId = "Warrior" | "Ranger" | "Mage";
  * All ability ids, as a const tuple so the zod message schema
  * (`z.enum(ABILITY_IDS)`) and the `AbilityId` union can never drift.
  */
-export const ABILITY_IDS = ["strike"] as const;
+export const ABILITY_IDS = ["strike", "power_strike", "mend"] as const;
 export type AbilityId = (typeof ABILITY_IDS)[number];
 
 /** Server simulation tick rate (Hz) and the derived fixed step. */
@@ -33,6 +33,13 @@ export const MOVE_SPEED = 220;
 /** Default tab-target ability range, in world units. */
 export const ABILITY_RANGE = 150;
 
+/** Global cooldown shared by core abilities (FFXIV-style deliberate pacing). */
+export const GCD_MS = 1500;
+
+/** Energy resource: pool size + passive regen (per second). */
+export const BASE_MAX_ENERGY = 100;
+export const ENERGY_REGEN_PER_SEC = 12;
+
 /** Hit points for a fresh level-1 character (M0 ships a single archetype). */
 export const BASE_MAX_HP = 100;
 
@@ -46,16 +53,27 @@ export const LEVEL_CAP = 50;
 /** Extra max HP granted per Vitality level above 1. */
 export const HP_PER_VITALITY = 8;
 
-/** Static definition of an ability. Data-driven so M1 can add more cheaply. */
+/** Static definition of an ability. Data-driven so adding more stays cheap. */
 export interface AbilityDef {
   id: AbilityId;
   name: string;
-  /** Flat base damage before any future scaling. */
+  /** Legacy flat damage (M0 resolveAbility); P2 stat combat ignores it. */
   damage: number;
-  /** Cooldown in milliseconds, enforced server-side. */
+  /** Per-ability cooldown in milliseconds, enforced server-side. */
   cooldownMs: number;
   /** Maximum range in world units. */
   range: number;
+  // --- P2 fields (optional → existing literals/tests stay valid) ---
+  /** "attack" resolves vs the target's defence; "heal" restores the caster. */
+  kind?: "attack" | "heal";
+  /** Energy spent on use. */
+  energyCost?: number;
+  /** Whether using it triggers and is blocked by the global cooldown. */
+  onGcd?: boolean;
+  /** attack: multiplier on the caster's strength for the max hit. */
+  strengthMul?: number;
+  /** heal: HP restored to the caster. */
+  heal?: number;
 }
 
 /**

@@ -60,6 +60,23 @@
         border: 1px solid #2a3142; background: rgba(26,32,48,0.92); color: #fff;
         font-size: 14px; outline: none; }
       #chat-input:focus { border-color: #3b82f6; }
+
+      /* Ability bar (shown by AbilityBar once in the world) */
+      #abilities { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+        z-index: 6; display: none; flex-direction: column; align-items: center; gap: 6px; }
+      #abilities .energy { width: 196px; height: 7px; border-radius: 4px; overflow: hidden;
+        background: rgba(13,16,24,0.7); border: 1px solid #2a3142; }
+      #abilities .energy-fill { height: 100%; width: 100%; background: #f4c542; transition: width 0.12s linear; }
+      #abilities .ability-row { display: flex; gap: 8px; }
+      #abilities .ability-slot { position: relative; width: 58px; height: 58px; padding: 0;
+        border: 1px solid #3a4156; border-radius: 8px; background: #1a2030; color: #e6e6e6;
+        cursor: pointer; overflow: hidden; }
+      #abilities .ability-slot:hover { border-color: #3b82f6; }
+      #abilities .ability-cd { position: absolute; left: 0; bottom: 0; width: 100%; height: 0;
+        background: rgba(0,0,0,0.55); pointer-events: none; }
+      #abilities .ability-key { position: absolute; top: 3px; left: 5px; font-size: 11px; color: #8893a7; }
+      #abilities .ability-name { position: absolute; bottom: 5px; width: 100%; text-align: center;
+        font-size: 11px; }
     </style>
   </head>
   <body>
@@ -83,6 +100,7 @@
       <div class="hint hint-mobile">Move: drag the left side · Target: tap an enemy · Attack: hold the ⚔ button</div>
     </div>
     <div id="hud"></div>
+    <div id="abilities"></div>
     <div id="chat">
       <div id="chat-log"></div>
       <div id="chat-row">

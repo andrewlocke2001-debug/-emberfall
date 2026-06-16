@@ -4,6 +4,7 @@ import {
   ClientMessage,
   MOVE_SPEED,
   ServerMessage,
+  type AbilityId,
   type CombatEventPayload,
   type JoinZoneOptions,
   type TransferPayload,
@@ -18,8 +19,8 @@ import type { ZoneConnection } from "../net/room";
 import { EntityView } from "../ui/EntityView";
 import { TouchControls } from "../ui/TouchControls";
 import { ChatBox } from "../ui/ChatBox";
+import { AbilityBar } from "../ui/AbilityBar";
 
-const STRIKE = ABILITIES.strike;
 const RECONCILE_SNAP = 64; // px of drift beyond which we hard-snap the local player
 const REMOTE_LERP = 0.25; // interpolation factor for remote entities
 const PLAYER_HALF = 12; // must match the server's collision box half-extent
@@ -55,10 +56,11 @@ export class ZoneScene extends Phaser.Scene {
 
   private lastSentDir = { dx: 0, dy: 0 };
   private lastMoveSentAt = 0;
-  private lastAttackAt = 0;
 
   /** On-screen joystick + attack button; only created on touch devices. */
   private touch?: TouchControls;
+  /** Ability bar UI (energy meter + per-ability cooldowns). */
+  private abilityBar?: AbilityBar;
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map?: ZoneMap;
@@ -86,9 +88,12 @@ export class ZoneScene extends Phaser.Scene {
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
-    this.keys = keyboard.addKeys("W,A,S,D,SPACE") as Record<string, Phaser.Input.Keyboard.Key>;
+    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE") as Record<
+      string,
+      Phaser.Input.Keyboard.Key
+    >;
     this.escKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    keyboard.addCapture("W,A,S,D,SPACE,UP,DOWN,LEFT,RIGHT");
+    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,UP,DOWN,LEFT,RIGHT");
 
     this.selectionRing = this.add
       .circle(0, 0, 28)
@@ -129,6 +134,9 @@ export class ZoneScene extends Phaser.Scene {
       },
     });
     this.events.once("shutdown", () => this.chat?.destroy());
+
+    this.abilityBar = new AbilityBar({ onUse: (id) => this.tryUseAbility(id) });
+    this.events.once("shutdown", () => this.abilityBar?.destroy());
 
     this.setupStateSync();
     this.setupMessages();
@@ -242,15 +250,34 @@ export class ZoneScene extends Phaser.Scene {
 
     this.updateSelectionRing();
 
-    // --- attack (held Space or the on-screen button), gated by cooldown
-    const attacking = this.keys["SPACE"]!.isDown || (this.touch?.attackHeld() ?? false);
-    if (attacking && this.selectedTargetId && now - this.lastAttackAt >= STRIKE.cooldownMs) {
-      room.send(ClientMessage.UseAbility, {
-        abilityId: "strike",
-        targetId: this.selectedTargetId,
-      });
-      this.lastAttackAt = now;
+    // --- abilities: refresh the bar (energy + cooldowns), then handle input
+    if (self) this.abilityBar?.setEnergy(self.energy, self.maxEnergy);
+    this.abilityBar?.render();
+
+    // 1/2/3 fire on press; held Space (or the touch button) auto-repeats the
+    // basic Strike whenever it comes off the global cooldown.
+    if (Phaser.Input.Keyboard.JustDown(this.keys["ONE"]!)) this.tryUseAbility("strike");
+    if (Phaser.Input.Keyboard.JustDown(this.keys["TWO"]!)) this.tryUseAbility("power_strike");
+    if (Phaser.Input.Keyboard.JustDown(this.keys["THREE"]!)) this.tryUseAbility("mend");
+    if (this.keys["SPACE"]!.isDown || (this.touch?.attackHeld() ?? false)) {
+      this.tryUseAbility("strike");
     }
+  }
+
+  /** Client-side gate (target/energy/cooldown) then send the ability intent. */
+  private tryUseAbility(id: AbilityId): void {
+    const room = this.connection.room;
+    const self = room.state.players.get(this.localSessionId);
+    if (!self || !self.alive || !this.abilityBar) return;
+    if (!this.abilityBar.canUse(id, self.energy)) return;
+
+    if (ABILITIES[id].kind === "heal") {
+      room.send(ClientMessage.UseAbility, { abilityId: id, targetId: this.localSessionId });
+    } else {
+      if (!this.selectedTargetId) return; // attacks need a target
+      room.send(ClientMessage.UseAbility, { abilityId: id, targetId: this.selectedTargetId });
+    }
+    this.abilityBar.markUsed(id);
   }
 
   // --- setup -----------------------------------------------------------------
@@ -311,8 +338,12 @@ export class ZoneScene extends Phaser.Scene {
     this.connection.room.onMessage(ServerMessage.CombatEvent, (evt: CombatEventPayload) => {
       const targetView = this.enemies.get(evt.targetId) ?? this.players.get(evt.targetId);
       if (!targetView) return;
-      targetView.hitFlash();
-      targetView.floatingDamage(evt.damage);
+      if (evt.heal) {
+        targetView.floatingHeal(evt.damage);
+      } else {
+        targetView.hitFlash();
+        targetView.floatingDamage(evt.damage);
+      }
     });
 
     // Zone travel: the server says we stepped on a gate → leave this room and
@@ -399,11 +430,16 @@ export class ZoneScene extends Phaser.Scene {
       enemyMaxHp: (id: string) => room.state?.enemies?.get(id)?.maxHp ?? null,
       me: () => {
         const p = room.state?.players?.get(room.sessionId);
-        return p ? { x: p.x, y: p.y, hp: p.hp, name: p.name, level: p.level } : null;
+        return p
+          ? { x: p.x, y: p.y, hp: p.hp, energy: p.energy, name: p.name, level: p.level }
+          : null;
       },
+      energy: () => room.state?.players?.get(room.sessionId)?.energy ?? 0,
       setTarget: (id: string | null) => this.selectTarget(id),
       attack: (targetId: string) =>
         room.send(ClientMessage.UseAbility, { abilityId: "strike", targetId }),
+      useAbility: (abilityId: string, targetId: string) =>
+        room.send(ClientMessage.UseAbility, { abilityId, targetId }),
       move: (dx: number, dy: number) => room.send(ClientMessage.Move, { dx, dy }),
     };
   }

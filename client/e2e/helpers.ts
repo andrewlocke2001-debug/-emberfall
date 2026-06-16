@@ -6,9 +6,11 @@ export interface MmoTestApi {
   zone(): string | null;
   playerCount(): number;
   enemyHp(id: string): number | null;
-  me(): { x: number; y: number; hp: number; name: string; level: number } | null;
+  me(): { x: number; y: number; hp: number; energy: number; name: string; level: number } | null;
+  energy(): number;
   setTarget(id: string | null): void;
   attack(targetId: string): void;
+  useAbility(abilityId: string, targetId: string): void;
   move(dx: number, dy: number): void;
 }
 

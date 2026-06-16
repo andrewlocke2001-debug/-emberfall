@@ -1,5 +1,5 @@
 import { Schema, MapSchema, defineTypes } from "@colyseus/schema";
-import { BASE_MAX_HP } from "../types";
+import { BASE_MAX_HP, BASE_MAX_ENERGY } from "../types";
 
 /**
  * Colyseus synced state for one zone.
@@ -25,6 +25,8 @@ export class PlayerSchema extends Schema {
   declare y: number;
   declare hp: number;
   declare maxHp: number;
+  declare energy: number;
+  declare maxEnergy: number;
   declare level: number;
   declare alive: boolean;
   /** Server time (ms) of last ability use — drives cooldown enforcement. */
@@ -38,6 +40,8 @@ export class PlayerSchema extends Schema {
     this.y = 0;
     this.hp = BASE_MAX_HP;
     this.maxHp = BASE_MAX_HP;
+    this.energy = BASE_MAX_ENERGY;
+    this.maxEnergy = BASE_MAX_ENERGY;
     this.level = 1;
     this.alive = true;
     this.lastAbilityAt = 0;
@@ -50,6 +54,8 @@ defineTypes(PlayerSchema, {
   y: "number",
   hp: "number",
   maxHp: "number",
+  energy: "number",
+  maxEnergy: "number",
   level: "number",
   alive: "boolean",
   lastAbilityAt: "number",

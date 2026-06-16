@@ -112,11 +112,20 @@ export class EntityView {
 
   /** Floating "-N" damage number that drifts up and fades. */
   floatingDamage(amount: number): void {
+    this.floatingText(`-${amount}`, "#ffd166");
+  }
+
+  /** Floating green "+N" heal number. */
+  floatingHeal(amount: number): void {
+    this.floatingText(`+${amount}`, "#4ade80");
+  }
+
+  private floatingText(label: string, color: string): void {
     const text = this.scene.add
-      .text(this.container.x, this.container.y - this.radius - 24, `-${amount}`, {
+      .text(this.container.x, this.container.y - this.radius - 24, label, {
         fontFamily: "system-ui, sans-serif",
         fontSize: "16px",
-        color: "#ffd166",
+        color,
         fontStyle: "bold",
       })
       .setOrigin(0.5)
