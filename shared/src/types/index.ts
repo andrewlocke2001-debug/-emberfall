@@ -36,6 +36,16 @@ export const ABILITY_RANGE = 150;
 /** Hit points for a fresh level-1 character (M0 ships a single archetype). */
 export const BASE_MAX_HP = 100;
 
+/** P2 skills (more arrive post-P2). Melee drives attack/damage; Vitality, HP. */
+export const SKILL_IDS = ["melee", "vitality"] as const;
+export type SkillId = (typeof SKILL_IDS)[number];
+
+/** Level cap for P2 (GW-style low ceiling; raised in later content). */
+export const LEVEL_CAP = 50;
+
+/** Extra max HP granted per Vitality level above 1. */
+export const HP_PER_VITALITY = 8;
+
 /** Static definition of an ability. Data-driven so M1 can add more cheaply. */
 export interface AbilityDef {
   id: AbilityId;

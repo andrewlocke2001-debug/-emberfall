@@ -19,14 +19,22 @@ spawns/dummies; **zone travel** (one Colyseus room per zone; stepping on a
 gate sends a Transfer → client re-boots into the target zone at the named
 entry; Player.zone persisted; arrival spawns at the entry, blocked/cross-zone
 saved positions fall back to the default entry). 34 unit + 2 e2e green.
-**P1.4 done** — accounts & auth. Backend: Account model (argon2 hashes) +
-HS256 JWT (jose); `/auth/register|login|guest`; room verifies the token on
-join → identity from it (client ids no longer trusted; pre-auth gap closed);
-one-tap guest keeps instant play; token in localStorage. UI: start screen
-has username/password with Play-as-Guest / Log In / Register. 34 unit + 3 e2e
-green (the new auth spec proves register → reload → log in → same character).
-Next: **P1.5 chat** (zone + global), the last P1 piece. NOT DEPLOYED — Fly
-trial ended; building locally until hosting is settled.
+**P1 COMPLETE (local).** Done: P1.1 zod validation, P1.2 maps+collision,
+mobile touch controls, P1.3 zones+travel, P1.4 accounts/auth (argon2 + JWT,
+guest + login/register), **P1.5 chat** — zone + global broadcast, obscenity
+profanity filter, 5/10s rate limit, DOM chat UI (channel toggle, focus pauses
+movement) + zone HUD (name + player count); global chat crosses rooms via a
+process-local EventEmitter bus (Redis swap-in seam for P11). 38 unit + 4 e2e
+green; typecheck clean.
+
+The kit's P1 exit ("two people meet in town, talk, walk to Greenreach
+together, log out, come back") is functionally met — verified locally, NOT
+yet on real devices because we're not deployed.
+
+## P1.6 close-out — remaining
+- **Deploy** (blocked): Fly trial ended; add a card (~$0–5/mo) → redeploy →
+  on-device P1 exit test. Everything since the empty-grid version is local-only.
+- Then **P2 — combat core** (the kit's "the game becomes a game" phase).
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
