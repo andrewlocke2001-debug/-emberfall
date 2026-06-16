@@ -39,6 +39,27 @@
         .hint-desktop { display: none; }
         .hint-mobile { display: block; }
       }
+
+      /* In-game HUD + chat (shown by ChatBox once you're in the world) */
+      #hud { position: fixed; top: 10px; left: 12px; z-index: 5; display: none;
+        font-size: 14px; color: #cdd6e6; background: rgba(13,16,24,0.55);
+        padding: 4px 10px; border-radius: 6px; pointer-events: none; }
+      #chat { position: fixed; bottom: 10px; left: 10px; z-index: 6; display: none;
+        flex-direction: column; gap: 6px; width: min(360px, 72vw); }
+      #chat-log { display: flex; flex-direction: column; gap: 2px; max-height: 28vh;
+        overflow-y: auto; font-size: 13px; line-height: 1.35; }
+      #chat-log .line { background: rgba(13,16,24,0.5); padding: 2px 8px; border-radius: 6px;
+        width: fit-content; max-width: 100%; word-break: break-word; }
+      #chat-log .from { color: #ffe066; }
+      #chat-log .global .from { color: #7cc7ff; }
+      #chat-row { display: flex; gap: 6px; }
+      #chat-channel { flex: 0 0 auto; padding: 6px 10px; border: 0; border-radius: 6px;
+        cursor: pointer; font-size: 13px; background: #2a3142; color: #cdd6e6; }
+      #chat-channel.global { background: #21406b; color: #cfe4ff; }
+      #chat-input { flex: 1 1 auto; padding: 6px 10px; border-radius: 6px;
+        border: 1px solid #2a3142; background: rgba(26,32,48,0.92); color: #fff;
+        font-size: 14px; outline: none; }
+      #chat-input:focus { border-color: #3b82f6; }
     </style>
   </head>
   <body>
@@ -60,6 +81,14 @@
       <div id="login-error"></div>
       <div class="hint hint-desktop">Move: WASD / arrows · Target: click an entity (Esc to clear) · Attack: hold Space</div>
       <div class="hint hint-mobile">Move: drag the left side · Target: tap an enemy · Attack: hold the ⚔ button</div>
+    </div>
+    <div id="hud"></div>
+    <div id="chat">
+      <div id="chat-log"></div>
+      <div id="chat-row">
+        <button id="chat-channel" type="button">Zone</button>
+        <input id="chat-input" type="text" maxlength="200" placeholder="Press Enter to chat" autocomplete="off" />
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

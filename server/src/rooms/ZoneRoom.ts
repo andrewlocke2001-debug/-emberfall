@@ -13,13 +13,18 @@ import {
   type UseAbilityPayload,
   type WelcomePayload,
   type TransferPayload,
+  type ChatPayload,
+  type ChatBroadcastPayload,
 } from "@mmo/shared";
 import { EnemySchema, PlayerSchema, ZoneState } from "@mmo/shared/schema/state";
-import { MoveSchema, UseAbilitySchema } from "@mmo/shared/protocol/schemas";
+import { MoveSchema, UseAbilitySchema, ChatSchema } from "@mmo/shared/protocol/schemas";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
 import { exitAt, type ZoneMap } from "@mmo/shared/systems/zonemap";
+import { RateLimiter } from "@mmo/shared/systems/ratelimit";
 import { verifyToken } from "../auth";
+import { censorText } from "../chat";
+import { globalBus } from "../services/globalBus";
 import { characterStore, type SavedCharacter } from "../persistence/store";
 
 const DUMMY_MAX_HP = 200;
@@ -55,6 +60,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private map!: ZoneMap;
   /** Sessions already handed off to another zone (don't re-trigger the exit). */
   private transferring = new Set<string>();
+  /** Per-session chat throttle: 5 messages / 10s. */
+  private readonly chatLimiter = new RateLimiter(5, 10_000);
+  /** Unsubscribe handle for the global-chat bus (set in onCreate). */
+  private unsubscribeGlobal?: () => void;
 
   override onCreate(options?: { zoneId?: string }): void {
     const zoneId =
@@ -78,6 +87,15 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
     this.onMessage(ClientMessage.UseAbility, UseAbilitySchema, (client, msg: UseAbilityPayload) => {
       this.handleUseAbility(client, msg);
+    });
+
+    this.onMessage(ClientMessage.Chat, ChatSchema, (client, msg: ChatPayload) => {
+      this.handleChat(client, msg);
+    });
+
+    // Global chat arrives from any zone in this process — fan it out to ours.
+    this.unsubscribeGlobal = globalBus.onChat((payload) => {
+      this.broadcast(ServerMessage.Chat, payload);
     });
 
     // The authoritative game loop.
@@ -135,6 +153,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const player = this.state.players.get(client.sessionId);
     this.inputs.delete(client.sessionId);
     this.transferring.delete(client.sessionId);
+    this.chatLimiter.forget(client.sessionId);
     if (!player) return;
 
     const snapshot = toSaved(player, this.map.id);
@@ -147,6 +166,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   }
 
   override async onDispose(): Promise<void> {
+    this.unsubscribeGlobal?.();
     await this.snapshotAll();
   }
 
@@ -210,6 +230,27 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       targetDied: result.targetDied,
     };
     this.broadcast(ServerMessage.CombatEvent, evt);
+  }
+
+  private handleChat(client: Client, msg: ChatPayload): void {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (!this.chatLimiter.allow(client.sessionId)) return; // drop spam silently
+    const text = censorText(msg.text).trim().slice(0, 200);
+    if (!text) return;
+
+    const payload: ChatBroadcastPayload = {
+      channel: msg.channel,
+      from: player.name,
+      zone: this.map.id,
+      text,
+      at: Date.now(),
+    };
+    if (msg.channel === "global") {
+      globalBus.publishChat(payload); // fans out to every room, including this one
+    } else {
+      this.broadcast(ServerMessage.Chat, payload);
+    }
   }
 
   private update(deltaMs: number): void {

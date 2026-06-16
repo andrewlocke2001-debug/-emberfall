@@ -7,6 +7,7 @@ import {
   type CombatEventPayload,
   type JoinZoneOptions,
   type TransferPayload,
+  type ChatBroadcastPayload,
 } from "@mmo/shared";
 import { stepWithCollision } from "@mmo/shared/systems/collision";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
@@ -15,6 +16,7 @@ import type { EnemySchema, PlayerSchema } from "@mmo/shared/schema/state";
 import type { ZoneConnection } from "../net/room";
 import { EntityView } from "../ui/EntityView";
 import { TouchControls } from "../ui/TouchControls";
+import { ChatBox } from "../ui/ChatBox";
 
 const STRIKE = ABILITIES.strike;
 const RECONCILE_SNAP = 64; // px of drift beyond which we hard-snap the local player
@@ -60,6 +62,10 @@ export class ZoneScene extends Phaser.Scene {
   /** The current zone's map; resolved from server state on the first frame. */
   private map?: ZoneMap;
 
+  /** DOM chat overlay + zone HUD. */
+  private chat?: ChatBox;
+  private lastHud = "";
+
   constructor() {
     super("Zone");
   }
@@ -95,6 +101,16 @@ export class ZoneScene extends Phaser.Scene {
       this.touch = new TouchControls(this);
     }
 
+    // DOM chat overlay + HUD. While the chat input is focused, pause keyboard
+    // movement so typing doesn't drive the character.
+    this.chat = new ChatBox({
+      onSend: (channel, text) => this.connection.room.send(ClientMessage.Chat, { channel, text }),
+      onFocusChange: (focused) => {
+        if (this.input.keyboard) this.input.keyboard.enabled = !focused;
+      },
+    });
+    this.events.once("shutdown", () => this.chat?.destroy());
+
     this.setupStateSync();
     this.setupMessages();
     this.exposeTestApi();
@@ -113,6 +129,13 @@ export class ZoneScene extends Phaser.Scene {
 
     // Draw the zone's tilemap once we know which zone we're in.
     this.ensureWorld();
+
+    // Zone HUD (name + live player count), refreshed only when it changes.
+    const hud = `${this.map?.displayName ?? ""} — ${room.state.players.size} online`;
+    if (hud !== this.lastHud) {
+      this.chat?.setHud(hud);
+      this.lastHud = hud;
+    }
 
     // --- read input → movement intent (keyboard digital + joystick analog)
     let dx = 0;
@@ -261,6 +284,10 @@ export class ZoneScene extends Phaser.Scene {
     // Zone travel: the server says we stepped on a gate → leave this room and
     // re-boot into the target zone at the named entry. Re-booting cleanly
     // tears down this scene's map/entities for the new zone.
+    this.connection.room.onMessage(ServerMessage.Chat, (p: ChatBroadcastPayload) => {
+      this.chat?.addMessage(p);
+    });
+
     this.connection.room.onMessage(ServerMessage.Transfer, (p: TransferPayload) => {
       localStorage.setItem("mmo:zone", p.zone);
       const opts = this.registry.get("joinOpts") as JoinZoneOptions;
