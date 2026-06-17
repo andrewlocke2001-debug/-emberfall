@@ -5,6 +5,7 @@ export interface MmoTestApi {
   ready: boolean;
   zone(): string | null;
   playerCount(): number;
+  enemyCount(): number;
   enemyHp(id: string): number | null;
   me(): {
     x: number;

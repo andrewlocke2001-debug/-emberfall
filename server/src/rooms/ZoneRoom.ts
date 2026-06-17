@@ -30,9 +30,10 @@ import {
   maxHpForVitality,
 } from "@mmo/shared/systems/progression";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
-import { mobDef } from "@mmo/shared/data/mobs";
+import { mobDef, MOBS } from "@mmo/shared/data/mobs";
 import { exitAt, type ZoneMap } from "@mmo/shared/systems/zonemap";
 import { RateLimiter } from "@mmo/shared/systems/ratelimit";
+import { parseCommand, isGm, parseGmAllowlist, type GmCommand } from "@mmo/shared/systems/gm";
 import { verifyToken } from "../auth";
 import { censorText } from "../chat";
 import { globalBus } from "../services/globalBus";
@@ -95,11 +96,19 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly gcdUntil = new Map<string, number>();
   /** Per-session per-ability cooldown expiry (server time, ms). */
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
+  /** GM allowlist (from GM_USERNAMES), resolved once in onCreate. */
+  private gmAllow = new Set<string>();
+  /** Sessions whose account is a GM (may run slash commands). */
+  private readonly gmSessions = new Set<string>();
+  /** Monotonic counter for unique GM-spawned mob ids. */
+  private gmSpawnCount = 0;
 
   override onCreate(options?: { zoneId?: string }): void {
     const zoneId =
       options?.zoneId && isZoneId(options.zoneId) ? options.zoneId : DEFAULT_ZONE;
     this.map = ZONES[zoneId];
+
+    this.gmAllow = parseGmAllowlist(process.env["GM_USERNAMES"]);
 
     this.state = new ZoneState();
     this.state.zoneId = this.map.id;
@@ -180,6 +189,11 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.state.players.set(client.sessionId, player);
     this.inputs.set(client.sessionId, { dx: 0, dy: 0, playerId });
 
+    if (isGm(name, this.gmAllow)) {
+      this.gmSessions.add(client.sessionId);
+      console.log(`[gm] ${name} (${playerId}) joined as GM`);
+    }
+
     const welcome: WelcomePayload = { sessionId: client.sessionId, playerId };
     client.send(ServerMessage.Welcome, welcome);
     console.log(`[zone] ${name} (${playerId}) joined as ${client.sessionId}`);
@@ -193,6 +207,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.deadUntil.delete(client.sessionId);
     this.gcdUntil.delete(client.sessionId);
     this.abilityCooldowns.delete(client.sessionId);
+    this.gmSessions.delete(client.sessionId);
     this.enemyAI.forEach((ai) => {
       if (ai.target === client.sessionId) ai.target = null;
     });
@@ -218,20 +233,26 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   /** Spawn this zone's mobs from the map's enemy markers (stats from data). */
   private spawnEnemies(): void {
     this.map.enemies.forEach((marker, i) => {
-      const def = mobDef(marker.kind);
-      const enemy = new EnemySchema();
-      enemy.id = `${def.kind}-${i + 1}`;
-      enemy.kind = def.kind;
-      enemy.name = def.name;
-      enemy.x = marker.x;
-      enemy.y = marker.y;
-      enemy.hp = def.maxHp;
-      enemy.maxHp = def.maxHp;
-      enemy.alive = true;
-      this.state.enemies.set(enemy.id, enemy);
-      this.enemyAI.set(enemy.id, { homeX: marker.x, homeY: marker.y, target: null, lastAttackAt: 0 });
-      this.mobContributors.set(enemy.id, new Set());
+      this.addEnemy(marker.kind, marker.x, marker.y, `${mobDef(marker.kind).kind}-${i + 1}`);
     });
+  }
+
+  /** Create a mob of `kind` at (x,y) with id, wiring its AI + credit tracking. */
+  private addEnemy(kind: string, x: number, y: number, id: string): EnemySchema {
+    const def = mobDef(kind);
+    const enemy = new EnemySchema();
+    enemy.id = id;
+    enemy.kind = def.kind;
+    enemy.name = def.name;
+    enemy.x = x;
+    enemy.y = y;
+    enemy.hp = def.maxHp;
+    enemy.maxHp = def.maxHp;
+    enemy.alive = true;
+    this.state.enemies.set(enemy.id, enemy);
+    this.enemyAI.set(enemy.id, { homeX: x, homeY: y, target: null, lastAttackAt: 0 });
+    this.mobContributors.set(enemy.id, new Set());
+    return enemy;
   }
 
   private handleUseAbility(client: Client, msg: UseAbilityPayload): void {
@@ -363,6 +384,15 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private handleChat(client: Client, msg: ChatPayload): void {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
+
+    // Slash commands never broadcast — they're intercepted (and role-gated)
+    // before the chat path. A non-GM typing one just gets a private refusal.
+    const command = parseCommand(msg.text);
+    if (command) {
+      this.handleGmCommand(client, player, command);
+      return;
+    }
+
     if (!this.chatLimiter.allow(client.sessionId)) return; // drop spam silently
     const text = censorText(msg.text).trim().slice(0, 200);
     if (!text) return;
@@ -379,6 +409,121 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     } else {
       this.broadcast(ServerMessage.Chat, payload);
     }
+  }
+
+  // --- GM commands (role-gated, audit-logged) --------------------------------
+
+  /** Dispatch a parsed slash command if the sender is a GM. */
+  private handleGmCommand(client: Client, player: PlayerSchema, command: GmCommand): void {
+    if (!this.gmSessions.has(client.sessionId)) {
+      this.systemTo(client, "You don't have permission to use commands.");
+      return;
+    }
+    const { cmd, args } = command;
+    switch (cmd) {
+      case "heal":
+        this.gmHeal(client, player, args);
+        break;
+      case "tp":
+        this.gmTeleport(client, player, args);
+        break;
+      case "spawn":
+        this.gmSpawn(client, player, args);
+        break;
+      case "kick":
+        this.gmKick(client, args);
+        break;
+      default:
+        this.systemTo(client, `Unknown command: /${cmd}`);
+        return; // unknown → no audit line
+    }
+    // Audit trail — every executed GM command (goes to server logs / fly logs).
+    console.log(`[gm] ${player.name} ran /${cmd} ${args.join(" ")}`.trimEnd());
+  }
+
+  /** /heal [name] — fully restore (and revive) self or a named player. */
+  private gmHeal(client: Client, self: PlayerSchema, args: string[]): void {
+    const target = args[0] ? this.findPlayer(args[0]) : { sessionId: client.sessionId, player: self };
+    if (!target) {
+      this.systemTo(client, `No player named "${args[0]}".`);
+      return;
+    }
+    const p = target.player;
+    p.hp = p.maxHp;
+    p.energy = p.maxEnergy;
+    if (!p.alive) {
+      p.alive = true;
+      this.deadUntil.delete(target.sessionId);
+    }
+    this.systemTo(client, `Healed ${p.name}.`);
+  }
+
+  /** /tp <x> <y> — teleport self to a free, in-bounds point. */
+  private gmTeleport(client: Client, self: PlayerSchema, args: string[]): void {
+    const x = Number(args[0]);
+    const y = Number(args[1]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      this.systemTo(client, "Usage: /tp <x> <y>");
+      return;
+    }
+    const inBounds = x >= 0 && y >= 0 && x <= this.map.pixelWidth && y <= this.map.pixelHeight;
+    if (!inBounds || !isBoxFree(this.map.collision, x, y, PLAYER_HALF)) {
+      this.systemTo(client, "Can't teleport there (off-map or blocked).");
+      return;
+    }
+    self.x = x;
+    self.y = y;
+    this.systemTo(client, `Teleported to ${Math.round(x)}, ${Math.round(y)}.`);
+  }
+
+  /** /spawn <kind> — drop a mob of a known family next to the GM. */
+  private gmSpawn(client: Client, self: PlayerSchema, args: string[]): void {
+    const kind = (args[0] ?? "").toLowerCase();
+    if (!MOBS[kind]) {
+      this.systemTo(client, `Unknown mob "${kind}". Known: ${Object.keys(MOBS).join(", ")}`);
+      return;
+    }
+    const enemy = this.addEnemy(kind, self.x + 40, self.y, `gm-${kind}-${++this.gmSpawnCount}`);
+    this.systemTo(client, `Spawned ${enemy.name} (${enemy.id}).`);
+  }
+
+  /** /kick <name> — force-disconnect a player by display name. */
+  private gmKick(client: Client, args: string[]): void {
+    const name = args[0];
+    if (!name) {
+      this.systemTo(client, "Usage: /kick <name>");
+      return;
+    }
+    const target = this.findPlayer(name);
+    if (!target) {
+      this.systemTo(client, `No player named "${name}".`);
+      return;
+    }
+    this.systemTo(client, `Kicked ${target.player.name}.`);
+    // 4000 = app-defined consented close code ("kicked by a GM").
+    this.clients.find((c) => c.sessionId === target.sessionId)?.leave(4000);
+  }
+
+  /** Find an online player by display name (case-insensitive). */
+  private findPlayer(name: string): { sessionId: string; player: PlayerSchema } | null {
+    const want = name.trim().toLowerCase();
+    let found: { sessionId: string; player: PlayerSchema } | null = null;
+    this.state.players.forEach((p, sid) => {
+      if (!found && p.name.trim().toLowerCase() === want) found = { sessionId: sid, player: p };
+    });
+    return found;
+  }
+
+  /** Send a private "System" line to one client (reuses the chat UI). */
+  private systemTo(client: Client, text: string): void {
+    const payload: ChatBroadcastPayload = {
+      channel: "zone",
+      from: "System",
+      zone: this.map.id,
+      text,
+      at: Date.now(),
+    };
+    client.send(ServerMessage.Chat, payload);
   }
 
   private update(deltaMs: number): void {

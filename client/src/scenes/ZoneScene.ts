@@ -460,6 +460,7 @@ export class ZoneScene extends Phaser.Scene {
       sessionId: () => room.sessionId,
       zone: () => room.state?.zoneId ?? null,
       playerCount: () => room.state?.players?.size ?? 0,
+      enemyCount: () => room.state?.enemies?.size ?? 0,
       enemyHp: (id: string) => room.state?.enemies?.get(id)?.hp ?? null,
       enemyMaxHp: (id: string) => room.state?.enemies?.get(id)?.maxHp ?? null,
       me: () => {

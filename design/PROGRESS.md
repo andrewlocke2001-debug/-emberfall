@@ -58,7 +58,26 @@ yet on real devices because we're not deployed.
   send a `LevelUp` message → gold client toast; HUD shows ⚔/♥ levels. XP
   persists (Prisma `add_skills` migration: `meleeXp`/`vitalityXp` Int default 0,
   applied to Neon via `migrate deploy`). 56 unit + 6 e2e green; typecheck clean.
-- Next: **P2.5** bots + GM commands + P2 close-out.
+- **P2.5 done**: **bot harness** + **GM commands v1** — closes the P2 combat
+  core (local).
+  - **Bots** (`npm run bots -- --count 50`): `tools/bots.ts`, headless Colyseus
+    SDK clients that guest-auth, join a zone, and send the *same* move/strike
+    intents a browser does (server can't tell them apart). Flags: `--count`,
+    `--zone` (default greenreach), `--server`, `--duration`. Auto-reconnect,
+    staggered connects, periodic stats, graceful SIGINT shutdown. Smoke-verified
+    4 bots connecting + fighting locally. (Debt: each bot makes a guest account;
+    big runs need a throwaway Neon branch.)
+  - **GM commands** (`/heal [name]`, `/tp <x> <y>`, `/spawn <kind>`, `/kick
+    <name>`): role-gated by the `GM_USERNAMES` env allowlist (no DB column —
+    a client can never grant itself GM), parsed by pure shared helpers
+    (`@mmo/shared/systems/gm`), executed server-authoritatively in ZoneRoom,
+    audit-logged to the server console. Slash messages are intercepted before
+    the chat path (never broadcast); non-GMs get a private refusal. Replies use
+    a "System" chat line (reuses chat UI). 63 unit + 8 e2e green (new gm.spec:
+    GM spawns a mob / non-GM is blocked).
+- **P2 combat core COMPLETE (local).** Remaining P2 exit step is a *manual*
+  load soak: 50 bots for an hour without server degradation (run once deploy is
+  unblocked / against a throwaway DB).
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
@@ -71,6 +90,28 @@ yet on real devices because we're not deployed.
   moving prisma migrate out of boot (release_command) for fast cold starts.
 
 ## Shipped
+
+### 2026-06-17 — P2.5 bot harness + GM commands (P2 combat core complete) ✅
+- **Bot harness** `tools/bots.ts` (`npm run bots -- --count 50 [--zone …]
+  [--server …] [--duration …]`): headless Colyseus SDK clients that guest-auth
+  via /auth/guest, join, and steer toward + Strike the nearest mob using the
+  same intents a real client sends. Staggered connects, auto-reconnect on drop,
+  10s stats heartbeat, graceful SIGINT/duration shutdown. Smoke-verified (4
+  bots connect + fight locally). No new deps (reuses @colyseus/sdk + @mmo/shared
+  via tsx, like the live-*.mjs tools).
+- **GM commands v1**: `/heal [name]`, `/tp <x> <y>`, `/spawn <kind>`, `/kick
+  <name>`. Role-gated by `GM_USERNAMES` env allowlist (comma-separated, case-
+  insensitive) — set it via `fly secrets set GM_USERNAMES=…` for prod GMs;
+  there is deliberately NO DB/GM flag a client could set. Pure parser + role
+  check in `@mmo/shared/systems/gm` (unit-tested); effects run server-
+  authoritatively in ZoneRoom and are audit-logged to the console. Slash
+  messages are intercepted before chat (never broadcast); non-GMs get a private
+  "System" refusal.
+- 63 unit + 8 e2e green; typecheck clean. New `gm.spec` proves a GM can /spawn
+  and a non-GM cannot (Playwright server runs with GM_USERNAMES="GMTest").
+- **P2 combat core is functionally complete (local).** Outstanding P2 exit
+  bullet is the manual 50-bot/1-hour soak (do against a throwaway Neon branch
+  or after deploy is unblocked — bots create guest rows).
 
 ### 2026-06-16 — P2.4 XP, leveling & shared kill credit ✅
 - `gainXp(currentXp, amount)` on the shared RS curve (clamps negatives, reports
