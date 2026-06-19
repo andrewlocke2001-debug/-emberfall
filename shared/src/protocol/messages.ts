@@ -1,4 +1,4 @@
-import type { AbilityId, SkillId } from "../types";
+import type { AbilityId, SkillId, ItemStack } from "../types";
 
 /**
  * The wire protocol between client and server: message type identifiers and
@@ -19,6 +19,9 @@ export const ClientMessage = {
   Move: "move",
   UseAbility: "useAbility",
   Chat: "chat",
+  /** Ask the server to (re)send our inventory — sent once the client's message
+   *  handlers are registered, so the initial push can't lose the join race. */
+  RequestInventory: "requestInventory",
 } as const;
 
 /** Server → client message types. */
@@ -28,6 +31,7 @@ export const ServerMessage = {
   Chat: "chatMsg",
   Transfer: "transfer",
   LevelUp: "levelUp",
+  Inventory: "inventory",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -100,4 +104,14 @@ export interface TransferPayload {
 export interface LevelUpPayload {
   skill: SkillId;
   level: number;
+}
+
+/**
+ * Server → client: your full inventory (sent only to the owner, on join and
+ * after any change). Inventory is deliberately NOT in the synced ZoneState —
+ * that would broadcast every player's bag to everyone. The server is the sole
+ * authority; the client just renders what it's told.
+ */
+export interface InventoryPayload {
+  slots: ItemStack[];
 }

@@ -10,6 +10,7 @@ import {
   type TransferPayload,
   type ChatBroadcastPayload,
   type LevelUpPayload,
+  type InventoryPayload,
 } from "@mmo/shared";
 import { stepWithCollision } from "@mmo/shared/systems/collision";
 import { levelForXp } from "@mmo/shared/systems/progression";
@@ -22,6 +23,8 @@ import { EntityView } from "../ui/EntityView";
 import { TouchControls } from "../ui/TouchControls";
 import { ChatBox } from "../ui/ChatBox";
 import { AbilityBar } from "../ui/AbilityBar";
+import { InventoryPanel } from "../ui/InventoryPanel";
+import type { ItemStack } from "@mmo/shared";
 
 const RECONCILE_SNAP = 64; // px of drift beyond which we hard-snap the local player
 const REMOTE_LERP = 0.25; // interpolation factor for remote entities
@@ -63,6 +66,10 @@ export class ZoneScene extends Phaser.Scene {
   private touch?: TouchControls;
   /** Ability bar UI (energy meter + per-ability cooldowns). */
   private abilityBar?: AbilityBar;
+  /** Inventory panel UI (toggled with the I key). */
+  private inventory?: InventoryPanel;
+  /** Last inventory the server sent us (also surfaced to the test API). */
+  private inventorySlots: ItemStack[] = [];
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map?: ZoneMap;
@@ -90,12 +97,12 @@ export class ZoneScene extends Phaser.Scene {
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
-    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE") as Record<
+    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I") as Record<
       string,
       Phaser.Input.Keyboard.Key
     >;
     this.escKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,UP,DOWN,LEFT,RIGHT");
+    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,UP,DOWN,LEFT,RIGHT");
 
     this.selectionRing = this.add
       .circle(0, 0, 28)
@@ -139,6 +146,10 @@ export class ZoneScene extends Phaser.Scene {
 
     this.abilityBar = new AbilityBar({ onUse: (id) => this.tryUseAbility(id) });
     this.events.once("shutdown", () => this.abilityBar?.destroy());
+
+    this.inventory = new InventoryPanel();
+    this.inventory.setInventory(this.inventorySlots);
+    this.events.once("shutdown", () => this.inventory?.destroy());
 
     this.setupStateSync();
     this.setupMessages();
@@ -266,6 +277,7 @@ export class ZoneScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys["ONE"]!)) this.tryUseAbility("strike");
     if (Phaser.Input.Keyboard.JustDown(this.keys["TWO"]!)) this.tryUseAbility("power_strike");
     if (Phaser.Input.Keyboard.JustDown(this.keys["THREE"]!)) this.tryUseAbility("mend");
+    if (Phaser.Input.Keyboard.JustDown(this.keys["I"]!)) this.inventory?.toggle();
     if (this.keys["SPACE"]!.isDown || (this.touch?.attackHeld() ?? false)) {
       this.tryUseAbility("strike");
     }
@@ -356,6 +368,14 @@ export class ZoneScene extends Phaser.Scene {
     this.connection.room.onMessage(ServerMessage.LevelUp, (p: LevelUpPayload) => {
       this.showLevelUp(p);
     });
+
+    this.connection.room.onMessage(ServerMessage.Inventory, (p: InventoryPayload) => {
+      this.inventorySlots = p.slots;
+      this.inventory?.setInventory(p.slots);
+    });
+    // Now that the handler exists, pull our inventory (the server's onJoin push
+    // can arrive before this handler is registered and be dropped).
+    this.connection.room.send(ClientMessage.RequestInventory);
 
     // Zone travel: the server says we stepped on a gate → leave this room and
     // re-boot into the target zone at the named entry. Re-booting cleanly
@@ -482,6 +502,7 @@ export class ZoneScene extends Phaser.Scene {
           : null;
       },
       energy: () => room.state?.players?.get(room.sessionId)?.energy ?? 0,
+      inventory: () => this.inventorySlots,
       setTarget: (id: string | null) => this.selectTarget(id),
       attack: (targetId: string) =>
         room.send(ClientMessage.UseAbility, { abilityId: "strike", targetId }),

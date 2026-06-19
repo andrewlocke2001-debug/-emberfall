@@ -1,5 +1,10 @@
-import { BASE_MAX_HP } from "@mmo/shared";
+import { BASE_MAX_HP, type ItemStack } from "@mmo/shared";
 import { prisma } from "./db";
+import type { Prisma } from "../generated/prisma/client";
+
+// why: Prisma's InputJsonValue rejects interface arrays (ItemStack[] lacks an
+// index signature). The stored shape is plain JSON, so this cast is sound.
+const asJson = (inv: ItemStack[]): Prisma.InputJsonValue => inv as unknown as Prisma.InputJsonValue;
 
 /** The persisted slice of a character — what survives reconnect/restart. */
 export interface SavedCharacter {
@@ -14,6 +19,33 @@ export interface SavedCharacter {
   level: number;
   meleeXp: number;
   vitalityXp: number;
+  /** Inventory stacks (JSON column). Server is the sole writer. */
+  inventory: ItemStack[];
+}
+
+/** Coerce the JSON `inventory` column into well-formed stacks (defensive). */
+function parseInventory(raw: unknown): ItemStack[] {
+  // The pg driver adapter can hand JSONB back as a string rather than a parsed
+  // value — normalize both shapes before validating.
+  let value: unknown = raw;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((s) => {
+    if (s && typeof s === "object" && "itemId" in s && "qty" in s) {
+      const itemId = (s as { itemId: unknown }).itemId;
+      const qty = (s as { qty: unknown }).qty;
+      if (typeof itemId === "string" && typeof qty === "number" && qty > 0) {
+        return [{ itemId, qty }];
+      }
+    }
+    return [];
+  });
 }
 
 /**
@@ -44,6 +76,7 @@ class CharacterStore {
         level: 1,
         meleeXp: 0,
         vitalityXp: 0,
+        inventory: asJson([]),
       },
     });
     return toSavedCharacter(row);
@@ -61,6 +94,7 @@ class CharacterStore {
       level: c.level,
       meleeXp: c.meleeXp,
       vitalityXp: c.vitalityXp,
+      inventory: asJson(c.inventory),
     };
     await prisma.player.upsert({
       where: { id: c.playerId },
@@ -81,6 +115,7 @@ function toSavedCharacter(row: {
   level: number;
   meleeXp: number;
   vitalityXp: number;
+  inventory: unknown;
 }): SavedCharacter {
   return {
     playerId: row.id,
@@ -93,6 +128,7 @@ function toSavedCharacter(row: {
     level: row.level,
     meleeXp: row.meleeXp,
     vitalityXp: row.vitalityXp,
+    inventory: parseInventory(row.inventory),
   };
 }
 

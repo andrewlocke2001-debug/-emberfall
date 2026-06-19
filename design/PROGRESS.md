@@ -79,6 +79,25 @@ yet on real devices because we're not deployed.
   load soak: 50 bots for an hour without server degradation (run once deploy is
   unblocked / against a throwaway DB).
 
+## P3 — items, inventory, loot (in progress, local)
+- **P3.1 done**: item model + inventory system + **economy ledger** foundation.
+  - `shared/data/items.ts` — typed item roster (rarity, maxStack, value, equip
+    slot, bonuses, heal); starter set (coins, bronze/iron sword, leather body,
+    bronze helm, health potion, materials). `shared/systems/inventory.ts` — pure
+    28-slot stacking add/remove/count/canAdd (10 unit tests).
+  - Inventory is delivered to its owner via a private `Inventory` message (NOT
+    synced ZoneState — bags aren't broadcast to everyone). Server holds the
+    authoritative per-session inventory, loads it on join, persists on
+    leave/snapshot (Prisma `inventory` JSONB column).
+  - **Economy ledger** (`LedgerEntry` table + `persistence/ledger.ts`): every
+    item create/destroy appends a row (kit rule #6). First creation path is GM
+    `/give <itemId> [qty]` (audited, `reason: "gm_give"`).
+  - Client: DOM inventory panel (toggle **I**), 28-slot grid with rarity tints +
+    qty badges. Migration `add_inventory_and_ledger` applied to Neon. 73 unit +
+    10 e2e green (new inventory.spec: GM /give + reload-persistence).
+- Next: **P3.2** equipment slots + stat application, **P3.3** drop tables +
+  ground loot + coins, **P3.4** bank + P3 close-out.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
@@ -90,6 +109,30 @@ yet on real devices because we're not deployed.
   moving prisma migrate out of boot (release_command) for fast cold starts.
 
 ## Shipped
+
+### 2026-06-19 — P3.1 items + inventory + economy ledger ✅
+- Typed item roster + pure 28-slot stacking inventory (10 unit tests). Inventory
+  delivered to its owner via a private `Inventory` message (off synced state),
+  persisted as a Prisma JSONB column. Economy ledger (`LedgerEntry`) appends on
+  every item create/destroy; GM `/give` is the first audited creation path.
+  Client inventory panel (toggle I). Migration `add_inventory_and_ledger`.
+- Bugs found + fixed while wiring it up (good lessons):
+  - **JSONB read race**: the pg driver-adapter returns the `inventory` JSONB
+    column as a *string*, not a parsed array — `parseInventory` now JSON.parses a
+    string before validating (position persisted but inventory always loaded []
+    until this fix).
+  - **Join-race on initial state push**: a `client.send` in `onJoin` can land
+    before the client registers its handler and get dropped (Welcome hid this
+    because it's a no-op). Added a `RequestInventory` pull the client sends once
+    its handlers exist — the reliable pattern for any per-client initial state.
+  - **Missing DOM**: added inventory CSS without the `#inventory` markup → the
+    panel constructor crashed every scene. (Always add the element, not just CSS.)
+  - **Flaky combat e2e**: two-players fired 8 strikes at 250ms but the ~1.5s GCD
+    let only ~2 land, and combat is noisy (~60% hit × 0..max damage), so it was
+    ~35% likely to register zero damage — it had been passing on luck. Now it
+    strikes on a GCD-spaced cadence until damage registers. (Combat itself is
+    fine — verified server-side 200→198.)
+- 73 unit + 10 e2e green; typecheck clean.
 
 ### 2026-06-17 — P2.5 bot harness + GM commands (P2 combat core complete) ✅
 - **Bot harness** `tools/bots.ts` (`npm run bots -- --count 50 [--zone …]

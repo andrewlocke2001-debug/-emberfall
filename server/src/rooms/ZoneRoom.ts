@@ -18,7 +18,10 @@ import {
   type ChatBroadcastPayload,
   type LevelUpPayload,
   type SkillId,
+  type InventoryPayload,
 } from "@mmo/shared";
+import { addItem, type Inventory } from "@mmo/shared/systems/inventory";
+import { itemDef, ITEM_IDS } from "@mmo/shared/data/items";
 import { EnemySchema, PlayerSchema, ZoneState } from "@mmo/shared/schema/state";
 import { MoveSchema, UseAbilitySchema, ChatSchema } from "@mmo/shared/protocol/schemas";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -38,6 +41,7 @@ import { verifyToken } from "../auth";
 import { censorText } from "../chat";
 import { globalBus } from "../services/globalBus";
 import { characterStore, type SavedCharacter } from "../persistence/store";
+import { recordLedger } from "../persistence/ledger";
 
 const SNAPSHOT_INTERVAL_MS = 15_000;
 const PLAYER_HALF = 12; // half-extent of a player's collision box, world units
@@ -102,6 +106,12 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly gmSessions = new Set<string>();
   /** Monotonic counter for unique GM-spawned mob ids. */
   private gmSpawnCount = 0;
+  /**
+   * Authoritative per-session inventory, kept OUT of synced state so bags
+   * aren't broadcast to other clients. Loaded on join, pushed to the owner via
+   * an Inventory message, persisted on leave/snapshot.
+   */
+  private readonly inventories = new Map<string, Inventory>();
 
   override onCreate(options?: { zoneId?: string }): void {
     const zoneId =
@@ -132,6 +142,11 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.onMessage(ClientMessage.Chat, ChatSchema, (client, msg: ChatPayload) => {
       this.handleChat(client, msg);
     });
+
+    // No payload to validate — only ever re-sends the caller their own bag, so
+    // there's no injection surface. Lets the client pull inventory once its
+    // handlers exist (the onJoin push can lose the registration race).
+    this.onMessage(ClientMessage.RequestInventory, (client) => this.sendInventory(client));
 
     // Global chat arrives from any zone in this process — fan it out to ours.
     this.unsubscribeGlobal = globalBus.onChat((payload) => {
@@ -188,6 +203,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     player.alive = saved.hp > 0;
     this.state.players.set(client.sessionId, player);
     this.inputs.set(client.sessionId, { dx: 0, dy: 0, playerId });
+    this.inventories.set(client.sessionId, saved.inventory);
+    this.sendInventory(client);
 
     if (isGm(name, this.gmAllow)) {
       this.gmSessions.add(client.sessionId);
@@ -212,9 +229,11 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (ai.target === client.sessionId) ai.target = null;
     });
     this.mobContributors.forEach((set) => set.delete(client.sessionId));
+    const inventory = this.inventories.get(client.sessionId) ?? [];
+    this.inventories.delete(client.sessionId);
     if (!player) return;
 
-    const snapshot = toSaved(player, this.map.id);
+    const snapshot = toSaved(player, this.map.id, inventory);
     this.state.players.delete(client.sessionId);
     try {
       await characterStore.save(snapshot);
@@ -430,6 +449,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       case "spawn":
         this.gmSpawn(client, player, args);
         break;
+      case "give":
+        this.gmGive(client, player, args);
+        break;
       case "kick":
         this.gmKick(client, args);
         break;
@@ -487,6 +509,30 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.systemTo(client, `Spawned ${enemy.name} (${enemy.id}).`);
   }
 
+  /** /give <itemId> [qty] — create items into the GM's bag (audited). */
+  private gmGive(client: Client, self: PlayerSchema, args: string[]): void {
+    const id = args[0] ?? "";
+    const def = itemDef(id);
+    if (!def) {
+      this.systemTo(client, `Unknown item "${id}". Known: ${ITEM_IDS.join(", ")}`);
+      return;
+    }
+    const qty = Math.max(1, Math.floor(Number(args[1] ?? 1)) || 1);
+    const inv = this.inventories.get(client.sessionId) ?? [];
+    const res = addItem(inv, def.id, qty, def.maxStack);
+    this.inventories.set(client.sessionId, res.inventory);
+    if (res.added > 0) {
+      void recordLedger({ account: self.id, itemId: def.id, delta: res.added, reason: "gm_give" });
+      this.sendInventory(client);
+    }
+    this.systemTo(
+      client,
+      res.added < qty
+        ? `Gave ${res.added}× ${def.name} (bag full, ${qty - res.added} lost).`
+        : `Gave ${res.added}× ${def.name}.`,
+    );
+  }
+
   /** /kick <name> — force-disconnect a player by display name. */
   private gmKick(client: Client, args: string[]): void {
     const name = args[0];
@@ -512,6 +558,12 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (!found && p.name.trim().toLowerCase() === want) found = { sessionId: sid, player: p };
     });
     return found;
+  }
+
+  /** Push the owner their current inventory (private — never broadcast). */
+  private sendInventory(client: Client): void {
+    const payload: InventoryPayload = { slots: this.inventories.get(client.sessionId) ?? [] };
+    client.send(ServerMessage.Inventory, payload);
   }
 
   /** Send a private "System" line to one client (reuses the chat UI). */
@@ -694,7 +746,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
   private async snapshotAll(): Promise<void> {
     const snapshots: SavedCharacter[] = [];
-    this.state.players.forEach((player) => snapshots.push(toSaved(player, this.map.id)));
+    this.state.players.forEach((player, sessionId) =>
+      snapshots.push(toSaved(player, this.map.id, this.inventories.get(sessionId) ?? [])),
+    );
     const results = await Promise.allSettled(snapshots.map((s) => characterStore.save(s)));
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
@@ -719,7 +773,7 @@ function mobCombatStats(enemy: EnemySchema): CombatStats {
   };
 }
 
-function toSaved(p: PlayerSchema, zone: string): SavedCharacter {
+function toSaved(p: PlayerSchema, zone: string, inventory: Inventory): SavedCharacter {
   return {
     playerId: p.id,
     name: p.name,
@@ -731,5 +785,6 @@ function toSaved(p: PlayerSchema, zone: string): SavedCharacter {
     level: p.level,
     meleeXp: p.meleeXp,
     vitalityXp: p.vitalityXp,
+    inventory,
   };
 }

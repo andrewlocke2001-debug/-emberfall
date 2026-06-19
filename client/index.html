@@ -77,6 +77,26 @@
       #abilities .ability-key { position: absolute; top: 3px; left: 5px; font-size: 11px; color: #8893a7; }
       #abilities .ability-name { position: absolute; bottom: 5px; width: 100%; text-align: center;
         font-size: 11px; }
+
+      /* Inventory panel (shown by InventoryPanel; toggle with I) */
+      #inventory { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        z-index: 8; display: none; flex-direction: column; gap: 8px; padding: 12px;
+        background: rgba(13,16,24,0.95); border: 1px solid #2a3142; border-radius: 10px; }
+      #inventory .inv-header { display: flex; align-items: center; justify-content: space-between;
+        font-size: 14px; color: #cdd6e6; }
+      #inventory .inv-header button { border: 0; background: #2a3142; color: #cdd6e6;
+        border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 13px; }
+      #inv-grid { display: grid; grid-template-columns: repeat(4, 64px); grid-auto-rows: 64px; gap: 6px; }
+      .inv-slot { position: relative; border: 1px solid #2a3142; border-radius: 8px; background: #161b27;
+        display: flex; align-items: center; justify-content: center; text-align: center; padding: 3px;
+        box-sizing: border-box; }
+      .inv-slot.filled { background: #1d2433; border-color: #3a4156; }
+      .inv-slot.fine { border-color: #5aa0ff; }
+      .inv-slot.rare { border-color: #c77dff; }
+      .inv-slot.relic { border-color: #ffb347; }
+      .inv-slot .inv-name { font-size: 10px; line-height: 1.15; color: #e6e6e6; word-break: break-word; }
+      .inv-slot .inv-qty { position: absolute; right: 3px; bottom: 2px; font-size: 11px; font-weight: 700;
+        color: #ffe066; text-shadow: 0 1px 2px #000; }
     </style>
   </head>
   <body>
@@ -107,6 +127,10 @@
         <button id="chat-channel" type="button">Zone</button>
         <input id="chat-input" type="text" maxlength="200" placeholder="Press Enter to chat" autocomplete="off" />
       </div>
+    </div>
+    <div id="inventory">
+      <div class="inv-header"><span>Inventory (I)</span><button id="inv-close" type="button">✕</button></div>
+      <div id="inv-grid"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

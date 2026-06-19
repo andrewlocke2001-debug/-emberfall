@@ -26,15 +26,21 @@ test("two players share a zone and combat lowers the dummy's HP for both", async
   await pageA.waitForTimeout(1000);
   await pageA.evaluate(() => window.__mmo!.move(0, 0));
 
-  for (let i = 0; i < 8; i++) {
-    await pageA.evaluate(() => window.__mmo!.attack("dummy-1"));
-    await pageA.waitForTimeout(250);
-  }
-
-  // The dummy's HP dropped — and both clients agree (shared authoritative state).
+  // Strike on a GCD-spaced cadence until the dummy takes damage. Combat is
+  // intentionally noisy (accuracy roll + a 0..max damage roll) and the ~1.5s
+  // global cooldown caps how often a swing lands, so fire spaced strikes rather
+  // than a quick burst (which lands only ~2 and can whiff both).
   await expect
-    .poll(() => pageA.evaluate(() => window.__mmo!.enemyHp("dummy-1")))
+    .poll(
+      async () => {
+        await pageA.evaluate(() => window.__mmo!.attack("dummy-1"));
+        return pageA.evaluate(() => window.__mmo!.enemyHp("dummy-1"));
+      },
+      { intervals: Array(12).fill(1600), timeout: 25_000 },
+    )
     .toBeLessThan(dummyHpBefore!);
+
+  // Both clients agree on the lowered HP (shared authoritative state).
   await expect
     .poll(() => pageB.evaluate(() => window.__mmo!.enemyHp("dummy-1")))
     .toBeLessThan(dummyHpBefore!);

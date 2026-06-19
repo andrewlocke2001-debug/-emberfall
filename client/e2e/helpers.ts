@@ -1,11 +1,18 @@
 import { type Page } from "@playwright/test";
 
+/** One inventory stack, mirrored from @mmo/shared ItemStack. */
+export interface TestItemStack {
+  itemId: string;
+  qty: number;
+}
+
 /** Shape of the in-page test API exposed by ZoneScene (see exposeTestApi). */
 export interface MmoTestApi {
   ready: boolean;
   zone(): string | null;
   playerCount(): number;
   enemyCount(): number;
+  inventory(): TestItemStack[];
   enemyHp(id: string): number | null;
   me(): {
     x: number;
@@ -41,5 +48,31 @@ export async function enterWorld(page: Page, name: string): Promise<void> {
   await page.fill("#name", name);
   await page.click("#enter");
   await page.waitForFunction(() => window.__mmo?.ready === true, undefined, { timeout: 20_000 });
+  await page.waitForFunction(() => window.__mmo!.me() !== null, undefined, { timeout: 20_000 });
+}
+
+/**
+ * Enter the world as a GM, deterministically across runs. Uses a *registered*
+ * account (guest names get a random suffix once taken, which would silently
+ * drop GM status), registering on the first run and logging in thereafter.
+ * The name must be listed in the server's GM_USERNAMES (see playwright.config).
+ */
+export async function enterWorldAsGm(page: Page, name = "GameMaster"): Promise<void> {
+  const password = "gm-secret-123";
+  await page.fill("#name", name);
+  await page.fill("#password", password);
+  await page.click("#btn-register");
+  // Resolve as soon as we're in OR registration is refused (name already taken).
+  await page.waitForFunction(
+    () =>
+      window.__mmo?.ready === true ||
+      (document.getElementById("login-error")?.textContent ?? "") !== "",
+    undefined,
+    { timeout: 20_000 },
+  );
+  if (!(await page.evaluate(() => window.__mmo?.ready === true))) {
+    await page.click("#btn-login"); // existing account — log into it
+    await page.waitForFunction(() => window.__mmo?.ready === true, undefined, { timeout: 20_000 });
+  }
   await page.waitForFunction(() => window.__mmo!.me() !== null, undefined, { timeout: 20_000 });
 }

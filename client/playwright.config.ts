@@ -41,9 +41,11 @@ export default defineConfig({
       timeout: 60_000,
       stdout: "pipe",
       stderr: "pipe",
-      // "GMTest" is a GM in tests so gm.spec can exercise role-gated commands.
-      // (Other env — DATABASE_URL etc. — is loaded from server/.env at runtime.)
-      env: { GM_USERNAMES: "GMTest" },
+      // "GameMaster" is a GM in tests so gm.spec/inventory.spec can exercise
+      // role-gated commands. It's a *registered* account in tests (enterWorldAsGm)
+      // for stable identity across runs. (Other env — DATABASE_URL etc. — is
+      // loaded from server/.env at runtime.)
+      env: { GM_USERNAMES: "GameMaster" },
     },
     {
       command: "npm run build -w @mmo/client && npm run preview -w @mmo/client -- --port 4173 --strictPort",

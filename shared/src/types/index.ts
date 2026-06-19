@@ -53,6 +53,19 @@ export const LEVEL_CAP = 50;
 /** Extra max HP granted per Vitality level above 1. */
 export const HP_PER_VITALITY = 8;
 
+/** Inventory capacity — RuneScape's 28 slots. */
+export const INVENTORY_SLOTS = 28;
+
+/**
+ * One stack of items in an inventory: a content id (see @mmo/shared/data/items)
+ * + a quantity. The shared inventory system enforces per-item stack limits and
+ * the 28-slot cap; the server is authoritative and the only writer.
+ */
+export interface ItemStack {
+  itemId: string;
+  qty: number;
+}
+
 /** Static definition of an ability. Data-driven so adding more stays cheap. */
 export interface AbilityDef {
   id: AbilityId;

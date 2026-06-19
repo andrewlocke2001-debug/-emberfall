@@ -41,6 +41,26 @@ model Player {
   level      Int      @default(1)
   meleeXp    Int      @default(0)
   vitalityXp Int      @default(0)
+  // Inventory as JSON: an array of { itemId, qty } stacks (see @mmo/shared
+  // systems/inventory). The server is the sole writer; shape is validated there.
+  inventory  Json     @default("[]")
   createdAt  DateTime @default(now())
   lastSeen   DateTime @updatedAt
+}
+
+// Economy audit ledger (kit rule #6): EVERY item creation (+delta) and
+// destruction (-delta) appends a row here, so total items in the world always
+// reconciles to created − destroyed. Append-only; never updated or deleted.
+model LedgerEntry {
+  id      String   @id @default(cuid())
+  at      DateTime @default(now())
+  // Owning account id, or a sentinel like "world" for non-player sources.
+  account String
+  itemId  String
+  delta   Int
+  // Why it happened: "gm_give", "loot", "bank_deposit", "consume", …
+  reason  String
+
+  @@index([account])
+  @@index([itemId])
 }

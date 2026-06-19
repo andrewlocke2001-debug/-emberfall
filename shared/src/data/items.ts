@@ -1,0 +1,145 @@
+/**
+ * Item roster (data-driven, like mobs). The server reads stack limits, value,
+ * equip slot, and bonuses from here; the client reads name + rarity for
+ * rendering. Adding an item is a new entry — never a combat/inventory code edit
+ * (kit rule #4).
+ *
+ * P3.1 ships a small starter set spanning every kind (currency, weapon, armor,
+ * consumable, material). Equip bonuses are defined now but only *applied* in
+ * P3.2; drops wire these into mob loot tables in P3.3.
+ */
+
+/** Quality tiers (GDD): Relics are server-news pre-Fall uniques. */
+export type ItemRarity = "common" | "fine" | "rare" | "relic";
+
+/** Where an equippable item goes. Stat application lands in P3.2. */
+export type EquipSlot =
+  | "weapon"
+  | "head"
+  | "body"
+  | "legs"
+  | "hands"
+  | "feet"
+  | "ring"
+  | "amulet";
+
+/** Flat combat-stat bonuses granted while an item is equipped (P3.2). */
+export interface ItemBonus {
+  attack?: number;
+  strength?: number;
+  defence?: number;
+  maxHp?: number;
+}
+
+export interface ItemDef {
+  id: string;
+  name: string;
+  rarity: ItemRarity;
+  /** Max units per stack: 1 = unstackable (gear), >1 = stackable. */
+  maxStack: number;
+  /** Base vendor value in coins — faucet/sink tuning anchor. */
+  value: number;
+  /** Slot it occupies when equippable (omitted = not equippable). */
+  equipSlot?: EquipSlot;
+  /** Combat bonuses applied while equipped (P3.2). */
+  bonus?: ItemBonus;
+  /** HP restored when consumed (consumables only). */
+  heal?: number;
+  /** One-line tooltip flavor. */
+  desc?: string;
+}
+
+const STACK_MAX = 2_147_483_647; // coins/materials stack effectively without limit
+
+export const ITEMS: Record<string, ItemDef> = {
+  // --- currency ---
+  coins: {
+    id: "coins",
+    name: "Coins",
+    rarity: "common",
+    maxStack: STACK_MAX,
+    value: 1,
+    desc: "The realm's currency.",
+  },
+
+  // --- weapons ---
+  bronze_sword: {
+    id: "bronze_sword",
+    name: "Bronze Sword",
+    rarity: "common",
+    maxStack: 1,
+    value: 25,
+    equipSlot: "weapon",
+    bonus: { attack: 3, strength: 4 },
+    desc: "A starter blade. Better than fists.",
+  },
+  iron_sword: {
+    id: "iron_sword",
+    name: "Iron Sword",
+    rarity: "fine",
+    maxStack: 1,
+    value: 120,
+    equipSlot: "weapon",
+    bonus: { attack: 6, strength: 8 },
+    desc: "Forged steel with a keen edge.",
+  },
+
+  // --- armor ---
+  leather_body: {
+    id: "leather_body",
+    name: "Leather Body",
+    rarity: "common",
+    maxStack: 1,
+    value: 30,
+    equipSlot: "body",
+    bonus: { defence: 4, maxHp: 6 },
+    desc: "Boiled hide. Stops a scratch.",
+  },
+  bronze_helm: {
+    id: "bronze_helm",
+    name: "Bronze Helm",
+    rarity: "common",
+    maxStack: 1,
+    value: 18,
+    equipSlot: "head",
+    bonus: { defence: 2 },
+    desc: "Dented, but it does the job.",
+  },
+
+  // --- consumables ---
+  health_potion: {
+    id: "health_potion",
+    name: "Health Potion",
+    rarity: "common",
+    maxStack: 20,
+    value: 15,
+    heal: 40,
+    desc: "Restores 40 HP. Tastes of ash.",
+  },
+
+  // --- materials (mob drops; feed Smithing/Cooking later) ---
+  ash_pelt: {
+    id: "ash_pelt",
+    name: "Ash Pelt",
+    rarity: "common",
+    maxStack: STACK_MAX,
+    value: 8,
+    desc: "Singed wolf hide.",
+  },
+  emberling_fang: {
+    id: "emberling_fang",
+    name: "Emberling Fang",
+    rarity: "common",
+    maxStack: STACK_MAX,
+    value: 5,
+    desc: "Still faintly warm.",
+  },
+};
+
+/** Look up an item definition, or undefined if the id is unknown. */
+export function itemDef(id: string): ItemDef | undefined {
+  return ITEMS[id];
+}
+
+/** All known item ids (for GM tooling / validation messages). */
+export const ITEM_IDS = Object.keys(ITEMS);
