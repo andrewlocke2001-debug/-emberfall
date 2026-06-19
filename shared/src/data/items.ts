@@ -12,16 +12,21 @@
 /** Quality tiers (GDD): Relics are server-news pre-Fall uniques. */
 export type ItemRarity = "common" | "fine" | "rare" | "relic";
 
-/** Where an equippable item goes. Stat application lands in P3.2. */
-export type EquipSlot =
-  | "weapon"
-  | "head"
-  | "body"
-  | "legs"
-  | "hands"
-  | "feet"
-  | "ring"
-  | "amulet";
+/**
+ * Where an equippable item goes. A const tuple so the zod message schema
+ * (`z.enum(EQUIP_SLOTS)`) and the `EquipSlot` union can never drift.
+ */
+export const EQUIP_SLOTS = [
+  "weapon",
+  "head",
+  "body",
+  "legs",
+  "hands",
+  "feet",
+  "ring",
+  "amulet",
+] as const;
+export type EquipSlot = (typeof EQUIP_SLOTS)[number];
 
 /** Flat combat-stat bonuses granted while an item is equipped (P3.2). */
 export interface ItemBonus {

@@ -19,11 +19,26 @@ import {
   type LevelUpPayload,
   type SkillId,
   type InventoryPayload,
+  type EquipPayload,
+  type UnequipPayload,
+  type EquipmentPayload,
 } from "@mmo/shared";
 import { addItem, type Inventory } from "@mmo/shared/systems/inventory";
+import {
+  equip,
+  unequip,
+  equipmentBonus,
+  type Equipment,
+} from "@mmo/shared/systems/equipment";
 import { itemDef, ITEM_IDS } from "@mmo/shared/data/items";
 import { EnemySchema, PlayerSchema, ZoneState } from "@mmo/shared/schema/state";
-import { MoveSchema, UseAbilitySchema, ChatSchema } from "@mmo/shared/protocol/schemas";
+import {
+  MoveSchema,
+  UseAbilitySchema,
+  ChatSchema,
+  EquipSchema,
+  UnequipSchema,
+} from "@mmo/shared/protocol/schemas";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
 import { resolveAttack, type CombatStats } from "@mmo/shared/systems/combatmath";
 import {
@@ -112,6 +127,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
    * an Inventory message, persisted on leave/snapshot.
    */
   private readonly inventories = new Map<string, Inventory>();
+  /** Authoritative per-session equipped gear (slot → itemId), off synced state
+   *  like inventory. Drives combat-stat bonuses; persisted with the character. */
+  private readonly equipment = new Map<string, Equipment>();
 
   override onCreate(options?: { zoneId?: string }): void {
     const zoneId =
@@ -143,10 +161,21 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.handleChat(client, msg);
     });
 
-    // No payload to validate — only ever re-sends the caller their own bag, so
-    // there's no injection surface. Lets the client pull inventory once its
-    // handlers exist (the onJoin push can lose the registration race).
-    this.onMessage(ClientMessage.RequestInventory, (client) => this.sendInventory(client));
+    // No payload to validate — only ever re-sends the caller their own loadout,
+    // so there's no injection surface. Lets the client pull inventory +
+    // equipment once its handlers exist (the onJoin push can lose the race).
+    this.onMessage(ClientMessage.RequestInventory, (client) => {
+      this.sendInventory(client);
+      this.sendEquipment(client);
+    });
+
+    this.onMessage(ClientMessage.Equip, EquipSchema, (client, msg: EquipPayload) => {
+      this.handleEquip(client, msg);
+    });
+
+    this.onMessage(ClientMessage.Unequip, UnequipSchema, (client, msg: UnequipPayload) => {
+      this.handleUnequip(client, msg);
+    });
 
     // Global chat arrives from any zone in this process — fan it out to ours.
     this.unsubscribeGlobal = globalBus.onChat((payload) => {
@@ -197,14 +226,19 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     player.meleeXp = saved.meleeXp;
     player.vitalityXp = saved.vitalityXp;
     player.level = levelForXp(saved.meleeXp);
-    player.maxHp = maxHpForVitality(levelForXp(saved.vitalityXp));
-    // Saved hp can exceed maxHp only if the curve changed; clamp defensively.
+    // maxHp = Vitality curve + equipped gear's maxHp bonus.
+    player.maxHp =
+      maxHpForVitality(levelForXp(saved.vitalityXp)) +
+      equipmentBonus(saved.equipment, itemDef).maxHp;
+    // Saved hp can exceed maxHp only if the curve/gear changed; clamp defensively.
     player.hp = Math.min(saved.hp, player.maxHp);
     player.alive = saved.hp > 0;
     this.state.players.set(client.sessionId, player);
     this.inputs.set(client.sessionId, { dx: 0, dy: 0, playerId });
     this.inventories.set(client.sessionId, saved.inventory);
+    this.equipment.set(client.sessionId, saved.equipment);
     this.sendInventory(client);
+    this.sendEquipment(client);
 
     if (isGm(name, this.gmAllow)) {
       this.gmSessions.add(client.sessionId);
@@ -230,10 +264,12 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     });
     this.mobContributors.forEach((set) => set.delete(client.sessionId));
     const inventory = this.inventories.get(client.sessionId) ?? [];
+    const equipment = this.equipment.get(client.sessionId) ?? {};
     this.inventories.delete(client.sessionId);
+    this.equipment.delete(client.sessionId);
     if (!player) return;
 
-    const snapshot = toSaved(player, this.map.id, inventory);
+    const snapshot = toSaved(player, this.map.id, inventory, equipment);
     this.state.players.delete(client.sessionId);
     try {
       await characterStore.save(snapshot);
@@ -313,7 +349,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     if (!enemy || !enemy.alive) return;
     if (distSq(player.x, player.y, enemy.x, enemy.y) > ability.range * ability.range) return;
 
-    const atk = combatStatsFromLevel(player.level, player.hp, player.maxHp);
+    const atk = this.playerStats(sessionId, player);
     atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
     const result = resolveAttack(atk, mobCombatStats(enemy));
 
@@ -373,7 +409,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const vitality = gainXp(player.vitalityXp, vitalityAmt);
     player.vitalityXp = vitality.xp;
     if (vitality.leveledUp) {
-      const newMax = maxHpForVitality(vitality.level);
+      const newMax = this.maxHpFor(sessionId, player); // Vitality curve + gear
       const delta = newMax - player.maxHp;
       player.maxHp = newMax;
       if (delta > 0) player.hp = Math.min(newMax, player.hp + delta);
@@ -566,6 +602,77 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     client.send(ServerMessage.Inventory, payload);
   }
 
+  /** Push the owner their current equipped gear (private — never broadcast). */
+  private sendEquipment(client: Client): void {
+    const payload: EquipmentPayload = { equipment: this.equipment.get(client.sessionId) ?? {} };
+    client.send(ServerMessage.Equipment, payload);
+  }
+
+  /** Equip an item from the bag (server-authoritative; recomputes maxHp). */
+  private handleEquip(client: Client, msg: EquipPayload): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+    const res = equip(
+      this.inventories.get(sessionId) ?? [],
+      this.equipment.get(sessionId) ?? {},
+      msg.itemId,
+      itemDef,
+    );
+    if (!res.ok) return;
+    this.inventories.set(sessionId, res.inventory);
+    this.equipment.set(sessionId, res.equipment);
+    this.applyMaxHp(sessionId, player);
+    this.sendInventory(client);
+    this.sendEquipment(client);
+  }
+
+  /** Unequip a slot back into the bag (recomputes maxHp). */
+  private handleUnequip(client: Client, msg: UnequipPayload): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+    const res = unequip(
+      this.inventories.get(sessionId) ?? [],
+      this.equipment.get(sessionId) ?? {},
+      msg.slot,
+      itemDef,
+    );
+    if (!res.ok) return;
+    this.inventories.set(sessionId, res.inventory);
+    this.equipment.set(sessionId, res.equipment);
+    this.applyMaxHp(sessionId, player);
+    this.sendInventory(client);
+    this.sendEquipment(client);
+  }
+
+  /** A player's combat stats: level-derived base + equipped-gear bonuses. The
+   *  gear maxHp bonus is already baked into player.maxHp (see applyMaxHp). */
+  private playerStats(sessionId: string, player: PlayerSchema): CombatStats {
+    const base = combatStatsFromLevel(player.level, player.hp, player.maxHp);
+    const bonus = equipmentBonus(this.equipment.get(sessionId) ?? {}, itemDef);
+    base.attack += bonus.attack;
+    base.strength += bonus.strength;
+    base.defence += bonus.defence;
+    return base;
+  }
+
+  /** Target maxHp for a session: Vitality curve + equipped-gear maxHp bonus. */
+  private maxHpFor(sessionId: string, player: PlayerSchema): number {
+    return (
+      maxHpForVitality(levelForXp(player.vitalityXp)) +
+      equipmentBonus(this.equipment.get(sessionId) ?? {}, itemDef).maxHp
+    );
+  }
+
+  /** Recompute maxHp after a gear change, clamping current hp to the new cap. */
+  private applyMaxHp(sessionId: string, player: PlayerSchema): void {
+    const newMax = this.maxHpFor(sessionId, player);
+    if (newMax === player.maxHp) return;
+    player.maxHp = newMax;
+    if (player.hp > newMax) player.hp = newMax;
+  }
+
   /** Send a private "System" line to one client (reuses the chat UI). */
   private systemTo(client: Client, text: string): void {
     const payload: ChatBroadcastPayload = {
@@ -695,10 +802,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         this.moveToward(enemy, target.x, target.y, def.moveSpeed, dt);
       } else if (now - ai.lastAttackAt >= def.attackCooldownMs) {
         ai.lastAttackAt = now;
-        const result = resolveAttack(
-          mobCombatStats(enemy),
-          combatStatsFromLevel(target.level, target.hp, target.maxHp),
-        );
+        const result = resolveAttack(mobCombatStats(enemy), this.playerStats(ai.target, target));
         if (result.hit) {
           target.hp = result.targetHpAfter;
           const evt: CombatEventPayload = {
@@ -747,7 +851,14 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private async snapshotAll(): Promise<void> {
     const snapshots: SavedCharacter[] = [];
     this.state.players.forEach((player, sessionId) =>
-      snapshots.push(toSaved(player, this.map.id, this.inventories.get(sessionId) ?? [])),
+      snapshots.push(
+        toSaved(
+          player,
+          this.map.id,
+          this.inventories.get(sessionId) ?? [],
+          this.equipment.get(sessionId) ?? {},
+        ),
+      ),
     );
     const results = await Promise.allSettled(snapshots.map((s) => characterStore.save(s)));
     for (let i = 0; i < results.length; i++) {
@@ -773,7 +884,12 @@ function mobCombatStats(enemy: EnemySchema): CombatStats {
   };
 }
 
-function toSaved(p: PlayerSchema, zone: string, inventory: Inventory): SavedCharacter {
+function toSaved(
+  p: PlayerSchema,
+  zone: string,
+  inventory: Inventory,
+  equipment: Equipment,
+): SavedCharacter {
   return {
     playerId: p.id,
     name: p.name,
@@ -786,5 +902,6 @@ function toSaved(p: PlayerSchema, zone: string, inventory: Inventory): SavedChar
     meleeXp: p.meleeXp,
     vitalityXp: p.vitalityXp,
     inventory,
+    equipment,
   };
 }

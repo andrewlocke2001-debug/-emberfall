@@ -1,6 +1,13 @@
 import { z } from "zod";
 import { ABILITY_IDS } from "../types";
-import type { MovePayload, UseAbilityPayload, ChatPayload } from "./messages";
+import { EQUIP_SLOTS } from "../data/items";
+import type {
+  MovePayload,
+  UseAbilityPayload,
+  ChatPayload,
+  EquipPayload,
+  UnequipPayload,
+} from "./messages";
 
 /**
  * zod schemas for every client→server message (kit rule #2: validate every
@@ -29,6 +36,14 @@ export const ChatSchema = z.strictObject({
   text: z.string().min(1).max(200),
 });
 
+export const EquipSchema = z.strictObject({
+  itemId: z.string().min(1).max(64),
+});
+
+export const UnequipSchema = z.strictObject({
+  slot: z.enum(EQUIP_SLOTS),
+});
+
 // --- compile-time drift guards (no runtime cost) -----------------------------
 
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -36,6 +51,10 @@ type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : ne
 const _move: AssertEqual<z.output<typeof MoveSchema>, MovePayload> = true;
 const _ability: AssertEqual<z.output<typeof UseAbilitySchema>, UseAbilityPayload> = true;
 const _chat: AssertEqual<z.output<typeof ChatSchema>, ChatPayload> = true;
+const _equip: AssertEqual<z.output<typeof EquipSchema>, EquipPayload> = true;
+const _unequip: AssertEqual<z.output<typeof UnequipSchema>, UnequipPayload> = true;
 void _move;
 void _ability;
 void _chat;
+void _equip;
+void _unequip;

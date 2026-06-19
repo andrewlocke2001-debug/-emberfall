@@ -97,6 +97,20 @@
       .inv-slot .inv-name { font-size: 10px; line-height: 1.15; color: #e6e6e6; word-break: break-word; }
       .inv-slot .inv-qty { position: absolute; right: 3px; bottom: 2px; font-size: 11px; font-weight: 700;
         color: #ffe066; text-shadow: 0 1px 2px #000; }
+      .inv-slot.equippable { cursor: pointer; }
+      .inv-slot.equippable:hover { border-color: #5aa0ff; }
+      /* Equipment strip above the bag grid */
+      #inv-gear { display: grid; grid-template-columns: repeat(4, 64px); grid-auto-rows: 40px; gap: 6px;
+        margin-bottom: 4px; }
+      .gear-slot { position: relative; border: 1px dashed #2a3142; border-radius: 8px; background: #14181f;
+        color: #cdd6e6; padding: 2px; cursor: default; overflow: hidden; }
+      .gear-slot.filled { border-style: solid; background: #1d2433; border-color: #3a4156; cursor: pointer; }
+      .gear-slot.filled:hover { border-color: #ef6b6b; }
+      .gear-slot.fine { border-color: #5aa0ff; }
+      .gear-slot.rare { border-color: #c77dff; }
+      .gear-slot.relic { border-color: #ffb347; }
+      .gear-slot .gear-label { font-size: 10px; line-height: 1.1; word-break: break-word; }
+      .gear-slot .gear-label.empty { color: #5b6678; text-transform: capitalize; }
     </style>
   </head>
   <body>

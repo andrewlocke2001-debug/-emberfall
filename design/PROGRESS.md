@@ -95,8 +95,20 @@ yet on real devices because we're not deployed.
   - Client: DOM inventory panel (toggle **I**), 28-slot grid with rarity tints +
     qty badges. Migration `add_inventory_and_ledger` applied to Neon. 73 unit +
     10 e2e green (new inventory.spec: GM /give + reload-persistence).
-- Next: **P3.2** equipment slots + stat application, **P3.3** drop tables +
-  ground loot + coins, **P3.4** bank + P3 close-out.
+- **P3.2 done**: equipment slots + **stat application**.
+  - `shared/systems/equipment.ts` — pure equip/unequip (bag↔slots, with swap) +
+    `equipmentBonus` (sums attack/strength/defence/maxHp of worn gear); 9 unit
+    tests. 8 slots (weapon/head/body/legs/hands/feet/ring/amulet).
+  - Equipment is server-authoritative, off synced state (private `Equipment`
+    message like inventory), persisted as a Prisma JSONB column. Equip/unequip
+    are validated zod messages; the server recomputes maxHp (Vitality curve +
+    gear) on every change, and combat now uses **effective stats** (gear
+    bonuses) for the player as both attacker and defender.
+  - Client: equipment strip in the inventory panel; click a bag item to equip,
+    click a worn item to unequip. Migration `add_equipment`. 82 unit + 11 e2e
+    green (new equipment.spec: equip body armor → maxHp +6 → unequip restores).
+- Next: **P3.3** drop tables + ground loot + coins, **P3.4** bank + P3 close-out.
+- Also wrote `design/STORY.md` (the Main Story spine + lore) on 2026-06-19.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
@@ -109,6 +121,19 @@ yet on real devices because we're not deployed.
   moving prisma migrate out of boot (release_command) for fast cold starts.
 
 ## Shipped
+
+### 2026-06-19 — P3.2 equipment + stat application (+ STORY.md) ✅
+- Pure equip/unequip/equipmentBonus system (9 unit tests); 8 gear slots.
+  Equipment is server-authoritative, off synced state (private Equipment
+  message), persisted (Prisma JSONB). Equip/unequip are zod-validated; the
+  server recomputes maxHp (Vitality + gear) and applies gear bonuses to the
+  player's effective combat stats as attacker *and* defender. Client equipment
+  strip (click to equip/unequip). Migration `add_equipment`. 82 unit + 11 e2e.
+- Test note: maxHp is a synced-schema field, so its delta can land just after
+  the Equipment message — e2e polls maxHp rather than reading once.
+- Wrote `design/STORY.md`: the world (Vesper, the Emberfall), factions, and the
+  five-act Main Story spine (Meadowbrook→Greenreach→Tanglewood→Ashreach→Cinder
+  Depths) with the central release/bind/tend choice. Narrative source of truth.
 
 ### 2026-06-19 — P3.1 items + inventory + economy ledger ✅
 - Typed item roster + pure 28-slot stacking inventory (10 unit tests). Inventory

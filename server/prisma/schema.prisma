@@ -44,6 +44,8 @@ model Player {
   // Inventory as JSON: an array of { itemId, qty } stacks (see @mmo/shared
   // systems/inventory). The server is the sole writer; shape is validated there.
   inventory  Json     @default("[]")
+  // Equipment as JSON: a { slot: itemId } map (see @mmo/shared systems/equipment).
+  equipment  Json     @default("{}")
   createdAt  DateTime @default(now())
   lastSeen   DateTime @updatedAt
 }

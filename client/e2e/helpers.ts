@@ -13,6 +13,9 @@ export interface MmoTestApi {
   playerCount(): number;
   enemyCount(): number;
   inventory(): TestItemStack[];
+  equipment(): Record<string, string>;
+  equip(itemId: string): void;
+  unequip(slot: string): void;
   enemyHp(id: string): number | null;
   me(): {
     x: number;

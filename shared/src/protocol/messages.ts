@@ -1,4 +1,5 @@
 import type { AbilityId, SkillId, ItemStack } from "../types";
+import type { EquipSlot } from "../data/items";
 
 /**
  * The wire protocol between client and server: message type identifiers and
@@ -19,9 +20,14 @@ export const ClientMessage = {
   Move: "move",
   UseAbility: "useAbility",
   Chat: "chat",
-  /** Ask the server to (re)send our inventory — sent once the client's message
-   *  handlers are registered, so the initial push can't lose the join race. */
+  /** Ask the server to (re)send our inventory + equipment — sent once the
+   *  client's handlers are registered, so the initial push can't lose the
+   *  join race. */
   RequestInventory: "requestInventory",
+  /** Equip an item from the bag into its slot. */
+  Equip: "equip",
+  /** Unequip a gear slot back into the bag. */
+  Unequip: "unequip",
 } as const;
 
 /** Server → client message types. */
@@ -32,6 +38,7 @@ export const ServerMessage = {
   Transfer: "transfer",
   LevelUp: "levelUp",
   Inventory: "inventory",
+  Equipment: "equipment",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -114,4 +121,23 @@ export interface LevelUpPayload {
  */
 export interface InventoryPayload {
   slots: ItemStack[];
+}
+
+/** Client → server: equip one unit of this item from the bag into its slot. */
+export interface EquipPayload {
+  itemId: string;
+}
+
+/** Client → server: unequip a gear slot back into the bag. */
+export interface UnequipPayload {
+  slot: EquipSlot;
+}
+
+/**
+ * Server → client: the owner's equipped gear (slot → item id). Like inventory,
+ * sent only to the owner (on request and after any change), never in synced
+ * state. P3.2 uses it for bonuses; visible worn gear on other players is later.
+ */
+export interface EquipmentPayload {
+  equipment: Partial<Record<EquipSlot, string>>;
 }

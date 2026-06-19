@@ -1,10 +1,12 @@
 import { BASE_MAX_HP, type ItemStack } from "@mmo/shared";
+import type { Equipment } from "@mmo/shared/systems/equipment";
 import { prisma } from "./db";
 import type { Prisma } from "../generated/prisma/client";
 
-// why: Prisma's InputJsonValue rejects interface arrays (ItemStack[] lacks an
-// index signature). The stored shape is plain JSON, so this cast is sound.
-const asJson = (inv: ItemStack[]): Prisma.InputJsonValue => inv as unknown as Prisma.InputJsonValue;
+// why: Prisma's InputJsonValue rejects interface arrays / typed records (no
+// index signature). The stored shapes are plain JSON, so these casts are sound.
+const asJson = (v: ItemStack[] | Equipment): Prisma.InputJsonValue =>
+  v as unknown as Prisma.InputJsonValue;
 
 /** The persisted slice of a character — what survives reconnect/restart. */
 export interface SavedCharacter {
@@ -21,6 +23,8 @@ export interface SavedCharacter {
   vitalityXp: number;
   /** Inventory stacks (JSON column). Server is the sole writer. */
   inventory: ItemStack[];
+  /** Equipped gear (slot → itemId JSON column). Server is the sole writer. */
+  equipment: Equipment;
 }
 
 /** Coerce the JSON `inventory` column into well-formed stacks (defensive). */
@@ -46,6 +50,24 @@ function parseInventory(raw: unknown): ItemStack[] {
     }
     return [];
   });
+}
+
+/** Coerce the JSON `equipment` column into a clean { slot: itemId } map. */
+function parseEquipment(raw: unknown): Equipment {
+  let value: unknown = raw;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return {};
+    }
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out: Equipment = {};
+  for (const [slot, id] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof id === "string" && id) out[slot as keyof Equipment] = id;
+  }
+  return out;
 }
 
 /**
@@ -77,6 +99,7 @@ class CharacterStore {
         meleeXp: 0,
         vitalityXp: 0,
         inventory: asJson([]),
+        equipment: asJson({}),
       },
     });
     return toSavedCharacter(row);
@@ -95,6 +118,7 @@ class CharacterStore {
       meleeXp: c.meleeXp,
       vitalityXp: c.vitalityXp,
       inventory: asJson(c.inventory),
+      equipment: asJson(c.equipment),
     };
     await prisma.player.upsert({
       where: { id: c.playerId },
@@ -116,6 +140,7 @@ function toSavedCharacter(row: {
   meleeXp: number;
   vitalityXp: number;
   inventory: unknown;
+  equipment: unknown;
 }): SavedCharacter {
   return {
     playerId: row.id,
@@ -129,6 +154,7 @@ function toSavedCharacter(row: {
     meleeXp: row.meleeXp,
     vitalityXp: row.vitalityXp,
     inventory: parseInventory(row.inventory),
+    equipment: parseEquipment(row.equipment),
   };
 }
 

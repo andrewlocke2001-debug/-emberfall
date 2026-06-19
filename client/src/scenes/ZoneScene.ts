@@ -11,9 +11,11 @@ import {
   type ChatBroadcastPayload,
   type LevelUpPayload,
   type InventoryPayload,
+  type EquipmentPayload,
 } from "@mmo/shared";
 import { stepWithCollision } from "@mmo/shared/systems/collision";
 import { levelForXp } from "@mmo/shared/systems/progression";
+import type { EquipSlot } from "@mmo/shared/data/items";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
 import { MOBS } from "@mmo/shared/data/mobs";
 import type { ZoneMap } from "@mmo/shared/systems/zonemap";
@@ -70,6 +72,8 @@ export class ZoneScene extends Phaser.Scene {
   private inventory?: InventoryPanel;
   /** Last inventory the server sent us (also surfaced to the test API). */
   private inventorySlots: ItemStack[] = [];
+  /** Last equipment the server sent us (also surfaced to the test API). */
+  private equipmentSlots: Partial<Record<EquipSlot, string>> = {};
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map?: ZoneMap;
@@ -147,8 +151,12 @@ export class ZoneScene extends Phaser.Scene {
     this.abilityBar = new AbilityBar({ onUse: (id) => this.tryUseAbility(id) });
     this.events.once("shutdown", () => this.abilityBar?.destroy());
 
-    this.inventory = new InventoryPanel();
+    this.inventory = new InventoryPanel({
+      onEquip: (itemId) => this.connection.room.send(ClientMessage.Equip, { itemId }),
+      onUnequip: (slot) => this.connection.room.send(ClientMessage.Unequip, { slot }),
+    });
     this.inventory.setInventory(this.inventorySlots);
+    this.inventory.setEquipment(this.equipmentSlots);
     this.events.once("shutdown", () => this.inventory?.destroy());
 
     this.setupStateSync();
@@ -373,8 +381,12 @@ export class ZoneScene extends Phaser.Scene {
       this.inventorySlots = p.slots;
       this.inventory?.setInventory(p.slots);
     });
-    // Now that the handler exists, pull our inventory (the server's onJoin push
-    // can arrive before this handler is registered and be dropped).
+    this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
+      this.equipmentSlots = p.equipment;
+      this.inventory?.setEquipment(p.equipment);
+    });
+    // Now that the handlers exist, pull our inventory + equipment (the server's
+    // onJoin push can arrive before these handlers are registered and be dropped).
     this.connection.room.send(ClientMessage.RequestInventory);
 
     // Zone travel: the server says we stepped on a gate → leave this room and
@@ -503,6 +515,9 @@ export class ZoneScene extends Phaser.Scene {
       },
       energy: () => room.state?.players?.get(room.sessionId)?.energy ?? 0,
       inventory: () => this.inventorySlots,
+      equipment: () => this.equipmentSlots,
+      equip: (itemId: string) => room.send(ClientMessage.Equip, { itemId }),
+      unequip: (slot: string) => room.send(ClientMessage.Unequip, { slot }),
       setTarget: (id: string | null) => this.selectTarget(id),
       attack: (targetId: string) =>
         room.send(ClientMessage.UseAbility, { abilityId: "strike", targetId }),
