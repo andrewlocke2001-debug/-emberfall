@@ -12,11 +12,13 @@ import {
   type LevelUpPayload,
   type InventoryPayload,
   type EquipmentPayload,
+  type BankPayload,
   PICKUP_RANGE,
 } from "@mmo/shared";
 import { stepWithCollision } from "@mmo/shared/systems/collision";
 import { levelForXp } from "@mmo/shared/systems/progression";
 import { ITEMS, type EquipSlot } from "@mmo/shared/data/items";
+import { BANKS, nearBank } from "@mmo/shared/data/banks";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
 import { MOBS } from "@mmo/shared/data/mobs";
 import type { ZoneMap } from "@mmo/shared/systems/zonemap";
@@ -27,6 +29,7 @@ import { TouchControls } from "../ui/TouchControls";
 import { ChatBox } from "../ui/ChatBox";
 import { AbilityBar } from "../ui/AbilityBar";
 import { InventoryPanel } from "../ui/InventoryPanel";
+import { BankPanel } from "../ui/BankPanel";
 import type { ItemStack } from "@mmo/shared";
 
 const RECONCILE_SNAP = 64; // px of drift beyond which we hard-snap the local player
@@ -77,6 +80,11 @@ export class ZoneScene extends Phaser.Scene {
   private inventorySlots: ItemStack[] = [];
   /** Last equipment the server sent us (also surfaced to the test API). */
   private equipmentSlots: Partial<Record<EquipSlot, string>> = {};
+  /** Bank panel + its last-known contents; only usable at a town bank. */
+  private bankPanel?: BankPanel;
+  private bankSlots: ItemStack[] = [];
+  /** Whether the local player is currently standing at a bank. */
+  private atBank = false;
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map?: ZoneMap;
@@ -104,12 +112,12 @@ export class ZoneScene extends Phaser.Scene {
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
-    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I") as Record<
+    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I,B") as Record<
       string,
       Phaser.Input.Keyboard.Key
     >;
     this.escKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,UP,DOWN,LEFT,RIGHT");
+    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,UP,DOWN,LEFT,RIGHT");
 
     this.selectionRing = this.add
       .circle(0, 0, 28)
@@ -161,6 +169,12 @@ export class ZoneScene extends Phaser.Scene {
     this.inventory.setInventory(this.inventorySlots);
     this.inventory.setEquipment(this.equipmentSlots);
     this.events.once("shutdown", () => this.inventory?.destroy());
+
+    this.bankPanel = new BankPanel({
+      onDeposit: (itemId, qty) => this.connection.room.send(ClientMessage.Deposit, { itemId, qty }),
+      onWithdraw: (itemId, qty) => this.connection.room.send(ClientMessage.Withdraw, { itemId, qty }),
+    });
+    this.events.once("shutdown", () => this.bankPanel?.destroy());
 
     this.setupStateSync();
     this.setupMessages();
@@ -289,6 +303,16 @@ export class ZoneScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys["TWO"]!)) this.tryUseAbility("power_strike");
     if (Phaser.Input.Keyboard.JustDown(this.keys["THREE"]!)) this.tryUseAbility("mend");
     if (Phaser.Input.Keyboard.JustDown(this.keys["I"]!)) this.inventory?.toggle();
+
+    // Bank: fetch contents when you arrive at one; B toggles the panel there;
+    // walking away closes it.
+    const nowAtBank = !!this.map && nearBank(this.map.id, this.predicted.x, this.predicted.y);
+    if (nowAtBank !== this.atBank) {
+      this.atBank = nowAtBank;
+      if (nowAtBank) room.send(ClientMessage.RequestBank);
+      else this.bankPanel?.toggle(false);
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.keys["B"]!) && this.atBank) this.bankPanel?.toggle();
     if (this.keys["SPACE"]!.isDown || (this.touch?.attackHeld() ?? false)) {
       this.tryUseAbility("strike");
     }
@@ -411,10 +435,15 @@ export class ZoneScene extends Phaser.Scene {
     this.connection.room.onMessage(ServerMessage.Inventory, (p: InventoryPayload) => {
       this.inventorySlots = p.slots;
       this.inventory?.setInventory(p.slots);
+      this.bankPanel?.setBag(p.slots);
     });
     this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
       this.equipmentSlots = p.equipment;
       this.inventory?.setEquipment(p.equipment);
+    });
+    this.connection.room.onMessage(ServerMessage.Bank, (p: BankPayload) => {
+      this.bankSlots = p.slots;
+      this.bankPanel?.setBank(p.slots);
     });
     // Now that the handlers exist, pull our inventory + equipment (the server's
     // onJoin push can arrive before these handlers are registered and be dropped).
@@ -447,7 +476,24 @@ export class ZoneScene extends Phaser.Scene {
       : DEFAULT_ZONE;
     this.map = ZONES[zoneId];
     this.drawTilemap(this.map);
+    for (const b of BANKS[zoneId] ?? []) this.drawBankMarker(b.x, b.y);
     this.cameras.main.setBounds(0, 0, this.map.pixelWidth, this.map.pixelHeight);
+  }
+
+  /** A static "Bank" marker so players can find the town bank. */
+  private drawBankMarker(x: number, y: number): void {
+    const tile = this.add.rectangle(x, y, 26, 26, 0x2e6f4f).setStrokeStyle(2, 0xffe066).setDepth(-9);
+    const label = this.add
+      .text(x, y - 22, "🏦 Bank", {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "12px",
+        color: "#ffe066",
+      })
+      .setOrigin(0.5)
+      .setStroke("#000", 3)
+      .setDepth(-9);
+    void tile;
+    void label;
   }
 
   /** Render the zone's ground + obstacle tiles once into a static graphic. */
@@ -557,6 +603,10 @@ export class ZoneScene extends Phaser.Scene {
         return out;
       },
       pickup: (lootId: string) => room.send(ClientMessage.Pickup, { lootId }),
+      bank: () => this.bankSlots,
+      atBank: () => this.atBank,
+      deposit: (itemId: string, qty: number) => room.send(ClientMessage.Deposit, { itemId, qty }),
+      withdraw: (itemId: string, qty: number) => room.send(ClientMessage.Withdraw, { itemId, qty }),
       setTarget: (id: string | null) => this.selectTarget(id),
       attack: (targetId: string) =>
         room.send(ClientMessage.UseAbility, { abilityId: "strike", targetId }),

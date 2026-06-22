@@ -18,6 +18,10 @@ export interface MmoTestApi {
   unequip(slot: string): void;
   groundLoot(): { id: string; itemId: string; qty: number; ownerId: string }[];
   pickup(lootId: string): void;
+  bank(): TestItemStack[];
+  atBank(): boolean;
+  deposit(itemId: string, qty: number): void;
+  withdraw(itemId: string, qty: number): void;
   enemyHp(id: string): number | null;
   me(): {
     x: number;

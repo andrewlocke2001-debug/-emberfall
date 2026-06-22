@@ -119,7 +119,21 @@ yet on real devices because we're not deployed.
     unpicked loot that despawns is a non-event (nothing entered an inventory).
   - Client renders clickable loot piles; GM `/droploot <item> [qty]` for
     testing. No DB migration (ground loot is transient). 87 unit + 12 e2e green.
-- Next: **P3.4** bank + P3 close-out.
+- **P3.4 done**: **town bank** + P3 close-out.
+  - `shared/systems/bank.ts` — pure deposit/withdraw between bag and bank (round
+    trip conserves totals; 7 unit tests). `addItem` generalized with a slot-cap
+    arg so the 240-slot bank reuses it. Bank locations are data
+    (`shared/data/banks.ts` + `nearBank`); Meadowbrook's is in the plaza.
+  - Bank is server-authoritative, off synced state (private `Bank` message),
+    persisted as a Prisma JSONB column. Deposit/Withdraw are zod messages,
+    **gated by proximity to a bank** server-side. Bag↔bank is a transfer, so
+    it's **not** ledgered — the ledger stays balanced.
+  - Client: bank marker in town + a two-column bank panel (toggle **B** at a
+    bank; click to deposit/withdraw). Migration `add_bank`. 94 unit + 13 e2e.
+- **P3 COMPLETE (local).** Items, inventory, equipment+stats, loot/drops, and
+  the bank all ship; the economy ledger has tracked every create/destroy since
+  the first item. P3 exit ("kill → loot upgrade → hit harder → bank the rest")
+  is mechanically in place.
 - Also wrote `design/STORY.md` (the Main Story spine + lore) on 2026-06-19.
 
 ## Known follow-ups (deferred, not blocking)
@@ -133,6 +147,17 @@ yet on real devices because we're not deployed.
   moving prisma migrate out of boot (release_command) for fast cold starts.
 
 ## Shipped
+
+### 2026-06-19 — P3.4 town bank (P3 complete) ✅
+- Pure deposit/withdraw (7 unit tests; round-trip conserves totals); `addItem`
+  generalized with a slot-cap arg for the 240-slot bank. Bank locations are data
+  (`nearBank`); Meadowbrook's bank is in the plaza. Server-authoritative bank,
+  off synced state (private Bank message), persisted (Prisma JSONB). Deposit/
+  Withdraw zod messages gated by bank proximity; bag↔bank is a transfer so it's
+  NOT ledgered (ledger stays balanced). Client bank marker + two-column panel
+  (toggle B at a bank). Migration `add_bank`. 94 unit + 13 e2e (new bank.spec:
+  /tp to bank → /give → deposit → withdraw round-trip).
+- **P3 COMPLETE locally** — items/inventory/equipment/loot/bank + economy ledger.
 
 ### 2026-06-19 — P3.3 drop tables + ground loot + coins (personal loot) ✅
 - Pure `rollDrops` (5 unit tests) + per-mob drop tables. On kill, every

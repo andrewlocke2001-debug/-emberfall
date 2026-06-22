@@ -46,6 +46,8 @@ model Player {
   inventory  Json     @default("[]")
   // Equipment as JSON: a { slot: itemId } map (see @mmo/shared systems/equipment).
   equipment  Json     @default("{}")
+  // Bank as JSON: an array of { itemId, qty } stacks (town storage).
+  bank       Json     @default("[]")
   createdAt  DateTime @default(now())
   lastSeen   DateTime @updatedAt
 }

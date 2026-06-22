@@ -56,6 +56,11 @@ export const HP_PER_VITALITY = 8;
 /** Inventory capacity — RuneScape's 28 slots. */
 export const INVENTORY_SLOTS = 28;
 
+/** Bank capacity — generous town storage, separate from the carried bag. */
+export const BANK_SLOTS = 240;
+/** How close (world units) a player must be to a town bank to use it. */
+export const BANK_RANGE = 120;
+
 /** How close (world units) a player must be to pick up ground loot. */
 export const PICKUP_RANGE = 56;
 /** Ground loot is reserved for its owner this long (ms) before going public. */

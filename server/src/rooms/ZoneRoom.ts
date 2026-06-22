@@ -26,6 +26,8 @@ import {
   type UnequipPayload,
   type EquipmentPayload,
   type PickupPayload,
+  type BankMovePayload,
+  type BankPayload,
 } from "@mmo/shared";
 import { addItem, type Inventory } from "@mmo/shared/systems/inventory";
 import {
@@ -34,7 +36,9 @@ import {
   equipmentBonus,
   type Equipment,
 } from "@mmo/shared/systems/equipment";
+import { deposit, withdraw, type Bank } from "@mmo/shared/systems/bank";
 import { itemDef, ITEM_IDS } from "@mmo/shared/data/items";
+import { nearBank } from "@mmo/shared/data/banks";
 import { EnemySchema, PlayerSchema, ZoneState, GroundLootSchema } from "@mmo/shared/schema/state";
 import {
   MoveSchema,
@@ -43,6 +47,7 @@ import {
   EquipSchema,
   UnequipSchema,
   PickupSchema,
+  BankMoveSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -140,6 +145,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   /** Authoritative per-session equipped gear (slot → itemId), off synced state
    *  like inventory. Drives combat-stat bonuses; persisted with the character. */
   private readonly equipment = new Map<string, Equipment>();
+  /** Authoritative per-session bank storage (off synced state, persisted). */
+  private readonly banks = new Map<string, Bank>();
 
   override onCreate(options?: { zoneId?: string }): void {
     const zoneId =
@@ -189,6 +196,14 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
     this.onMessage(ClientMessage.Pickup, PickupSchema, (client, msg: PickupPayload) => {
       this.handlePickup(client, msg);
+    });
+
+    this.onMessage(ClientMessage.RequestBank, (client) => this.sendBankIfNear(client));
+    this.onMessage(ClientMessage.Deposit, BankMoveSchema, (client, msg: BankMovePayload) => {
+      this.handleBankMove(client, msg, "deposit");
+    });
+    this.onMessage(ClientMessage.Withdraw, BankMoveSchema, (client, msg: BankMovePayload) => {
+      this.handleBankMove(client, msg, "withdraw");
     });
 
     // Global chat arrives from any zone in this process — fan it out to ours.
@@ -251,6 +266,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.inputs.set(client.sessionId, { dx: 0, dy: 0, playerId });
     this.inventories.set(client.sessionId, saved.inventory);
     this.equipment.set(client.sessionId, saved.equipment);
+    this.banks.set(client.sessionId, saved.bank);
     this.sendInventory(client);
     this.sendEquipment(client);
 
@@ -279,11 +295,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.mobContributors.forEach((set) => set.delete(client.sessionId));
     const inventory = this.inventories.get(client.sessionId) ?? [];
     const equipment = this.equipment.get(client.sessionId) ?? {};
+    const bank = this.banks.get(client.sessionId) ?? [];
     this.inventories.delete(client.sessionId);
     this.equipment.delete(client.sessionId);
+    this.banks.delete(client.sessionId);
     if (!player) return;
 
-    const snapshot = toSaved(player, this.map.id, inventory, equipment);
+    const snapshot = toSaved(player, this.map.id, inventory, equipment, bank);
     this.state.players.delete(client.sessionId);
     try {
       await characterStore.save(snapshot);
@@ -658,6 +676,40 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     client.send(ServerMessage.Equipment, payload);
   }
 
+  /** Push bank contents to the owner — only while they're standing at a bank. */
+  private sendBankIfNear(client: Client): void {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !nearBank(this.map.id, player.x, player.y)) return;
+    this.sendBank(client);
+  }
+
+  private sendBank(client: Client): void {
+    const payload: BankPayload = { slots: this.banks.get(client.sessionId) ?? [] };
+    client.send(ServerMessage.Bank, payload);
+  }
+
+  /** Deposit/withdraw between bag and bank — only while at a bank. Bag↔bank is
+   *  a transfer (no item created/destroyed), so it is NOT ledgered. */
+  private handleBankMove(client: Client, msg: BankMovePayload, dir: "deposit" | "withdraw"): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive) return;
+    if (!nearBank(this.map.id, player.x, player.y)) return; // must be at a bank
+    const def = itemDef(msg.itemId);
+    if (!def) return;
+    const inv = this.inventories.get(sessionId) ?? [];
+    const bank = this.banks.get(sessionId) ?? [];
+    const res =
+      dir === "deposit"
+        ? deposit(inv, bank, def.id, msg.qty, def.maxStack)
+        : withdraw(inv, bank, def.id, msg.qty, def.maxStack);
+    if (res.moved <= 0) return;
+    this.inventories.set(sessionId, res.inventory);
+    this.banks.set(sessionId, res.bank);
+    this.sendInventory(client);
+    this.sendBank(client);
+  }
+
   /** Equip an item from the bag (server-authoritative; recomputes maxHp). */
   private handleEquip(client: Client, msg: EquipPayload): void {
     const sessionId = client.sessionId;
@@ -948,6 +1000,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
           this.map.id,
           this.inventories.get(sessionId) ?? [],
           this.equipment.get(sessionId) ?? {},
+          this.banks.get(sessionId) ?? [],
         ),
       ),
     );
@@ -980,6 +1033,7 @@ function toSaved(
   zone: string,
   inventory: Inventory,
   equipment: Equipment,
+  bank: Bank,
 ): SavedCharacter {
   return {
     playerId: p.id,
@@ -994,5 +1048,6 @@ function toSaved(
     vitalityXp: p.vitalityXp,
     inventory,
     equipment,
+    bank,
   };
 }

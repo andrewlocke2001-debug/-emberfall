@@ -30,6 +30,12 @@ export const ClientMessage = {
   Unequip: "unequip",
   /** Pick up a ground-loot pile (server checks range + ownership). */
   Pickup: "pickup",
+  /** Ask the server to (re)send our bank contents (must be near a bank). */
+  RequestBank: "requestBank",
+  /** Move an item from the bag into the bank (must be near a bank). */
+  Deposit: "deposit",
+  /** Move an item from the bank into the bag (must be near a bank). */
+  Withdraw: "withdraw",
 } as const;
 
 /** Server → client message types. */
@@ -41,6 +47,7 @@ export const ServerMessage = {
   LevelUp: "levelUp",
   Inventory: "inventory",
   Equipment: "equipment",
+  Bank: "bank",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -138,6 +145,17 @@ export interface UnequipPayload {
 /** Client → server: pick up a ground-loot pile by its id. */
 export interface PickupPayload {
   lootId: string;
+}
+
+/** Client → server: move `qty` of an item between bag and bank (near a bank). */
+export interface BankMovePayload {
+  itemId: string;
+  qty: number;
+}
+
+/** Server → client: the owner's bank contents (sent when at a bank). */
+export interface BankPayload {
+  slots: ItemStack[];
 }
 
 /**

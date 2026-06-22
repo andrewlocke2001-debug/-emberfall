@@ -8,6 +8,9 @@ import type { Prisma } from "../generated/prisma/client";
 const asJson = (v: ItemStack[] | Equipment): Prisma.InputJsonValue =>
   v as unknown as Prisma.InputJsonValue;
 
+// Bank uses the same defensive parse as the bag (pg adapter can hand JSONB
+// back as a string).
+
 /** The persisted slice of a character — what survives reconnect/restart. */
 export interface SavedCharacter {
   playerId: string;
@@ -25,6 +28,8 @@ export interface SavedCharacter {
   inventory: ItemStack[];
   /** Equipped gear (slot → itemId JSON column). Server is the sole writer. */
   equipment: Equipment;
+  /** Bank stacks (JSON column). Server is the sole writer. */
+  bank: ItemStack[];
 }
 
 /** Coerce the JSON `inventory` column into well-formed stacks (defensive). */
@@ -100,6 +105,7 @@ class CharacterStore {
         vitalityXp: 0,
         inventory: asJson([]),
         equipment: asJson({}),
+        bank: asJson([]),
       },
     });
     return toSavedCharacter(row);
@@ -119,6 +125,7 @@ class CharacterStore {
       vitalityXp: c.vitalityXp,
       inventory: asJson(c.inventory),
       equipment: asJson(c.equipment),
+      bank: asJson(c.bank),
     };
     await prisma.player.upsert({
       where: { id: c.playerId },
@@ -141,6 +148,7 @@ function toSavedCharacter(row: {
   vitalityXp: number;
   inventory: unknown;
   equipment: unknown;
+  bank: unknown;
 }): SavedCharacter {
   return {
     playerId: row.id,
@@ -155,6 +163,7 @@ function toSavedCharacter(row: {
     vitalityXp: row.vitalityXp,
     inventory: parseInventory(row.inventory),
     equipment: parseEquipment(row.equipment),
+    bank: parseInventory(row.bank),
   };
 }
 

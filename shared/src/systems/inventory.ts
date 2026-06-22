@@ -32,11 +32,17 @@ export function countItem(inv: Inventory, itemId: string): number {
 
 /**
  * Add `qty` of an item: top up existing stacks first (up to `maxStack`), then
- * open new slots until the 28-slot cap. Returns the new inventory and how many
- * units actually fit (the remainder is "overflow" the caller must handle —
- * e.g. drop on the ground or refuse).
+ * open new slots until the `slots` cap (28 for a bag; larger for the bank).
+ * Returns the new container and how many units actually fit (the remainder is
+ * "overflow" the caller must handle — e.g. drop on the ground or refuse).
  */
-export function addItem(inv: Inventory, itemId: string, qty: number, maxStack: number): AddResult {
+export function addItem(
+  inv: Inventory,
+  itemId: string,
+  qty: number,
+  maxStack: number,
+  slots: number = INVENTORY_SLOTS,
+): AddResult {
   const out = cloneInventory(inv);
   if (qty <= 0) return { inventory: out, added: 0 };
   let remaining = qty;
@@ -49,7 +55,7 @@ export function addItem(inv: Inventory, itemId: string, qty: number, maxStack: n
       remaining -= take;
     }
   }
-  while (remaining > 0 && out.length < INVENTORY_SLOTS) {
+  while (remaining > 0 && out.length < slots) {
     const take = Math.min(maxStack, remaining);
     out.push({ itemId, qty: take });
     remaining -= take;
@@ -58,8 +64,14 @@ export function addItem(inv: Inventory, itemId: string, qty: number, maxStack: n
 }
 
 /** True if `qty` of an item would fully fit (no overflow). */
-export function canAdd(inv: Inventory, itemId: string, qty: number, maxStack: number): boolean {
-  return addItem(inv, itemId, qty, maxStack).added === qty;
+export function canAdd(
+  inv: Inventory,
+  itemId: string,
+  qty: number,
+  maxStack: number,
+  slots: number = INVENTORY_SLOTS,
+): boolean {
+  return addItem(inv, itemId, qty, maxStack, slots).added === qty;
 }
 
 /**
