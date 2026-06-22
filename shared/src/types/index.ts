@@ -43,9 +43,15 @@ export const ENERGY_REGEN_PER_SEC = 12;
 /** Hit points for a fresh level-1 character (M0 ships a single archetype). */
 export const BASE_MAX_HP = 100;
 
-/** P2 skills (more arrive post-P2). Melee drives attack/damage; Vitality, HP. */
-export const SKILL_IDS = ["melee", "vitality"] as const;
+/**
+ * Launch skills. Melee drives attack/damage; Vitality, HP; Mining/Fishing are
+ * the P4 gathering skills (Smithing/Cooking arrive with P4.2 crafting).
+ */
+export const SKILL_IDS = ["melee", "vitality", "mining", "fishing"] as const;
 export type SkillId = (typeof SKILL_IDS)[number];
+
+/** How close (world units) a player must be to a resource node to gather it. */
+export const GATHER_RANGE = 64;
 
 /** Level cap for P2 (GW-style low ceiling; raised in later content). */
 export const LEVEL_CAP = 50;

@@ -33,6 +33,10 @@ export class PlayerSchema extends Schema {
   declare meleeXp: number;
   /** Total Vitality XP (drives maxHp via the skill curve). */
   declare vitalityXp: number;
+  /** Total Mining XP (P4 gathering skill). */
+  declare miningXp: number;
+  /** Total Fishing XP (P4 gathering skill). */
+  declare fishingXp: number;
   declare alive: boolean;
   /** Server time (ms) of last ability use — drives cooldown enforcement. */
   declare lastAbilityAt: number;
@@ -50,6 +54,8 @@ export class PlayerSchema extends Schema {
     this.level = 1;
     this.meleeXp = 0;
     this.vitalityXp = 0;
+    this.miningXp = 0;
+    this.fishingXp = 0;
     this.alive = true;
     this.lastAbilityAt = 0;
   }
@@ -66,6 +72,8 @@ defineTypes(PlayerSchema, {
   level: "number",
   meleeXp: "number",
   vitalityXp: "number",
+  miningXp: "number",
+  fishingXp: "number",
   alive: "boolean",
   lastAbilityAt: "number",
 });

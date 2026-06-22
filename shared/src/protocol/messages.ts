@@ -36,6 +36,9 @@ export const ClientMessage = {
   Deposit: "deposit",
   /** Move an item from the bank into the bag (must be near a bank). */
   Withdraw: "withdraw",
+  /** Start gathering a resource node (mining/fishing); auto-repeats until you
+   *  move, the bag fills, or you go out of range. */
+  Gather: "gather",
 } as const;
 
 /** Server → client message types. */
@@ -145,6 +148,11 @@ export interface UnequipPayload {
 /** Client → server: pick up a ground-loot pile by its id. */
 export interface PickupPayload {
   lootId: string;
+}
+
+/** Client → server: start gathering the resource node with this id. */
+export interface GatherPayload {
+  nodeId: string;
 }
 
 /** Client → server: move `qty` of an item between bag and bank (near a bank). */

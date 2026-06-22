@@ -19,6 +19,7 @@ import { stepWithCollision } from "@mmo/shared/systems/collision";
 import { levelForXp } from "@mmo/shared/systems/progression";
 import { ITEMS, type EquipSlot } from "@mmo/shared/data/items";
 import { BANKS, nearBank } from "@mmo/shared/data/banks";
+import { NODES, RESOURCES } from "@mmo/shared/data/resources";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
 import { MOBS } from "@mmo/shared/data/mobs";
 import type { ZoneMap } from "@mmo/shared/systems/zonemap";
@@ -201,7 +202,11 @@ export class ZoneScene extends Phaser.Scene {
     const me = room.state.players.get(this.localSessionId);
     const meleeLvl = me?.level ?? 1;
     const vitalityLvl = me ? levelForXp(me.vitalityXp) : 1;
-    const hud = `${this.map?.displayName ?? ""} — ${room.state.players.size} online · ⚔${meleeLvl} · ♥${vitalityLvl}`;
+    const miningLvl = me ? levelForXp(me.miningXp) : 1;
+    const fishingLvl = me ? levelForXp(me.fishingXp) : 1;
+    const hud =
+      `${this.map?.displayName ?? ""} — ${room.state.players.size} online` +
+      ` · ⚔${meleeLvl} · ♥${vitalityLvl} · ⛏${miningLvl} · 🎣${fishingLvl}`;
     if (hud !== this.lastHud) {
       this.chat?.setHud(hud);
       this.lastHud = hud;
@@ -477,7 +482,27 @@ export class ZoneScene extends Phaser.Scene {
     this.map = ZONES[zoneId];
     this.drawTilemap(this.map);
     for (const b of BANKS[zoneId] ?? []) this.drawBankMarker(b.x, b.y);
+    for (const n of NODES[zoneId] ?? []) this.drawNodeMarker(n.id, n.type, n.x, n.y);
     this.cameras.main.setBounds(0, 0, this.map.pixelWidth, this.map.pixelHeight);
+  }
+
+  /** A clickable resource node (click to start gathering). */
+  private drawNodeMarker(id: string, type: string, x: number, y: number): void {
+    const def = RESOURCES[type];
+    const dot = this.add
+      .circle(0, 0, 9, def?.color ?? 0x9e9e9e)
+      .setStrokeStyle(2, 0x10131a)
+      .setInteractive({ useHandCursor: true });
+    dot.on("pointerdown", () => this.connection.room.send(ClientMessage.Gather, { nodeId: id }));
+    const label = this.add
+      .text(0, -18, def?.name ?? type, {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "11px",
+        color: "#cfe4ff",
+      })
+      .setOrigin(0.5)
+      .setStroke("#000", 3);
+    this.add.container(x, y, [dot, label]).setDepth(1);
   }
 
   /** A static "Bank" marker so players can find the town bank. */
@@ -519,7 +544,13 @@ export class ZoneScene extends Phaser.Scene {
 
   /** A brief gold banner when a skill levels up — pure feedback, no state. */
   private showLevelUp(p: LevelUpPayload): void {
-    const label = p.skill === "vitality" ? "Vitality" : "Melee";
+    const labels: Record<string, string> = {
+      melee: "Melee",
+      vitality: "Vitality",
+      mining: "Mining",
+      fishing: "Fishing",
+    };
+    const label = labels[p.skill] ?? p.skill;
     const toast = this.add
       .text(this.scale.width / 2, this.scale.height * 0.32, `${label} level ${p.level}!`, {
         fontFamily: "system-ui, sans-serif",
@@ -585,8 +616,12 @@ export class ZoneScene extends Phaser.Scene {
               level: p.level,
               meleeXp: p.meleeXp,
               vitalityXp: p.vitalityXp,
+              miningXp: p.miningXp,
+              fishingXp: p.fishingXp,
               meleeLevel: p.level,
               vitalityLevel: levelForXp(p.vitalityXp),
+              miningLevel: levelForXp(p.miningXp),
+              fishingLevel: levelForXp(p.fishingXp),
             }
           : null;
       },
@@ -607,6 +642,7 @@ export class ZoneScene extends Phaser.Scene {
       atBank: () => this.atBank,
       deposit: (itemId: string, qty: number) => room.send(ClientMessage.Deposit, { itemId, qty }),
       withdraw: (itemId: string, qty: number) => room.send(ClientMessage.Withdraw, { itemId, qty }),
+      gather: (nodeId: string) => room.send(ClientMessage.Gather, { nodeId }),
       setTarget: (id: string | null) => this.selectTarget(id),
       attack: (targetId: string) =>
         room.send(ClientMessage.UseAbility, { abilityId: "strike", targetId }),

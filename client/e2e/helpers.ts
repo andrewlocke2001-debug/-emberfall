@@ -22,6 +22,7 @@ export interface MmoTestApi {
   atBank(): boolean;
   deposit(itemId: string, qty: number): void;
   withdraw(itemId: string, qty: number): void;
+  gather(nodeId: string): void;
   enemyHp(id: string): number | null;
   me(): {
     x: number;
@@ -33,8 +34,12 @@ export interface MmoTestApi {
     level: number;
     meleeXp: number;
     vitalityXp: number;
+    miningXp: number;
+    fishingXp: number;
     meleeLevel: number;
     vitalityLevel: number;
+    miningLevel: number;
+    fishingLevel: number;
   } | null;
   energy(): number;
   setTarget(id: string | null): void;

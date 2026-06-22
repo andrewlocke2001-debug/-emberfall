@@ -122,6 +122,48 @@ export const ITEMS: Record<string, ItemDef> = {
     desc: "Restores 40 HP. Tastes of ash.",
   },
 
+  // --- gathered materials (Mining ore + Fishing raw fish; P4) ---
+  copper_ore: {
+    id: "copper_ore",
+    name: "Copper Ore",
+    rarity: "common",
+    maxStack: STACK_MAX,
+    value: 3,
+    desc: "Smelts with tin into bronze.",
+  },
+  tin_ore: {
+    id: "tin_ore",
+    name: "Tin Ore",
+    rarity: "common",
+    maxStack: STACK_MAX,
+    value: 3,
+    desc: "Smelts with copper into bronze.",
+  },
+  iron_ore: {
+    id: "iron_ore",
+    name: "Iron Ore",
+    rarity: "common",
+    maxStack: STACK_MAX,
+    value: 10,
+    desc: "Smelts into an iron bar.",
+  },
+  raw_shrimp: {
+    id: "raw_shrimp",
+    name: "Raw Shrimp",
+    rarity: "common",
+    maxStack: STACK_MAX,
+    value: 2,
+    desc: "Cook it before eating.",
+  },
+  raw_trout: {
+    id: "raw_trout",
+    name: "Raw Trout",
+    rarity: "common",
+    maxStack: STACK_MAX,
+    value: 6,
+    desc: "Cook it before eating.",
+  },
+
   // --- materials (mob drops; feed Smithing/Cooking later) ---
   ash_pelt: {
     id: "ash_pelt",

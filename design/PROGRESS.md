@@ -136,6 +136,27 @@ yet on real devices because we're not deployed.
   is mechanically in place.
 - Also wrote `design/STORY.md` (the Main Story spine + lore) on 2026-06-19.
 
+## P4 — skilling (in progress, local)
+- **P4.1 done**: **Gathering — Mining + Fishing**.
+  - Two new skills (`mining`, `fishing`) added to SKILL_IDS; XP synced on
+    PlayerSchema (`miningXp`/`fishingXp`) + persisted (migration
+    `add_gathering_skills`). Gathered ore/fish items added to data/items.ts.
+  - Resource nodes are data (`shared/data/resources.ts`: defs + per-zone
+    placements + `nearBank`-style lookup) — per-player and non-depleting, so
+    they need no synced schema (client renders from data, server validates
+    against it), mirroring the bank pattern. Meadowbrook has starter copper/tin
+    rocks + a pond shrimp spot; Greenreach has more + iron + a trout spot.
+  - `Gather` is a zod message; the server runs a ~2.4–3s timed gather that
+    **auto-repeats** while you stand still in range (RS semi-AFK feel), yields
+    one item per cycle (**ledgered**, reason `gather`), grants skill XP, and
+    stops on move / out-of-range / full bag / level-too-low. Nodes gate on a
+    minimum skill level.
+  - Client: clickable node markers; HUD now shows ⚔/♥/⛏/🎣 levels; mining/
+    fishing level-up toasts. 94 unit + 14 e2e (new gather.spec: /tp to the
+    copper rock → mine → ore + Mining XP).
+- Next: **P4.2** crafting (Smithing + Cooking) + food healing, **P4.3** rested
+  XP + close-out.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
@@ -147,6 +168,16 @@ yet on real devices because we're not deployed.
   moving prisma migrate out of boot (release_command) for fast cold starts.
 
 ## Shipped
+
+### 2026-06-19 — P4.1 gathering (Mining + Fishing) ✅
+- Two gathering skills with synced+persisted XP (migration
+  `add_gathering_skills`). Resource nodes are data-driven, per-player,
+  non-depleting placements (no synced schema — client renders from data, server
+  validates), like the bank pattern. `Gather` is a zod message; the server runs
+  a ~2.4–3s timed gather that auto-repeats while standing still, yields one
+  ledgered item per cycle (reason `gather`) + skill XP, and stops on move /
+  range / full bag / level gate. Client node markers + HUD ⛏/🎣 levels +
+  level-up toasts. 94 unit + 14 e2e (new gather.spec).
 
 ### 2026-06-19 — P3.4 town bank (P3 complete) ✅
 - Pure deposit/withdraw (7 unit tests; round-trip conserves totals); `addItem`

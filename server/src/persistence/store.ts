@@ -24,6 +24,8 @@ export interface SavedCharacter {
   level: number;
   meleeXp: number;
   vitalityXp: number;
+  miningXp: number;
+  fishingXp: number;
   /** Inventory stacks (JSON column). Server is the sole writer. */
   inventory: ItemStack[];
   /** Equipped gear (slot → itemId JSON column). Server is the sole writer. */
@@ -103,6 +105,8 @@ class CharacterStore {
         level: 1,
         meleeXp: 0,
         vitalityXp: 0,
+        miningXp: 0,
+        fishingXp: 0,
         inventory: asJson([]),
         equipment: asJson({}),
         bank: asJson([]),
@@ -123,6 +127,8 @@ class CharacterStore {
       level: c.level,
       meleeXp: c.meleeXp,
       vitalityXp: c.vitalityXp,
+      miningXp: c.miningXp,
+      fishingXp: c.fishingXp,
       inventory: asJson(c.inventory),
       equipment: asJson(c.equipment),
       bank: asJson(c.bank),
@@ -146,6 +152,8 @@ function toSavedCharacter(row: {
   level: number;
   meleeXp: number;
   vitalityXp: number;
+  miningXp: number;
+  fishingXp: number;
   inventory: unknown;
   equipment: unknown;
   bank: unknown;
@@ -161,6 +169,8 @@ function toSavedCharacter(row: {
     level: row.level,
     meleeXp: row.meleeXp,
     vitalityXp: row.vitalityXp,
+    miningXp: row.miningXp,
+    fishingXp: row.fishingXp,
     inventory: parseInventory(row.inventory),
     equipment: parseEquipment(row.equipment),
     bank: parseInventory(row.bank),

@@ -10,6 +10,7 @@ import {
   PICKUP_RANGE,
   LOOT_OWNERSHIP_MS,
   LOOT_DESPAWN_MS,
+  GATHER_RANGE,
   distSq,
   type CombatEventPayload,
   type JoinZoneOptions,
@@ -28,6 +29,7 @@ import {
   type PickupPayload,
   type BankMovePayload,
   type BankPayload,
+  type GatherPayload,
 } from "@mmo/shared";
 import { addItem, type Inventory } from "@mmo/shared/systems/inventory";
 import {
@@ -39,6 +41,7 @@ import {
 import { deposit, withdraw, type Bank } from "@mmo/shared/systems/bank";
 import { itemDef, ITEM_IDS } from "@mmo/shared/data/items";
 import { nearBank } from "@mmo/shared/data/banks";
+import { resourceNode } from "@mmo/shared/data/resources";
 import { EnemySchema, PlayerSchema, ZoneState, GroundLootSchema } from "@mmo/shared/schema/state";
 import {
   MoveSchema,
@@ -48,6 +51,7 @@ import {
   UnequipSchema,
   PickupSchema,
   BankMoveSchema,
+  GatherSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -136,6 +140,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private lootSeq = 0;
   /** Ground-loot id → server time (ms) at which it despawns (server-only). */
   private readonly lootDespawn = new Map<string, number>();
+  /** Per-session active gather: which node, and when the current yield lands. */
+  private readonly gatherState = new Map<string, { nodeId: string; finishAt: number }>();
   /**
    * Authoritative per-session inventory, kept OUT of synced state so bags
    * aren't broadcast to other clients. Loaded on join, pushed to the owner via
@@ -206,6 +212,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.handleBankMove(client, msg, "withdraw");
     });
 
+    this.onMessage(ClientMessage.Gather, GatherSchema, (client, msg: GatherPayload) => {
+      this.handleGather(client, msg);
+    });
+
     // Global chat arrives from any zone in this process — fan it out to ours.
     this.unsubscribeGlobal = globalBus.onChat((payload) => {
       this.broadcast(ServerMessage.Chat, payload);
@@ -254,6 +264,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     // the saved level/maxHp columns (which are denormalized convenience only).
     player.meleeXp = saved.meleeXp;
     player.vitalityXp = saved.vitalityXp;
+    player.miningXp = saved.miningXp;
+    player.fishingXp = saved.fishingXp;
     player.level = levelForXp(saved.meleeXp);
     // maxHp = Vitality curve + equipped gear's maxHp bonus.
     player.maxHp =
@@ -288,6 +300,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.deadUntil.delete(client.sessionId);
     this.gcdUntil.delete(client.sessionId);
     this.abilityCooldowns.delete(client.sessionId);
+    this.gatherState.delete(client.sessionId);
     this.gmSessions.delete(client.sessionId);
     this.enemyAI.forEach((ai) => {
       if (ai.target === client.sessionId) ai.target = null;
@@ -779,6 +792,41 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.sendInventory(client);
   }
 
+  /** Start (or restart) gathering a resource node — server validates each yield
+   *  in update(); it auto-repeats while the player stands still in range. */
+  private handleGather(client: Client, msg: GatherPayload): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive) return;
+    const resolved = resourceNode(this.map.id, msg.nodeId);
+    if (!resolved) return;
+    const { node, def } = resolved;
+    if (distSq(player.x, player.y, node.x, node.y) > GATHER_RANGE * GATHER_RANGE) return;
+    if (levelForXp(this.skillXp(player, def.skill)) < def.levelReq) {
+      this.systemTo(client, `You need ${def.skill} level ${def.levelReq} for that.`);
+      return;
+    }
+    this.gatherState.set(sessionId, { nodeId: msg.nodeId, finishAt: Date.now() + def.gatherMs });
+  }
+
+  /** Current XP in a gathering skill. */
+  private skillXp(player: PlayerSchema, skill: "mining" | "fishing"): number {
+    return skill === "mining" ? player.miningXp : player.fishingXp;
+  }
+
+  /** Grant gathering XP and toast a level-up (gathering skills don't touch combat). */
+  private grantGatherXp(
+    sessionId: string,
+    player: PlayerSchema,
+    skill: "mining" | "fishing",
+    amount: number,
+  ): void {
+    const g = gainXp(this.skillXp(player, skill), amount);
+    if (skill === "mining") player.miningXp = g.xp;
+    else player.fishingXp = g.xp;
+    if (g.leveledUp) this.sendLevelUp(sessionId, skill, g.level);
+  }
+
   /** A player's combat stats: level-derived base + equipped-gear bonuses. The
    *  gear maxHp bonus is already baked into player.maxHp (see applyMaxHp). */
   private playerStats(sessionId: string, player: PlayerSchema): CombatStats {
@@ -901,6 +949,44 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         this.state.loot.delete(id);
         this.lootDespawn.delete(id);
       }
+    });
+
+    // Resource gathering: yield on the timer, then auto-repeat while the player
+    // stands still in range; moving / leaving / a full bag stops it.
+    this.gatherState.forEach((g, sessionId) => {
+      const player = this.state.players.get(sessionId);
+      const resolved = player ? resourceNode(this.map.id, g.nodeId) : undefined;
+      const input = this.inputs.get(sessionId);
+      const moving = !!input && (input.dx !== 0 || input.dy !== 0);
+      if (!player || !player.alive || !resolved || moving) {
+        this.gatherState.delete(sessionId);
+        return;
+      }
+      const { node, def } = resolved;
+      if (distSq(player.x, player.y, node.x, node.y) > GATHER_RANGE * GATHER_RANGE) {
+        this.gatherState.delete(sessionId);
+        return;
+      }
+      if (now < g.finishAt) return;
+
+      const client = this.clients.find((c) => c.sessionId === sessionId);
+      const res = addItem(
+        this.inventories.get(sessionId) ?? [],
+        def.itemId,
+        1,
+        itemDef(def.itemId)?.maxStack ?? 1,
+      );
+      if (res.added <= 0) {
+        this.gatherState.delete(sessionId); // bag full — stop gathering
+        if (client) this.systemTo(client, "Your bag is full.");
+        return;
+      }
+      this.inventories.set(sessionId, res.inventory);
+      // A gathered resource is created into the economy here (kit rule #6).
+      void recordLedger({ account: player.id, itemId: def.itemId, delta: res.added, reason: "gather" });
+      this.grantGatherXp(sessionId, player, def.skill, def.xp);
+      if (client) this.sendInventory(client);
+      g.finishAt = now + def.gatherMs; // auto-repeat the next swing/cast
     });
   }
 
@@ -1046,6 +1132,8 @@ function toSaved(
     level: p.level,
     meleeXp: p.meleeXp,
     vitalityXp: p.vitalityXp,
+    miningXp: p.miningXp,
+    fishingXp: p.fishingXp,
     inventory,
     equipment,
     bank,
