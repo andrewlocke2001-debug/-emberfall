@@ -28,6 +28,8 @@ export const ClientMessage = {
   Equip: "equip",
   /** Unequip a gear slot back into the bag. */
   Unequip: "unequip",
+  /** Pick up a ground-loot pile (server checks range + ownership). */
+  Pickup: "pickup",
 } as const;
 
 /** Server → client message types. */
@@ -131,6 +133,11 @@ export interface EquipPayload {
 /** Client → server: unequip a gear slot back into the bag. */
 export interface UnequipPayload {
   slot: EquipSlot;
+}
+
+/** Client → server: pick up a ground-loot pile by its id. */
+export interface PickupPayload {
+  lootId: string;
 }
 
 /**

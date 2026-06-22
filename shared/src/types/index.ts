@@ -56,6 +56,13 @@ export const HP_PER_VITALITY = 8;
 /** Inventory capacity — RuneScape's 28 slots. */
 export const INVENTORY_SLOTS = 28;
 
+/** How close (world units) a player must be to pick up ground loot. */
+export const PICKUP_RANGE = 56;
+/** Ground loot is reserved for its owner this long (ms) before going public. */
+export const LOOT_OWNERSHIP_MS = 60_000;
+/** Ground loot despawns this long (ms) after it drops. */
+export const LOOT_DESPAWN_MS = 120_000;
+
 /**
  * One stack of items in an inventory: a content id (see @mmo/shared/data/items)
  * + a quantity. The shared inventory system enforces per-item stack limits and

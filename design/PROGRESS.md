@@ -107,7 +107,19 @@ yet on real devices because we're not deployed.
   - Client: equipment strip in the inventory panel; click a bag item to equip,
     click a worn item to unequip. Migration `add_equipment`. 82 unit + 11 e2e
     green (new equipment.spec: equip body armor → maxHp +6 → unequip restores).
-- Next: **P3.3** drop tables + ground loot + coins, **P3.4** bank + P3 close-out.
+- **P3.3 done**: drop tables + ground loot + coin drops (**personal loot**).
+  - `shared/systems/loot.ts` — pure `rollDrops` (per-entry chance + uniform qty,
+    injected RNG; 5 unit tests). Each mob has a `drops` table in data/mobs.ts
+    (coins + materials; bandit rarely a sword/potion; dummy nothing).
+  - On death, **every contributor gets their own loot roll** (GW2-style, no
+    steals) → `GroundLootSchema` piles in synced state at the mob, reserved to
+    that player (`ownerId`/`ownerUntil`) for 60s, then public; despawn at 120s.
+  - Pickup (`Pickup` zod message): server checks range + ownership, adds to the
+    bag, and **ledgers the item into the economy on pickup** (reason `loot`) —
+    unpicked loot that despawns is a non-event (nothing entered an inventory).
+  - Client renders clickable loot piles; GM `/droploot <item> [qty]` for
+    testing. No DB migration (ground loot is transient). 87 unit + 12 e2e green.
+- Next: **P3.4** bank + P3 close-out.
 - Also wrote `design/STORY.md` (the Main Story spine + lore) on 2026-06-19.
 
 ## Known follow-ups (deferred, not blocking)
@@ -121,6 +133,19 @@ yet on real devices because we're not deployed.
   moving prisma migrate out of boot (release_command) for fast cold starts.
 
 ## Shipped
+
+### 2026-06-19 — P3.3 drop tables + ground loot + coins (personal loot) ✅
+- Pure `rollDrops` (5 unit tests) + per-mob drop tables. On kill, every
+  contributor gets their own roll (GW2 personal loot) → GroundLootSchema piles
+  in synced state, owner-reserved 60s then public, despawn 120s. Pickup is a
+  zod message, range + ownership checked server-side; the item is ledgered into
+  the economy on pickup (reason `loot`) — unpicked despawned loot is a
+  non-event. Client renders clickable piles; GM `/droploot` for testing. No DB
+  migration (transient). 87 unit + 12 e2e (new loot.spec: drop → pickup → bag).
+- Deviation: ground loot is shared synced state (everyone sees all piles, but
+  pickup is owner-gated until the timer) rather than GW2's per-player-invisible
+  loot — true filtered visibility needs Colyseus StateView, deferred. Auto
+  walk-over pickup also deferred (click-to-pickup for now).
 
 ### 2026-06-19 — P3.2 equipment + stat application (+ STORY.md) ✅
 - Pure equip/unequip/equipmentBonus system (9 unit tests); 8 gear slots.

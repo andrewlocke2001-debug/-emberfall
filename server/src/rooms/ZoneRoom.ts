@@ -7,6 +7,9 @@ import {
   TICK_MS,
   GCD_MS,
   ENERGY_REGEN_PER_SEC,
+  PICKUP_RANGE,
+  LOOT_OWNERSHIP_MS,
+  LOOT_DESPAWN_MS,
   distSq,
   type CombatEventPayload,
   type JoinZoneOptions,
@@ -22,6 +25,7 @@ import {
   type EquipPayload,
   type UnequipPayload,
   type EquipmentPayload,
+  type PickupPayload,
 } from "@mmo/shared";
 import { addItem, type Inventory } from "@mmo/shared/systems/inventory";
 import {
@@ -31,14 +35,16 @@ import {
   type Equipment,
 } from "@mmo/shared/systems/equipment";
 import { itemDef, ITEM_IDS } from "@mmo/shared/data/items";
-import { EnemySchema, PlayerSchema, ZoneState } from "@mmo/shared/schema/state";
+import { EnemySchema, PlayerSchema, ZoneState, GroundLootSchema } from "@mmo/shared/schema/state";
 import {
   MoveSchema,
   UseAbilitySchema,
   ChatSchema,
   EquipSchema,
   UnequipSchema,
+  PickupSchema,
 } from "@mmo/shared/protocol/schemas";
+import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
 import { resolveAttack, type CombatStats } from "@mmo/shared/systems/combatmath";
 import {
@@ -121,6 +127,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly gmSessions = new Set<string>();
   /** Monotonic counter for unique GM-spawned mob ids. */
   private gmSpawnCount = 0;
+  /** Monotonic counter for unique ground-loot ids. */
+  private lootSeq = 0;
+  /** Ground-loot id → server time (ms) at which it despawns (server-only). */
+  private readonly lootDespawn = new Map<string, number>();
   /**
    * Authoritative per-session inventory, kept OUT of synced state so bags
    * aren't broadcast to other clients. Loaded on join, pushed to the owner via
@@ -175,6 +185,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
     this.onMessage(ClientMessage.Unequip, UnequipSchema, (client, msg: UnequipPayload) => {
       this.handleUnequip(client, msg);
+    });
+
+    this.onMessage(ClientMessage.Pickup, PickupSchema, (client, msg: PickupPayload) => {
+      this.handlePickup(client, msg);
     });
 
     // Global chat arrives from any zone in this process — fan it out to ours.
@@ -387,11 +401,31 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const def = mobDef(enemy.kind);
     const meleeAmt = def.xpReward;
     const vitalityAmt = Math.floor(def.xpReward * VITALITY_XP_FRACTION);
+    const now = Date.now();
+    // GW2-style: every contributor gets XP and their OWN loot roll (no steals).
     contributors.forEach((sessionId) => {
       const player = this.state.players.get(sessionId);
-      if (player) this.grantXp(sessionId, player, meleeAmt, vitalityAmt);
+      if (!player) return;
+      this.grantXp(sessionId, player, meleeAmt, vitalityAmt);
+      for (const stack of rollDrops(def.drops)) {
+        this.spawnLoot(stack.itemId, stack.qty, enemy.x, enemy.y, player.id, now);
+      }
     });
     contributors.clear();
+  }
+
+  /** Drop a pile of ground loot near (x,y), reserved to `ownerId` for a while. */
+  private spawnLoot(itemId: string, qty: number, x: number, y: number, ownerId: string, now: number): void {
+    const loot = new GroundLootSchema();
+    loot.id = `loot-${++this.lootSeq}`;
+    loot.itemId = itemId;
+    loot.qty = qty;
+    loot.x = x + (Math.random() * 32 - 16); // small scatter so piles don't overlap
+    loot.y = y + (Math.random() * 32 - 16);
+    loot.ownerId = ownerId;
+    loot.ownerUntil = now + LOOT_OWNERSHIP_MS;
+    this.state.loot.set(loot.id, loot);
+    this.lootDespawn.set(loot.id, now + LOOT_DESPAWN_MS);
   }
 
   /**
@@ -488,6 +522,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       case "give":
         this.gmGive(client, player, args);
         break;
+      case "droploot":
+        this.gmDropLoot(client, player, args);
+        break;
       case "kick":
         this.gmKick(client, args);
         break;
@@ -569,6 +606,19 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     );
   }
 
+  /** /droploot <itemId> [qty] — drop a ground-loot pile at the GM's feet. */
+  private gmDropLoot(client: Client, self: PlayerSchema, args: string[]): void {
+    const id = args[0] ?? "";
+    const def = itemDef(id);
+    if (!def) {
+      this.systemTo(client, `Unknown item "${id}". Known: ${ITEM_IDS.join(", ")}`);
+      return;
+    }
+    const qty = Math.max(1, Math.floor(Number(args[1] ?? 1)) || 1);
+    this.spawnLoot(def.id, qty, self.x, self.y, self.id, Date.now());
+    this.systemTo(client, `Dropped ${qty}× ${def.name}.`);
+  }
+
   /** /kick <name> — force-disconnect a player by display name. */
   private gmKick(client: Client, args: string[]): void {
     const name = args[0];
@@ -644,6 +694,37 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.applyMaxHp(sessionId, player);
     this.sendInventory(client);
     this.sendEquipment(client);
+  }
+
+  /** Pick up a ground-loot pile into the bag (range + ownership checked). */
+  private handlePickup(client: Client, msg: PickupPayload): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive) return;
+    const loot = this.state.loot.get(msg.lootId);
+    if (!loot) return;
+    if (distSq(player.x, player.y, loot.x, loot.y) > PICKUP_RANGE * PICKUP_RANGE) return;
+    // Reserved to its owner until the timer lapses, then anyone may grab it.
+    if (loot.ownerId && loot.ownerId !== player.id && Date.now() < loot.ownerUntil) return;
+
+    const def = itemDef(loot.itemId);
+    if (!def) {
+      this.state.loot.delete(msg.lootId); // unknown item — clean it up
+      this.lootDespawn.delete(msg.lootId);
+      return;
+    }
+    const res = addItem(this.inventories.get(sessionId) ?? [], loot.itemId, loot.qty, def.maxStack);
+    if (res.added <= 0) return; // bag full — leave it on the ground
+    this.inventories.set(sessionId, res.inventory);
+    // Item enters the economy here (kit rule #6): created into a player's bag.
+    void recordLedger({ account: player.id, itemId: loot.itemId, delta: res.added, reason: "loot" });
+    if (res.added >= loot.qty) {
+      this.state.loot.delete(msg.lootId);
+      this.lootDespawn.delete(msg.lootId);
+    } else {
+      loot.qty -= res.added; // partial pickup (bag nearly full) — remainder stays
+    }
+    this.sendInventory(client);
   }
 
   /** A player's combat stats: level-derived base + equipped-gear bonuses. The
@@ -757,6 +838,16 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
           ai.target = null;
           ai.lastAttackAt = 0;
         }
+      }
+    });
+
+    // Despawn ground loot whose timer has elapsed (unpicked loot is a non-event
+    // for the ledger — nothing entered a player's inventory).
+    this.state.loot.forEach((_loot, id) => {
+      const at = this.lootDespawn.get(id);
+      if (at !== undefined && now >= at) {
+        this.state.loot.delete(id);
+        this.lootDespawn.delete(id);
       }
     });
   }

@@ -16,6 +16,8 @@ export interface MmoTestApi {
   equipment(): Record<string, string>;
   equip(itemId: string): void;
   unequip(slot: string): void;
+  groundLoot(): { id: string; itemId: string; qty: number; ownerId: string }[];
+  pickup(lootId: string): void;
   enemyHp(id: string): number | null;
   me(): {
     x: number;

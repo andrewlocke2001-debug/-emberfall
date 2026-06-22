@@ -7,6 +7,7 @@ import type {
   ChatPayload,
   EquipPayload,
   UnequipPayload,
+  PickupPayload,
 } from "./messages";
 
 /**
@@ -44,6 +45,10 @@ export const UnequipSchema = z.strictObject({
   slot: z.enum(EQUIP_SLOTS),
 });
 
+export const PickupSchema = z.strictObject({
+  lootId: z.string().min(1).max(64),
+});
+
 // --- compile-time drift guards (no runtime cost) -----------------------------
 
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -53,8 +58,10 @@ const _ability: AssertEqual<z.output<typeof UseAbilitySchema>, UseAbilityPayload
 const _chat: AssertEqual<z.output<typeof ChatSchema>, ChatPayload> = true;
 const _equip: AssertEqual<z.output<typeof EquipSchema>, EquipPayload> = true;
 const _unequip: AssertEqual<z.output<typeof UnequipSchema>, UnequipPayload> = true;
+const _pickup: AssertEqual<z.output<typeof PickupSchema>, PickupPayload> = true;
 void _move;
 void _ability;
 void _chat;
 void _equip;
 void _unequip;
+void _pickup;

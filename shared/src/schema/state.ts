@@ -109,21 +109,57 @@ defineTypes(EnemySchema, {
   respawnAt: "number",
 });
 
+/** A pile of items lying on the ground (dropped loot). */
+export class GroundLootSchema extends Schema {
+  declare id: string;
+  declare itemId: string;
+  declare qty: number;
+  declare x: number;
+  declare y: number;
+  /** Account id reserved to pick this up until `ownerUntil` (""=public). */
+  declare ownerId: string;
+  /** Server time (ms) after which anyone may pick it up. */
+  declare ownerUntil: number;
+
+  constructor() {
+    super();
+    this.id = "";
+    this.itemId = "";
+    this.qty = 0;
+    this.x = 0;
+    this.y = 0;
+    this.ownerId = "";
+    this.ownerUntil = 0;
+  }
+}
+defineTypes(GroundLootSchema, {
+  id: "string",
+  itemId: "string",
+  qty: "number",
+  x: "number",
+  y: "number",
+  ownerId: "string",
+  ownerUntil: "number",
+});
+
 /** Root room state for a single zone. */
 export class ZoneState extends Schema {
   declare zoneId: string;
   declare players: MapSchema<PlayerSchema>;
   declare enemies: MapSchema<EnemySchema>;
+  declare loot: MapSchema<GroundLootSchema>;
 
   constructor() {
     super();
     this.zoneId = "verdant-vale";
     this.players = new MapSchema<PlayerSchema>();
     this.enemies = new MapSchema<EnemySchema>();
+    this.loot = new MapSchema<GroundLootSchema>();
   }
 }
 defineTypes(ZoneState, {
   zoneId: "string",
   players: { map: PlayerSchema },
   enemies: { map: EnemySchema },
+  loot: { map: GroundLootSchema },
 });

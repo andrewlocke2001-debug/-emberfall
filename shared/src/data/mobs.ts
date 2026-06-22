@@ -6,6 +6,8 @@
  * `aggroRadius: 0` marks a passive mob (training dummy) — it never chases or
  * attacks, only takes hits.
  */
+import type { DropEntry } from "../systems/loot";
+
 export interface MobDef {
   kind: string;
   name: string;
@@ -28,6 +30,8 @@ export interface MobDef {
   respawnMs: number;
   /** XP awarded for a kill (granted from P2.4). */
   xpReward: number;
+  /** Loot table — rolled once per contributor on death (P3.3). */
+  drops: DropEntry[];
   /** Client render tint. */
   color: number;
 }
@@ -48,6 +52,7 @@ export const MOBS: Record<string, MobDef> = {
     moveSpeed: 0,
     respawnMs: 4000,
     xpReward: 4,
+    drops: [], // a training dummy drops nothing
     color: 0xb5651d,
   },
   emberling: {
@@ -65,6 +70,10 @@ export const MOBS: Record<string, MobDef> = {
     moveSpeed: 120,
     respawnMs: 8000,
     xpReward: 12,
+    drops: [
+      { itemId: "coins", min: 1, max: 8, chance: 1 },
+      { itemId: "emberling_fang", min: 1, max: 1, chance: 0.5 },
+    ],
     color: 0xff7043,
   },
   wolf: {
@@ -82,6 +91,10 @@ export const MOBS: Record<string, MobDef> = {
     moveSpeed: 185,
     respawnMs: 10000,
     xpReward: 20,
+    drops: [
+      { itemId: "coins", min: 3, max: 12, chance: 1 },
+      { itemId: "ash_pelt", min: 1, max: 1, chance: 0.6 },
+    ],
     color: 0x9e9e9e,
   },
   bandit: {
@@ -99,6 +112,11 @@ export const MOBS: Record<string, MobDef> = {
     moveSpeed: 130,
     respawnMs: 12000,
     xpReward: 35,
+    drops: [
+      { itemId: "coins", min: 10, max: 30, chance: 1 },
+      { itemId: "health_potion", min: 1, max: 1, chance: 0.25 },
+      { itemId: "bronze_sword", min: 1, max: 1, chance: 0.1 },
+    ],
     color: 0x8d6e63,
   },
 };

@@ -12,14 +12,15 @@ import {
   type LevelUpPayload,
   type InventoryPayload,
   type EquipmentPayload,
+  PICKUP_RANGE,
 } from "@mmo/shared";
 import { stepWithCollision } from "@mmo/shared/systems/collision";
 import { levelForXp } from "@mmo/shared/systems/progression";
-import type { EquipSlot } from "@mmo/shared/data/items";
+import { ITEMS, type EquipSlot } from "@mmo/shared/data/items";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
 import { MOBS } from "@mmo/shared/data/mobs";
 import type { ZoneMap } from "@mmo/shared/systems/zonemap";
-import type { EnemySchema, PlayerSchema } from "@mmo/shared/schema/state";
+import type { EnemySchema, PlayerSchema, GroundLootSchema } from "@mmo/shared/schema/state";
 import type { ZoneConnection } from "../net/room";
 import { EntityView } from "../ui/EntityView";
 import { TouchControls } from "../ui/TouchControls";
@@ -50,6 +51,8 @@ export class ZoneScene extends Phaser.Scene {
 
   private readonly players = new Map<string, EntityView>();
   private readonly enemies = new Map<string, EntityView>();
+  /** Ground-loot pile markers, keyed by loot id. */
+  private readonly lootViews = new Map<string, Phaser.GameObjects.Container>();
 
   private predicted = { x: 0, y: 0 };
   private predictionReady = false;
@@ -355,6 +358,34 @@ export class ZoneScene extends Phaser.Scene {
       this.enemies.delete(id);
       if (this.selectedTargetId === id) this.selectTarget(null);
     });
+
+    $(room.state).loot.onAdd((loot: GroundLootSchema, id: string) => {
+      this.lootViews.set(id, this.createLootMarker(loot, id));
+    });
+    $(room.state).loot.onRemove((_loot: GroundLootSchema, id: string) => {
+      this.lootViews.get(id)?.destroy();
+      this.lootViews.delete(id);
+    });
+  }
+
+  /** A clickable ground-loot pile (click to send a pickup intent). */
+  private createLootMarker(loot: GroundLootSchema, id: string): Phaser.GameObjects.Container {
+    const def = ITEMS[loot.itemId];
+    const color =
+      loot.itemId === "coins" ? 0xffd34d : def && def.rarity !== "common" ? 0x9bd1ff : 0xd8c08a;
+    const dot = this.add.circle(0, 0, 7, color).setStrokeStyle(2, 0x10131a);
+    const qty = loot.qty > 1 ? ` x${loot.qty}` : "";
+    const label = this.add
+      .text(0, -16, `${def?.name ?? loot.itemId}${qty}`, {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "11px",
+        color: "#ffe9b0",
+      })
+      .setOrigin(0.5)
+      .setStroke("#000", 3);
+    dot.setInteractive({ useHandCursor: true });
+    dot.on("pointerdown", () => this.connection.room.send(ClientMessage.Pickup, { lootId: id }));
+    return this.add.container(loot.x, loot.y, [dot, label]).setDepth(2);
   }
 
   private setupMessages(): void {
@@ -518,6 +549,14 @@ export class ZoneScene extends Phaser.Scene {
       equipment: () => this.equipmentSlots,
       equip: (itemId: string) => room.send(ClientMessage.Equip, { itemId }),
       unequip: (slot: string) => room.send(ClientMessage.Unequip, { slot }),
+      groundLoot: () => {
+        const out: { id: string; itemId: string; qty: number; ownerId: string }[] = [];
+        room.state?.loot?.forEach((l, id) =>
+          out.push({ id, itemId: l.itemId, qty: l.qty, ownerId: l.ownerId }),
+        );
+        return out;
+      },
+      pickup: (lootId: string) => room.send(ClientMessage.Pickup, { lootId }),
       setTarget: (id: string | null) => this.selectTarget(id),
       attack: (targetId: string) =>
         room.send(ClientMessage.UseAbility, { abilityId: "strike", targetId }),
