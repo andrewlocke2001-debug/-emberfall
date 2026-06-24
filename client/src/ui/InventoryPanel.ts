@@ -6,6 +6,8 @@ export interface InventoryPanelOptions {
   onEquip: (itemId: string) => void;
   /** Unequip a gear slot back into the bag. */
   onUnequip: (slot: EquipSlot) => void;
+  /** Eat/consume an inventory item (food/potions). */
+  onConsume: (itemId: string) => void;
 }
 
 /**
@@ -48,7 +50,10 @@ export class InventoryPanel {
       const index = i;
       cell.addEventListener("click", () => {
         const stack = this.slots[index];
-        if (stack && ITEMS[stack.itemId]?.equipSlot) this.opts.onEquip(stack.itemId);
+        if (!stack) return;
+        const def = ITEMS[stack.itemId];
+        if (def?.equipSlot) this.opts.onEquip(stack.itemId);
+        else if (def?.heal) this.opts.onConsume(stack.itemId);
       });
       this.grid.appendChild(cell);
     }
@@ -86,7 +91,7 @@ export class InventoryPanel {
       this.fill(cell, def?.name ?? stack.itemId, stack.qty);
       cell.classList.add("filled");
       if (def && def.rarity !== "common") cell.classList.add(def.rarity);
-      if (def?.equipSlot) cell.classList.add("equippable");
+      if (def?.equipSlot || def?.heal) cell.classList.add("equippable"); // clickable affordance
       cell.title = this.tooltip(stack.itemId);
     }
   }

@@ -10,6 +10,8 @@ import type {
   PickupPayload,
   BankMovePayload,
   GatherPayload,
+  CraftPayload,
+  ConsumePayload,
 } from "./messages";
 
 /**
@@ -61,6 +63,14 @@ export const GatherSchema = z.strictObject({
   nodeId: z.string().min(1).max(64),
 });
 
+export const CraftSchema = z.strictObject({
+  recipeId: z.string().min(1).max(64),
+});
+
+export const ConsumeSchema = z.strictObject({
+  itemId: z.string().min(1).max(64),
+});
+
 // --- compile-time drift guards (no runtime cost) -----------------------------
 
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -73,6 +83,8 @@ const _unequip: AssertEqual<z.output<typeof UnequipSchema>, UnequipPayload> = tr
 const _pickup: AssertEqual<z.output<typeof PickupSchema>, PickupPayload> = true;
 const _bankMove: AssertEqual<z.output<typeof BankMoveSchema>, BankMovePayload> = true;
 const _gather: AssertEqual<z.output<typeof GatherSchema>, GatherPayload> = true;
+const _craft: AssertEqual<z.output<typeof CraftSchema>, CraftPayload> = true;
+const _consume: AssertEqual<z.output<typeof ConsumeSchema>, ConsumePayload> = true;
 void _move;
 void _ability;
 void _chat;
@@ -81,3 +93,5 @@ void _unequip;
 void _pickup;
 void _bankMove;
 void _gather;
+void _craft;
+void _consume;

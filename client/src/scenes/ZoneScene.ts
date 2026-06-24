@@ -31,6 +31,7 @@ import { ChatBox } from "../ui/ChatBox";
 import { AbilityBar } from "../ui/AbilityBar";
 import { InventoryPanel } from "../ui/InventoryPanel";
 import { BankPanel } from "../ui/BankPanel";
+import { CraftPanel } from "../ui/CraftPanel";
 import type { ItemStack } from "@mmo/shared";
 
 const RECONCILE_SNAP = 64; // px of drift beyond which we hard-snap the local player
@@ -86,6 +87,8 @@ export class ZoneScene extends Phaser.Scene {
   private bankSlots: ItemStack[] = [];
   /** Whether the local player is currently standing at a bank. */
   private atBank = false;
+  /** Crafting panel (toggle C). */
+  private craftPanel?: CraftPanel;
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map?: ZoneMap;
@@ -113,12 +116,12 @@ export class ZoneScene extends Phaser.Scene {
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
-    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I,B") as Record<
+    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C") as Record<
       string,
       Phaser.Input.Keyboard.Key
     >;
     this.escKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,UP,DOWN,LEFT,RIGHT");
+    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,UP,DOWN,LEFT,RIGHT");
 
     this.selectionRing = this.add
       .circle(0, 0, 28)
@@ -166,10 +169,16 @@ export class ZoneScene extends Phaser.Scene {
     this.inventory = new InventoryPanel({
       onEquip: (itemId) => this.connection.room.send(ClientMessage.Equip, { itemId }),
       onUnequip: (slot) => this.connection.room.send(ClientMessage.Unequip, { slot }),
+      onConsume: (itemId) => this.connection.room.send(ClientMessage.Consume, { itemId }),
     });
     this.inventory.setInventory(this.inventorySlots);
     this.inventory.setEquipment(this.equipmentSlots);
     this.events.once("shutdown", () => this.inventory?.destroy());
+
+    this.craftPanel = new CraftPanel({
+      onCraft: (recipeId) => this.connection.room.send(ClientMessage.Craft, { recipeId }),
+    });
+    this.events.once("shutdown", () => this.craftPanel?.destroy());
 
     this.bankPanel = new BankPanel({
       onDeposit: (itemId, qty) => this.connection.room.send(ClientMessage.Deposit, { itemId, qty }),
@@ -204,9 +213,12 @@ export class ZoneScene extends Phaser.Scene {
     const vitalityLvl = me ? levelForXp(me.vitalityXp) : 1;
     const miningLvl = me ? levelForXp(me.miningXp) : 1;
     const fishingLvl = me ? levelForXp(me.fishingXp) : 1;
+    const smithingLvl = me ? levelForXp(me.smithingXp) : 1;
+    const cookingLvl = me ? levelForXp(me.cookingXp) : 1;
     const hud =
       `${this.map?.displayName ?? ""} — ${room.state.players.size} online` +
-      ` · ⚔${meleeLvl} · ♥${vitalityLvl} · ⛏${miningLvl} · 🎣${fishingLvl}`;
+      ` · ⚔${meleeLvl} · ♥${vitalityLvl} · ⛏${miningLvl} · 🎣${fishingLvl}` +
+      ` · 🔨${smithingLvl} · 🍳${cookingLvl}`;
     if (hud !== this.lastHud) {
       this.chat?.setHud(hud);
       this.lastHud = hud;
@@ -318,6 +330,15 @@ export class ZoneScene extends Phaser.Scene {
       else this.bankPanel?.toggle(false);
     }
     if (Phaser.Input.Keyboard.JustDown(this.keys["B"]!) && this.atBank) this.bankPanel?.toggle();
+
+    // Crafting panel (C); refresh its skill gates from live XP while open.
+    if (Phaser.Input.Keyboard.JustDown(this.keys["C"]!)) this.craftPanel?.toggle();
+    if (this.craftPanel?.isOpen() && me) {
+      this.craftPanel.setLevels({
+        smithing: levelForXp(me.smithingXp),
+        cooking: levelForXp(me.cookingXp),
+      });
+    }
     if (this.keys["SPACE"]!.isDown || (this.touch?.attackHeld() ?? false)) {
       this.tryUseAbility("strike");
     }
@@ -441,6 +462,7 @@ export class ZoneScene extends Phaser.Scene {
       this.inventorySlots = p.slots;
       this.inventory?.setInventory(p.slots);
       this.bankPanel?.setBag(p.slots);
+      this.craftPanel?.setBag(p.slots);
     });
     this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
       this.equipmentSlots = p.equipment;
@@ -549,6 +571,8 @@ export class ZoneScene extends Phaser.Scene {
       vitality: "Vitality",
       mining: "Mining",
       fishing: "Fishing",
+      smithing: "Smithing",
+      cooking: "Cooking",
     };
     const label = labels[p.skill] ?? p.skill;
     const toast = this.add
@@ -618,10 +642,14 @@ export class ZoneScene extends Phaser.Scene {
               vitalityXp: p.vitalityXp,
               miningXp: p.miningXp,
               fishingXp: p.fishingXp,
+              smithingXp: p.smithingXp,
+              cookingXp: p.cookingXp,
               meleeLevel: p.level,
               vitalityLevel: levelForXp(p.vitalityXp),
               miningLevel: levelForXp(p.miningXp),
               fishingLevel: levelForXp(p.fishingXp),
+              smithingLevel: levelForXp(p.smithingXp),
+              cookingLevel: levelForXp(p.cookingXp),
             }
           : null;
       },
@@ -643,6 +671,8 @@ export class ZoneScene extends Phaser.Scene {
       deposit: (itemId: string, qty: number) => room.send(ClientMessage.Deposit, { itemId, qty }),
       withdraw: (itemId: string, qty: number) => room.send(ClientMessage.Withdraw, { itemId, qty }),
       gather: (nodeId: string) => room.send(ClientMessage.Gather, { nodeId }),
+      craft: (recipeId: string) => room.send(ClientMessage.Craft, { recipeId }),
+      consume: (itemId: string) => room.send(ClientMessage.Consume, { itemId }),
       setTarget: (id: string | null) => this.selectTarget(id),
       attack: (targetId: string) =>
         room.send(ClientMessage.UseAbility, { abilityId: "strike", targetId }),

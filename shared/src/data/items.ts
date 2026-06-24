@@ -164,6 +164,44 @@ export const ITEMS: Record<string, ItemDef> = {
     desc: "Cook it before eating.",
   },
 
+  // --- smithing bars (Smelting output; forge into gear) ---
+  bronze_bar: {
+    id: "bronze_bar",
+    name: "Bronze Bar",
+    rarity: "common",
+    maxStack: STACK_MAX,
+    value: 12,
+    desc: "Smithed from copper + tin. Forge it into gear.",
+  },
+  iron_bar: {
+    id: "iron_bar",
+    name: "Iron Bar",
+    rarity: "common",
+    maxStack: STACK_MAX,
+    value: 30,
+    desc: "Forge it into iron gear.",
+  },
+
+  // --- cooked food (Cooking output; eat to heal in combat) ---
+  shrimp: {
+    id: "shrimp",
+    name: "Shrimp",
+    rarity: "common",
+    maxStack: 20,
+    value: 4,
+    heal: 4,
+    desc: "Cooked. Restores 4 HP.",
+  },
+  trout: {
+    id: "trout",
+    name: "Trout",
+    rarity: "common",
+    maxStack: 20,
+    value: 12,
+    heal: 12,
+    desc: "Cooked. Restores 12 HP.",
+  },
+
   // --- materials (mob drops; feed Smithing/Cooking later) ---
   ash_pelt: {
     id: "ash_pelt",

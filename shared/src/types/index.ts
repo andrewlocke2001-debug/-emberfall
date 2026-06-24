@@ -44,10 +44,10 @@ export const ENERGY_REGEN_PER_SEC = 12;
 export const BASE_MAX_HP = 100;
 
 /**
- * Launch skills. Melee drives attack/damage; Vitality, HP; Mining/Fishing are
- * the P4 gathering skills (Smithing/Cooking arrive with P4.2 crafting).
+ * Launch skills. Melee drives attack/damage; Vitality, HP; Mining/Fishing
+ * gather; Smithing/Cooking craft (smelt/forge gear, cook food).
  */
-export const SKILL_IDS = ["melee", "vitality", "mining", "fishing"] as const;
+export const SKILL_IDS = ["melee", "vitality", "mining", "fishing", "smithing", "cooking"] as const;
 export type SkillId = (typeof SKILL_IDS)[number];
 
 /** How close (world units) a player must be to a resource node to gather it. */

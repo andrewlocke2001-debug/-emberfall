@@ -154,8 +154,23 @@ yet on real devices because we're not deployed.
   - Client: clickable node markers; HUD now shows ⚔/♥/⛏/🎣 levels; mining/
     fishing level-up toasts. 94 unit + 14 e2e (new gather.spec: /tp to the
     copper rock → mine → ore + Mining XP).
-- Next: **P4.2** crafting (Smithing + Cooking) + food healing, **P4.3** rested
-  XP + close-out.
+- **P4.2 done**: **Crafting — Smithing + Cooking + food healing**.
+  - Two crafting skills (`smithing`, `cooking`) added; XP synced + persisted
+    (migration `add_crafting_skills`). New items: bronze/iron bars, cooked
+    shrimp/trout (with `heal`). Recipes are data (`shared/data/recipes.ts`):
+    smelt bronze/iron, forge bronze sword/helm, cook shrimp/trout.
+  - Pure `craft()` system (consume inputs → output, refuse if missing/full; 4
+    unit tests). `Craft` is an instant zod message — server checks level + runs
+    the pure craft, **ledgers inputs destroyed + output created** (rule #6),
+    grants skill XP. `Consume` (eat) removes 1 food, heals up to maxHp (green
+    +N), ledgered.
+  - Client: crafting panel (toggle **C**) listing recipes with craftability;
+    click a food item in the bag to eat it; HUD adds 🔨/🍳. The full
+    gather→craft→eat loop works. 98 unit + 16 e2e (new craft.spec: smelt bronze
+    bar + Smithing XP; cook shrimp + eat it).
+  - **P4 exit met (mechanically)**: a new player can mine ore, smith a bronze
+    sword, cook a fish, and take it into combat — zero drops required.
+- Next: **P4.3** rested XP + P4 close-out.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
@@ -168,6 +183,17 @@ yet on real devices because we're not deployed.
   moving prisma migrate out of boot (release_command) for fast cold starts.
 
 ## Shipped
+
+### 2026-06-24 — P4.2 crafting (Smithing + Cooking) + food healing ✅
+- Two crafting skills (synced + persisted XP, migration `add_crafting_skills`).
+  Recipes are data (smelt bronze/iron, forge bronze sword/helm, cook shrimp/
+  trout). Pure `craft()` (4 unit tests). `Craft` is instant + ledgered (inputs
+  destroyed, output created); `Consume`/eat removes food and heals (green +N).
+  Client crafting panel (toggle C) + click-food-to-eat in the bag; HUD 🔨/🍳.
+  98 unit + 16 e2e (new craft.spec: smelt bronze bar + Smithing XP; cook + eat).
+  P4 exit met: mine → smith a bronze sword → cook a fish → fight, no drops
+  needed. (Deferred: crafting stations, timed/auto-repeat crafts, gathering
+  tools — all noted as polish; craft is instant + station-free for v1.)
 
 ### 2026-06-19 — P4.1 gathering (Mining + Fishing) ✅
 - Two gathering skills with synced+persisted XP (migration

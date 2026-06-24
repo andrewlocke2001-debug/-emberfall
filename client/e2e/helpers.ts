@@ -23,6 +23,8 @@ export interface MmoTestApi {
   deposit(itemId: string, qty: number): void;
   withdraw(itemId: string, qty: number): void;
   gather(nodeId: string): void;
+  craft(recipeId: string): void;
+  consume(itemId: string): void;
   enemyHp(id: string): number | null;
   me(): {
     x: number;
@@ -36,10 +38,14 @@ export interface MmoTestApi {
     vitalityXp: number;
     miningXp: number;
     fishingXp: number;
+    smithingXp: number;
+    cookingXp: number;
     meleeLevel: number;
     vitalityLevel: number;
     miningLevel: number;
     fishingLevel: number;
+    smithingLevel: number;
+    cookingLevel: number;
   } | null;
   energy(): number;
   setTarget(id: string | null): void;

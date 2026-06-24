@@ -39,6 +39,10 @@ export const ClientMessage = {
   /** Start gathering a resource node (mining/fishing); auto-repeats until you
    *  move, the bag fills, or you go out of range. */
   Gather: "gather",
+  /** Craft one of a recipe (smithing/cooking) from bag inputs. */
+  Craft: "craft",
+  /** Eat/consume an item from the bag to heal. */
+  Consume: "consume",
 } as const;
 
 /** Server → client message types. */
@@ -153,6 +157,16 @@ export interface PickupPayload {
 /** Client → server: start gathering the resource node with this id. */
 export interface GatherPayload {
   nodeId: string;
+}
+
+/** Client → server: craft one of this recipe from bag inputs. */
+export interface CraftPayload {
+  recipeId: string;
+}
+
+/** Client → server: eat/consume one of this item to heal. */
+export interface ConsumePayload {
+  itemId: string;
 }
 
 /** Client → server: move `qty` of an item between bag and bank (near a bank). */

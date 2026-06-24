@@ -37,6 +37,10 @@ export class PlayerSchema extends Schema {
   declare miningXp: number;
   /** Total Fishing XP (P4 gathering skill). */
   declare fishingXp: number;
+  /** Total Smithing XP (P4 crafting skill). */
+  declare smithingXp: number;
+  /** Total Cooking XP (P4 crafting skill). */
+  declare cookingXp: number;
   declare alive: boolean;
   /** Server time (ms) of last ability use — drives cooldown enforcement. */
   declare lastAbilityAt: number;
@@ -56,6 +60,8 @@ export class PlayerSchema extends Schema {
     this.vitalityXp = 0;
     this.miningXp = 0;
     this.fishingXp = 0;
+    this.smithingXp = 0;
+    this.cookingXp = 0;
     this.alive = true;
     this.lastAbilityAt = 0;
   }
@@ -74,6 +80,8 @@ defineTypes(PlayerSchema, {
   vitalityXp: "number",
   miningXp: "number",
   fishingXp: "number",
+  smithingXp: "number",
+  cookingXp: "number",
   alive: "boolean",
   lastAbilityAt: "number",
 });

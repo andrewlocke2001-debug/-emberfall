@@ -30,8 +30,11 @@ import {
   type BankMovePayload,
   type BankPayload,
   type GatherPayload,
+  type CraftPayload,
+  type ConsumePayload,
 } from "@mmo/shared";
-import { addItem, type Inventory } from "@mmo/shared/systems/inventory";
+import { addItem, removeItem, type Inventory } from "@mmo/shared/systems/inventory";
+import { craft } from "@mmo/shared/systems/crafting";
 import {
   equip,
   unequip,
@@ -42,6 +45,7 @@ import { deposit, withdraw, type Bank } from "@mmo/shared/systems/bank";
 import { itemDef, ITEM_IDS } from "@mmo/shared/data/items";
 import { nearBank } from "@mmo/shared/data/banks";
 import { resourceNode } from "@mmo/shared/data/resources";
+import { recipeDef } from "@mmo/shared/data/recipes";
 import { EnemySchema, PlayerSchema, ZoneState, GroundLootSchema } from "@mmo/shared/schema/state";
 import {
   MoveSchema,
@@ -52,6 +56,8 @@ import {
   PickupSchema,
   BankMoveSchema,
   GatherSchema,
+  CraftSchema,
+  ConsumeSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -79,6 +85,9 @@ const ENEMY_HALF = 12; // half-extent of a mob's collision box
 const PLAYER_RESPAWN_MS = 5000; // delay before a slain player respawns
 /** Fraction of a kill's melee XP that also feeds Vitality (HP) growth. */
 const VITALITY_XP_FRACTION = 1 / 3;
+
+/** The non-combat skills (gathering + crafting) — XP-only, no combat effects. */
+type NonCombatSkill = "mining" | "fishing" | "smithing" | "cooking";
 
 /** Per-session transient input — never synced, never trusted as state. */
 interface InputState {
@@ -216,6 +225,14 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.handleGather(client, msg);
     });
 
+    this.onMessage(ClientMessage.Craft, CraftSchema, (client, msg: CraftPayload) => {
+      this.handleCraft(client, msg);
+    });
+
+    this.onMessage(ClientMessage.Consume, ConsumeSchema, (client, msg: ConsumePayload) => {
+      this.handleConsume(client, msg);
+    });
+
     // Global chat arrives from any zone in this process — fan it out to ours.
     this.unsubscribeGlobal = globalBus.onChat((payload) => {
       this.broadcast(ServerMessage.Chat, payload);
@@ -266,6 +283,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     player.vitalityXp = saved.vitalityXp;
     player.miningXp = saved.miningXp;
     player.fishingXp = saved.fishingXp;
+    player.smithingXp = saved.smithingXp;
+    player.cookingXp = saved.cookingXp;
     player.level = levelForXp(saved.meleeXp);
     // maxHp = Vitality curve + equipped gear's maxHp bonus.
     player.maxHp =
@@ -809,22 +828,102 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.gatherState.set(sessionId, { nodeId: msg.nodeId, finishAt: Date.now() + def.gatherMs });
   }
 
-  /** Current XP in a gathering skill. */
-  private skillXp(player: PlayerSchema, skill: "mining" | "fishing"): number {
-    return skill === "mining" ? player.miningXp : player.fishingXp;
+  /** Current XP in a non-combat (gathering/crafting) skill. */
+  private skillXp(player: PlayerSchema, skill: NonCombatSkill): number {
+    switch (skill) {
+      case "mining":
+        return player.miningXp;
+      case "fishing":
+        return player.fishingXp;
+      case "smithing":
+        return player.smithingXp;
+      case "cooking":
+        return player.cookingXp;
+    }
   }
 
-  /** Grant gathering XP and toast a level-up (gathering skills don't touch combat). */
-  private grantGatherXp(
+  /** Grant XP to a non-combat skill and toast a level-up (no combat-stat side effects). */
+  private grantSkillXp(
     sessionId: string,
     player: PlayerSchema,
-    skill: "mining" | "fishing",
+    skill: NonCombatSkill,
     amount: number,
   ): void {
     const g = gainXp(this.skillXp(player, skill), amount);
-    if (skill === "mining") player.miningXp = g.xp;
-    else player.fishingXp = g.xp;
+    switch (skill) {
+      case "mining":
+        player.miningXp = g.xp;
+        break;
+      case "fishing":
+        player.fishingXp = g.xp;
+        break;
+      case "smithing":
+        player.smithingXp = g.xp;
+        break;
+      case "cooking":
+        player.cookingXp = g.xp;
+        break;
+    }
     if (g.leveledUp) this.sendLevelUp(sessionId, skill, g.level);
+  }
+
+  /** Craft one of a recipe from bag inputs (instant; server-authoritative). */
+  private handleCraft(client: Client, msg: CraftPayload): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive) return;
+    const recipe = recipeDef(msg.recipeId);
+    if (!recipe) return;
+    if (levelForXp(this.skillXp(player, recipe.skill)) < recipe.levelReq) {
+      this.systemTo(client, `You need ${recipe.skill} level ${recipe.levelReq} for that.`);
+      return;
+    }
+    const inv = this.inventories.get(sessionId) ?? [];
+    const res = craft(inv, recipe, itemDef);
+    if (!res.ok) {
+      this.systemTo(client, "You don't have the materials (or your bag is full).");
+      return;
+    }
+    this.inventories.set(sessionId, res.inventory);
+    // Ledger the transformation: inputs destroyed, output created (kit rule #6).
+    for (const inp of recipe.inputs) {
+      void recordLedger({ account: player.id, itemId: inp.itemId, delta: -inp.qty, reason: "craft" });
+    }
+    void recordLedger({
+      account: player.id,
+      itemId: recipe.output.itemId,
+      delta: recipe.output.qty,
+      reason: "craft",
+    });
+    this.grantSkillXp(sessionId, player, recipe.skill, recipe.xp);
+    this.sendInventory(client);
+  }
+
+  /** Eat one of an item to heal (cooked food / potions). */
+  private handleConsume(client: Client, msg: ConsumePayload): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive) return;
+    const def = itemDef(msg.itemId);
+    if (!def || !def.heal || def.heal <= 0) return; // not edible
+    const inv = this.inventories.get(sessionId) ?? [];
+    const removed = removeItem(inv, msg.itemId, 1);
+    if (removed.removed <= 0) return; // none held
+    this.inventories.set(sessionId, removed.inventory);
+    void recordLedger({ account: player.id, itemId: msg.itemId, delta: -1, reason: "consume" });
+    const before = player.hp;
+    player.hp = Math.min(player.maxHp, player.hp + def.heal);
+    const restored = player.hp - before;
+    if (restored > 0) {
+      this.broadcast(ServerMessage.CombatEvent, {
+        attackerId: sessionId,
+        targetId: sessionId,
+        damage: restored,
+        targetDied: false,
+        heal: true,
+      });
+    }
+    this.sendInventory(client);
   }
 
   /** A player's combat stats: level-derived base + equipped-gear bonuses. The
@@ -984,7 +1083,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.inventories.set(sessionId, res.inventory);
       // A gathered resource is created into the economy here (kit rule #6).
       void recordLedger({ account: player.id, itemId: def.itemId, delta: res.added, reason: "gather" });
-      this.grantGatherXp(sessionId, player, def.skill, def.xp);
+      this.grantSkillXp(sessionId, player, def.skill, def.xp);
       if (client) this.sendInventory(client);
       g.finishAt = now + def.gatherMs; // auto-repeat the next swing/cast
     });
@@ -1134,6 +1233,8 @@ function toSaved(
     vitalityXp: p.vitalityXp,
     miningXp: p.miningXp,
     fishingXp: p.fishingXp,
+    smithingXp: p.smithingXp,
+    cookingXp: p.cookingXp,
     inventory,
     equipment,
     bank,
