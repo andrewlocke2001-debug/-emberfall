@@ -40,6 +40,7 @@ export interface MmoTestApi {
     fishingXp: number;
     smithingXp: number;
     cookingXp: number;
+    restedXp: number;
     meleeLevel: number;
     vitalityLevel: number;
     miningLevel: number;

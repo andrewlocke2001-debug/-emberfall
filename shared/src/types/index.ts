@@ -56,6 +56,13 @@ export const GATHER_RANGE = 64;
 /** Level cap for P2 (GW-style low ceiling; raised in later content). */
 export const LEVEL_CAP = 50;
 
+/** Rested XP (WoW-style): logged-off time banks a buffer that adds +50% XP. */
+export const RESTED_BONUS_RATE = 0.5;
+/** Rested XP credit accrued per hour spent offline. */
+export const RESTED_PER_HOUR = 500;
+/** Maximum rested XP credit a character can bank. */
+export const RESTED_MAX = 10_000;
+
 /** Extra max HP granted per Vitality level above 1. */
 export const HP_PER_VITALITY = 8;
 

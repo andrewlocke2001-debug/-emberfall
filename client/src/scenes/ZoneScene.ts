@@ -218,7 +218,8 @@ export class ZoneScene extends Phaser.Scene {
     const hud =
       `${this.map?.displayName ?? ""} — ${room.state.players.size} online` +
       ` · ⚔${meleeLvl} · ♥${vitalityLvl} · ⛏${miningLvl} · 🎣${fishingLvl}` +
-      ` · 🔨${smithingLvl} · 🍳${cookingLvl}`;
+      ` · 🔨${smithingLvl} · 🍳${cookingLvl}` +
+      (me && me.restedXp > 0 ? " · 💤 rested" : "");
     if (hud !== this.lastHud) {
       this.chat?.setHud(hud);
       this.lastHud = hud;
@@ -644,6 +645,7 @@ export class ZoneScene extends Phaser.Scene {
               fishingXp: p.fishingXp,
               smithingXp: p.smithingXp,
               cookingXp: p.cookingXp,
+              restedXp: p.restedXp,
               meleeLevel: p.level,
               vitalityLevel: levelForXp(p.vitalityXp),
               miningLevel: levelForXp(p.miningXp),

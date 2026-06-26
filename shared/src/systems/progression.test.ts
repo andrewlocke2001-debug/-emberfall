@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { xpForLevel, levelForXp, xpToNextLevel, maxHpForVitality, gainXp } from "./progression";
-import { BASE_MAX_HP, HP_PER_VITALITY, LEVEL_CAP } from "../types";
+import {
+  xpForLevel,
+  levelForXp,
+  xpToNextLevel,
+  maxHpForVitality,
+  gainXp,
+  restedBonus,
+  restedAccrual,
+} from "./progression";
+import { BASE_MAX_HP, HP_PER_VITALITY, LEVEL_CAP, RESTED_MAX, RESTED_PER_HOUR } from "../types";
 
 describe("xpForLevel", () => {
   it("is 0 at level 1 and strictly increasing", () => {
@@ -78,5 +86,29 @@ describe("gainXp", () => {
   it("clamps negative inputs (never loses XP or under/overflows)", () => {
     expect(gainXp(-50, 10).xp).toBe(10); // negative current floored to 0
     expect(gainXp(100, -10).xp).toBe(100); // negative award ignored
+  });
+});
+
+describe("restedBonus", () => {
+  it("is 50% of the award while credit covers it", () => {
+    expect(restedBonus(1000, 100)).toBe(50);
+  });
+  it("is capped by the remaining buffer", () => {
+    expect(restedBonus(20, 100)).toBe(20); // only 20 credit left → only 20 bonus
+  });
+  it("is 0 with no buffer or no award", () => {
+    expect(restedBonus(0, 100)).toBe(0);
+    expect(restedBonus(1000, 0)).toBe(0);
+  });
+});
+
+describe("restedAccrual", () => {
+  it("banks credit per hour offline", () => {
+    expect(restedAccrual(3_600_000, 0)).toBe(RESTED_PER_HOUR); // 1h
+    expect(restedAccrual(2 * 3_600_000, 100)).toBe(100 + 2 * RESTED_PER_HOUR);
+  });
+  it("caps at the maximum and ignores negative time", () => {
+    expect(restedAccrual(10_000 * 3_600_000, 0)).toBe(RESTED_MAX);
+    expect(restedAccrual(-5000, 200)).toBe(200);
   });
 });

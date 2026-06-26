@@ -170,7 +170,14 @@ yet on real devices because we're not deployed.
     bar + Smithing XP; cook shrimp + eat it).
   - **P4 exit met (mechanically)**: a new player can mine ore, smith a bronze
     sword, cook a fish, and take it into combat — zero drops required.
-- Next: **P4.3** rested XP + P4 close-out.
+- **P4.3 done**: **rested XP** (WoW-style). Logged-off time banks a credit
+  buffer (`restedAccrual`, +500/hr capped 10k) that adds **+50% XP** to every
+  skill award until spent (`restedBonus`); both pure + unit-tested. `restedXp`
+  synced + persisted (migration `add_rested_xp`); accrued on join from the prior
+  `lastSeen` (loadOrCreate now reads-then-writes so it can see the old
+  timestamp). Applied to all XP grants (combat + gathering + crafting). HUD shows
+  a 💤 rested indicator. 103 unit + 16 e2e.
+- **P4 COMPLETE (local)** — gathering, crafting, food healing, rested XP.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
@@ -183,6 +190,14 @@ yet on real devices because we're not deployed.
   moving prisma migrate out of boot (release_command) for fast cold starts.
 
 ## Shipped
+
+### 2026-06-24 — P4.3 rested XP (P4 complete) ✅
+- WoW-style rested buffer: offline time banks credit (`restedAccrual`, capped)
+  that adds +50% to every XP award until spent (`restedBonus`); both pure +
+  unit-tested. `restedXp` synced + persisted (migration `add_rested_xp`),
+  accrued on join from prior `lastSeen` (loadOrCreate reworked to read-then-
+  write). Applied to combat + gathering + crafting XP. HUD 💤 indicator. 103
+  unit + 16 e2e. **P4 COMPLETE** — the RuneScape skilling heart is in.
 
 ### 2026-06-24 — P4.2 crafting (Smithing + Cooking) + food healing ✅
 - Two crafting skills (synced + persisted XP, migration `add_crafting_skills`).

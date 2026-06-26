@@ -1,5 +1,6 @@
 import { BASE_MAX_HP, type ItemStack } from "@mmo/shared";
 import type { Equipment } from "@mmo/shared/systems/equipment";
+import { restedAccrual } from "@mmo/shared/systems/progression";
 import { prisma } from "./db";
 import type { Prisma } from "../generated/prisma/client";
 
@@ -28,6 +29,8 @@ export interface SavedCharacter {
   fishingXp: number;
   smithingXp: number;
   cookingXp: number;
+  /** Banked rested-XP credit (accrued offline; +50% XP while it lasts). */
+  restedXp: number;
   /** Inventory stacks (JSON column). Server is the sole writer. */
   inventory: ItemStack[];
   /** Equipped gear (slot → itemId JSON column). Server is the sole writer. */
@@ -92,11 +95,21 @@ class CharacterStore {
     zone: string,
     spawn: { x: number; y: number },
   ): Promise<SavedCharacter> {
-    const row = await prisma.player.upsert({
-      where: { id: playerId },
-      // Rejoin: keep the latest name + the zone they're entering now.
-      update: { name, zone },
-      create: {
+    // Read first (not upsert) so we can see the prior lastSeen — the @updatedAt
+    // column is bumped by any write, so we must read it before updating.
+    const existing = await prisma.player.findUnique({ where: { id: playerId } });
+    if (existing) {
+      // Bank rested credit for the time spent offline since the last save.
+      const restedXp = restedAccrual(Date.now() - existing.lastSeen.getTime(), existing.restedXp);
+      const row = await prisma.player.update({
+        where: { id: playerId },
+        // Rejoin: keep the latest name + the zone they're entering now.
+        data: { name, zone, restedXp },
+      });
+      return toSavedCharacter(row);
+    }
+    const row = await prisma.player.create({
+      data: {
         id: playerId,
         name,
         zone,
@@ -105,12 +118,6 @@ class CharacterStore {
         hp: BASE_MAX_HP,
         maxHp: BASE_MAX_HP,
         level: 1,
-        meleeXp: 0,
-        vitalityXp: 0,
-        miningXp: 0,
-        fishingXp: 0,
-        smithingXp: 0,
-        cookingXp: 0,
         inventory: asJson([]),
         equipment: asJson({}),
         bank: asJson([]),
@@ -135,6 +142,7 @@ class CharacterStore {
       fishingXp: c.fishingXp,
       smithingXp: c.smithingXp,
       cookingXp: c.cookingXp,
+      restedXp: c.restedXp,
       inventory: asJson(c.inventory),
       equipment: asJson(c.equipment),
       bank: asJson(c.bank),
@@ -162,6 +170,7 @@ function toSavedCharacter(row: {
   fishingXp: number;
   smithingXp: number;
   cookingXp: number;
+  restedXp: number;
   inventory: unknown;
   equipment: unknown;
   bank: unknown;
@@ -181,6 +190,7 @@ function toSavedCharacter(row: {
     fishingXp: row.fishingXp,
     smithingXp: row.smithingXp,
     cookingXp: row.cookingXp,
+    restedXp: row.restedXp,
     inventory: parseInventory(row.inventory),
     equipment: parseEquipment(row.equipment),
     bank: parseInventory(row.bank),

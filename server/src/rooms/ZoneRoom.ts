@@ -67,6 +67,7 @@ import {
   gainXp,
   levelForXp,
   maxHpForVitality,
+  restedBonus,
 } from "@mmo/shared/systems/progression";
 import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
 import { mobDef, MOBS } from "@mmo/shared/data/mobs";
@@ -285,6 +286,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     player.fishingXp = saved.fishingXp;
     player.smithingXp = saved.smithingXp;
     player.cookingXp = saved.cookingXp;
+    player.restedXp = saved.restedXp;
     player.level = levelForXp(saved.meleeXp);
     // maxHp = Vitality curve + equipped gear's maxHp bonus.
     player.maxHp =
@@ -485,12 +487,12 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
    * fresh level is never a downgrade mid-fight.
    */
   private grantXp(sessionId: string, player: PlayerSchema, meleeAmt: number, vitalityAmt: number): void {
-    const melee = gainXp(player.meleeXp, meleeAmt);
+    const melee = gainXp(player.meleeXp, this.withRested(player, meleeAmt));
     player.meleeXp = melee.xp;
     player.level = melee.level; // keep level == melee level even without a tick-up
     if (melee.leveledUp) this.sendLevelUp(sessionId, "melee", melee.level);
 
-    const vitality = gainXp(player.vitalityXp, vitalityAmt);
+    const vitality = gainXp(player.vitalityXp, this.withRested(player, vitalityAmt));
     player.vitalityXp = vitality.xp;
     if (vitality.leveledUp) {
       const newMax = this.maxHpFor(sessionId, player); // Vitality curve + gear
@@ -843,13 +845,20 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   }
 
   /** Grant XP to a non-combat skill and toast a level-up (no combat-stat side effects). */
+  /** Apply the rested-XP bonus to a base award, draining the player's buffer. */
+  private withRested(player: PlayerSchema, amount: number): number {
+    const bonus = restedBonus(player.restedXp, amount);
+    if (bonus > 0) player.restedXp -= bonus;
+    return amount + bonus;
+  }
+
   private grantSkillXp(
     sessionId: string,
     player: PlayerSchema,
     skill: NonCombatSkill,
     amount: number,
   ): void {
-    const g = gainXp(this.skillXp(player, skill), amount);
+    const g = gainXp(this.skillXp(player, skill), this.withRested(player, amount));
     switch (skill) {
       case "mining":
         player.miningXp = g.xp;
@@ -1235,6 +1244,7 @@ function toSaved(
     fishingXp: p.fishingXp,
     smithingXp: p.smithingXp,
     cookingXp: p.cookingXp,
+    restedXp: p.restedXp,
     inventory,
     equipment,
     bank,

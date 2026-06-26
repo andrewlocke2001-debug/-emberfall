@@ -1,4 +1,11 @@
-import { BASE_MAX_HP, HP_PER_VITALITY, LEVEL_CAP } from "../types";
+import {
+  BASE_MAX_HP,
+  HP_PER_VITALITY,
+  LEVEL_CAP,
+  RESTED_BONUS_RATE,
+  RESTED_MAX,
+  RESTED_PER_HOUR,
+} from "../types";
 import type { CombatStats } from "./combatmath";
 
 /**
@@ -49,6 +56,24 @@ export function gainXp(currentXp: number, amount: number): XpGain {
   const xp = Math.max(0, currentXp) + Math.max(0, amount);
   const level = levelForXp(xp);
   return { xp, level, leveledUp: level > before };
+}
+
+/**
+ * Rested XP (WoW-style). `restedBonus` is the extra XP a base award earns while
+ * rested credit remains (+50%, capped by the buffer); the caller adds it to the
+ * award and subtracts it from the buffer. `restedAccrual` banks credit for time
+ * spent offline, capped. Both pure.
+ */
+export function restedBonus(restedXp: number, amount: number): number {
+  return Math.min(
+    Math.max(0, Math.floor(restedXp)),
+    Math.floor(Math.max(0, amount) * RESTED_BONUS_RATE),
+  );
+}
+
+export function restedAccrual(offlineMs: number, currentRested: number): number {
+  const gained = Math.floor((Math.max(0, offlineMs) / 3_600_000) * RESTED_PER_HOUR);
+  return Math.min(RESTED_MAX, Math.max(0, currentRested) + gained);
 }
 
 /**
