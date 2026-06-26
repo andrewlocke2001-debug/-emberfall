@@ -1,12 +1,13 @@
 import { BASE_MAX_HP, type ItemStack } from "@mmo/shared";
 import type { Equipment } from "@mmo/shared/systems/equipment";
+import type { QuestLog } from "@mmo/shared/systems/quests";
 import { restedAccrual } from "@mmo/shared/systems/progression";
 import { prisma } from "./db";
 import type { Prisma } from "../generated/prisma/client";
 
 // why: Prisma's InputJsonValue rejects interface arrays / typed records (no
 // index signature). The stored shapes are plain JSON, so these casts are sound.
-const asJson = (v: ItemStack[] | Equipment): Prisma.InputJsonValue =>
+const asJson = (v: ItemStack[] | Equipment | QuestLog): Prisma.InputJsonValue =>
   v as unknown as Prisma.InputJsonValue;
 
 // Bank uses the same defensive parse as the bag (pg adapter can hand JSONB
@@ -37,6 +38,8 @@ export interface SavedCharacter {
   equipment: Equipment;
   /** Bank stacks (JSON column). Server is the sole writer. */
   bank: ItemStack[];
+  /** Quest log (JSON column). Server is the sole writer. */
+  quests: QuestLog;
 }
 
 /** Coerce the JSON `inventory` column into well-formed stacks (defensive). */
@@ -82,6 +85,33 @@ function parseEquipment(raw: unknown): Equipment {
   return out;
 }
 
+/** Coerce the JSON `quests` column into a clean quest log (defensive). */
+function parseQuests(raw: unknown): QuestLog {
+  let value: unknown = raw;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((q) => {
+    if (q && typeof q === "object" && "questId" in q && "status" in q && "progress" in q) {
+      const { questId, status, progress } = q as Record<string, unknown>;
+      if (
+        typeof questId === "string" &&
+        (status === "active" || status === "complete") &&
+        Array.isArray(progress) &&
+        progress.every((n) => typeof n === "number")
+      ) {
+        return [{ questId, status, progress: progress as number[] }];
+      }
+    }
+    return [];
+  });
+}
+
 /**
  * Prisma-backed character persistence (replaced the M0 JSON snapshot store).
  * Same interface, now async: load on join, write-through on leave + periodic
@@ -121,6 +151,7 @@ class CharacterStore {
         inventory: asJson([]),
         equipment: asJson({}),
         bank: asJson([]),
+        quests: asJson([]),
       },
     });
     return toSavedCharacter(row);
@@ -146,6 +177,7 @@ class CharacterStore {
       inventory: asJson(c.inventory),
       equipment: asJson(c.equipment),
       bank: asJson(c.bank),
+      quests: asJson(c.quests),
     };
     await prisma.player.upsert({
       where: { id: c.playerId },
@@ -174,6 +206,7 @@ function toSavedCharacter(row: {
   inventory: unknown;
   equipment: unknown;
   bank: unknown;
+  quests: unknown;
 }): SavedCharacter {
   return {
     playerId: row.id,
@@ -194,6 +227,7 @@ function toSavedCharacter(row: {
     inventory: parseInventory(row.inventory),
     equipment: parseEquipment(row.equipment),
     bank: parseInventory(row.bank),
+    quests: parseQuests(row.quests),
   };
 }
 

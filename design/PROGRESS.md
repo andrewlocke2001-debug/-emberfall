@@ -179,6 +179,20 @@ yet on real devices because we're not deployed.
   a 💤 rested indicator. 103 unit + 16 e2e.
 - **P4 COMPLETE (local)** — gathering, crafting, food healing, rested XP.
 
+## P5 — quests, NPCs, vendors (in progress, local)
+- **P5.1 done**: **quest framework** + quest log UI. Quests are data
+  (`shared/data/quests.ts`: kill/collect/talk objectives, rewards, prereq
+  chains). Pure quest system (`systems/quests.ts`: accept/canAccept/recordKill/
+  objectiveStatus/questReady/completeQuest; 6 unit tests). Per-player quest log
+  synced via a `Quests` message + persisted (migration `add_quests`). Server
+  handles accept/complete (zod), advances kill objectives on mob death, checks
+  collect objectives live vs the bag at turn-in, then consumes collect items +
+  pays rewards (coins/items/XP) — all ledgered. Client quest log panel
+  (toggle **J**) with live objective progress + accept/turn-in. 109 unit + 17
+  e2e (new quest.spec). `talk` objectives + quest-givers wired in P5.2.
+- Next: **P5.2** NPCs + dialogue + quest-givers, **P5.3** vendors, **P5.4**
+  starter arc + close-out.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.

@@ -43,6 +43,10 @@ export const ClientMessage = {
   Craft: "craft",
   /** Eat/consume an item from the bag to heal. */
   Consume: "consume",
+  /** Accept an available quest. */
+  QuestAccept: "questAccept",
+  /** Turn in a quest whose objectives are met. */
+  QuestComplete: "questComplete",
 } as const;
 
 /** Server → client message types. */
@@ -55,6 +59,7 @@ export const ServerMessage = {
   Inventory: "inventory",
   Equipment: "equipment",
   Bank: "bank",
+  Quests: "quests",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -167,6 +172,23 @@ export interface CraftPayload {
 /** Client → server: eat/consume one of this item to heal. */
 export interface ConsumePayload {
   itemId: string;
+}
+
+/** Client → server: accept / turn in a quest by id. */
+export interface QuestActionPayload {
+  questId: string;
+}
+
+/** One quest's state on the wire (mirrors systems/quests QuestProgress). */
+export interface QuestEntry {
+  questId: string;
+  status: "active" | "complete";
+  progress: number[];
+}
+
+/** Server → client: the owner's full quest log (sent on change). */
+export interface QuestsPayload {
+  quests: QuestEntry[];
 }
 
 /** Client → server: move `qty` of an item between bag and bank (near a bank). */

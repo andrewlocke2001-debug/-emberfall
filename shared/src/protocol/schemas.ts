@@ -12,6 +12,7 @@ import type {
   GatherPayload,
   CraftPayload,
   ConsumePayload,
+  QuestActionPayload,
 } from "./messages";
 
 /**
@@ -71,6 +72,11 @@ export const ConsumeSchema = z.strictObject({
   itemId: z.string().min(1).max(64),
 });
 
+/** questAccept + questComplete share this shape (a quest id). */
+export const QuestActionSchema = z.strictObject({
+  questId: z.string().min(1).max(64),
+});
+
 // --- compile-time drift guards (no runtime cost) -----------------------------
 
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -85,6 +91,8 @@ const _bankMove: AssertEqual<z.output<typeof BankMoveSchema>, BankMovePayload> =
 const _gather: AssertEqual<z.output<typeof GatherSchema>, GatherPayload> = true;
 const _craft: AssertEqual<z.output<typeof CraftSchema>, CraftPayload> = true;
 const _consume: AssertEqual<z.output<typeof ConsumeSchema>, ConsumePayload> = true;
+const _quest: AssertEqual<z.output<typeof QuestActionSchema>, QuestActionPayload> = true;
+void _quest;
 void _move;
 void _ability;
 void _chat;

@@ -53,6 +53,8 @@ model Player {
   equipment  Json     @default("{}")
   // Bank as JSON: an array of { itemId, qty } stacks (town storage).
   bank       Json     @default("[]")
+  // Quest log as JSON: array of { questId, status, progress[] }.
+  quests     Json     @default("[]")
   createdAt  DateTime @default(now())
   lastSeen   DateTime @updatedAt
 }

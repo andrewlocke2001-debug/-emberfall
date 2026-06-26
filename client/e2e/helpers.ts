@@ -25,6 +25,9 @@ export interface MmoTestApi {
   gather(nodeId: string): void;
   craft(recipeId: string): void;
   consume(itemId: string): void;
+  quests(): { questId: string; status: "active" | "complete"; progress: number[] }[];
+  questAccept(questId: string): void;
+  questComplete(questId: string): void;
   enemyHp(id: string): number | null;
   me(): {
     x: number;

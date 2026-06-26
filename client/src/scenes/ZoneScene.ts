@@ -32,7 +32,9 @@ import { AbilityBar } from "../ui/AbilityBar";
 import { InventoryPanel } from "../ui/InventoryPanel";
 import { BankPanel } from "../ui/BankPanel";
 import { CraftPanel } from "../ui/CraftPanel";
+import { QuestPanel } from "../ui/QuestPanel";
 import type { ItemStack } from "@mmo/shared";
+import type { QuestLog } from "@mmo/shared/systems/quests";
 
 const RECONCILE_SNAP = 64; // px of drift beyond which we hard-snap the local player
 const REMOTE_LERP = 0.25; // interpolation factor for remote entities
@@ -89,6 +91,9 @@ export class ZoneScene extends Phaser.Scene {
   private atBank = false;
   /** Crafting panel (toggle C). */
   private craftPanel?: CraftPanel;
+  /** Quest log panel (toggle J) + last-known quest log. */
+  private questPanel?: QuestPanel;
+  private questLog: QuestLog = [];
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map?: ZoneMap;
@@ -116,12 +121,12 @@ export class ZoneScene extends Phaser.Scene {
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
-    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C") as Record<
+    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J") as Record<
       string,
       Phaser.Input.Keyboard.Key
     >;
     this.escKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,UP,DOWN,LEFT,RIGHT");
+    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,UP,DOWN,LEFT,RIGHT");
 
     this.selectionRing = this.add
       .circle(0, 0, 28)
@@ -179,6 +184,12 @@ export class ZoneScene extends Phaser.Scene {
       onCraft: (recipeId) => this.connection.room.send(ClientMessage.Craft, { recipeId }),
     });
     this.events.once("shutdown", () => this.craftPanel?.destroy());
+
+    this.questPanel = new QuestPanel({
+      onAccept: (questId) => this.connection.room.send(ClientMessage.QuestAccept, { questId }),
+      onComplete: (questId) => this.connection.room.send(ClientMessage.QuestComplete, { questId }),
+    });
+    this.events.once("shutdown", () => this.questPanel?.destroy());
 
     this.bankPanel = new BankPanel({
       onDeposit: (itemId, qty) => this.connection.room.send(ClientMessage.Deposit, { itemId, qty }),
@@ -332,6 +343,8 @@ export class ZoneScene extends Phaser.Scene {
     }
     if (Phaser.Input.Keyboard.JustDown(this.keys["B"]!) && this.atBank) this.bankPanel?.toggle();
 
+    if (Phaser.Input.Keyboard.JustDown(this.keys["J"]!)) this.questPanel?.toggle();
+
     // Crafting panel (C); refresh its skill gates from live XP while open.
     if (Phaser.Input.Keyboard.JustDown(this.keys["C"]!)) this.craftPanel?.toggle();
     if (this.craftPanel?.isOpen() && me) {
@@ -464,6 +477,11 @@ export class ZoneScene extends Phaser.Scene {
       this.inventory?.setInventory(p.slots);
       this.bankPanel?.setBag(p.slots);
       this.craftPanel?.setBag(p.slots);
+      this.questPanel?.setBag(p.slots);
+    });
+    this.connection.room.onMessage(ServerMessage.Quests, (p: { quests: QuestLog }) => {
+      this.questLog = p.quests;
+      this.questPanel?.setQuests(p.quests);
     });
     this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
       this.equipmentSlots = p.equipment;
@@ -675,6 +693,9 @@ export class ZoneScene extends Phaser.Scene {
       gather: (nodeId: string) => room.send(ClientMessage.Gather, { nodeId }),
       craft: (recipeId: string) => room.send(ClientMessage.Craft, { recipeId }),
       consume: (itemId: string) => room.send(ClientMessage.Consume, { itemId }),
+      quests: () => this.questLog,
+      questAccept: (questId: string) => room.send(ClientMessage.QuestAccept, { questId }),
+      questComplete: (questId: string) => room.send(ClientMessage.QuestComplete, { questId }),
       setTarget: (id: string | null) => this.selectTarget(id),
       attack: (targetId: string) =>
         room.send(ClientMessage.UseAbility, { abilityId: "strike", targetId }),

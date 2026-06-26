@@ -32,9 +32,20 @@ import {
   type GatherPayload,
   type CraftPayload,
   type ConsumePayload,
+  type QuestActionPayload,
+  type QuestsPayload,
 } from "@mmo/shared";
 import { addItem, removeItem, type Inventory } from "@mmo/shared/systems/inventory";
 import { craft } from "@mmo/shared/systems/crafting";
+import {
+  acceptQuest,
+  canAccept,
+  recordKill,
+  questReady,
+  completeQuest,
+  findQuest,
+  type QuestLog,
+} from "@mmo/shared/systems/quests";
 import {
   equip,
   unequip,
@@ -46,6 +57,7 @@ import { itemDef, ITEM_IDS } from "@mmo/shared/data/items";
 import { nearBank } from "@mmo/shared/data/banks";
 import { resourceNode } from "@mmo/shared/data/resources";
 import { recipeDef } from "@mmo/shared/data/recipes";
+import { questDef } from "@mmo/shared/data/quests";
 import { EnemySchema, PlayerSchema, ZoneState, GroundLootSchema } from "@mmo/shared/schema/state";
 import {
   MoveSchema,
@@ -58,6 +70,7 @@ import {
   GatherSchema,
   CraftSchema,
   ConsumeSchema,
+  QuestActionSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -163,6 +176,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly equipment = new Map<string, Equipment>();
   /** Authoritative per-session bank storage (off synced state, persisted). */
   private readonly banks = new Map<string, Bank>();
+  /** Authoritative per-session quest log (off synced state, persisted). */
+  private readonly questLogs = new Map<string, QuestLog>();
 
   override onCreate(options?: { zoneId?: string }): void {
     const zoneId =
@@ -200,6 +215,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.onMessage(ClientMessage.RequestInventory, (client) => {
       this.sendInventory(client);
       this.sendEquipment(client);
+      this.sendQuests(client);
     });
 
     this.onMessage(ClientMessage.Equip, EquipSchema, (client, msg: EquipPayload) => {
@@ -232,6 +248,14 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
     this.onMessage(ClientMessage.Consume, ConsumeSchema, (client, msg: ConsumePayload) => {
       this.handleConsume(client, msg);
+    });
+
+    this.onMessage(ClientMessage.QuestAccept, QuestActionSchema, (client, msg: QuestActionPayload) => {
+      this.handleQuestAccept(client, msg);
+    });
+
+    this.onMessage(ClientMessage.QuestComplete, QuestActionSchema, (client, msg: QuestActionPayload) => {
+      this.handleQuestComplete(client, msg);
     });
 
     // Global chat arrives from any zone in this process — fan it out to ours.
@@ -300,8 +324,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.inventories.set(client.sessionId, saved.inventory);
     this.equipment.set(client.sessionId, saved.equipment);
     this.banks.set(client.sessionId, saved.bank);
+    this.questLogs.set(client.sessionId, saved.quests);
     this.sendInventory(client);
     this.sendEquipment(client);
+    this.sendQuests(client);
 
     if (isGm(name, this.gmAllow)) {
       this.gmSessions.add(client.sessionId);
@@ -330,12 +356,14 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const inventory = this.inventories.get(client.sessionId) ?? [];
     const equipment = this.equipment.get(client.sessionId) ?? {};
     const bank = this.banks.get(client.sessionId) ?? [];
+    const quests = this.questLogs.get(client.sessionId) ?? [];
     this.inventories.delete(client.sessionId);
     this.equipment.delete(client.sessionId);
     this.banks.delete(client.sessionId);
+    this.questLogs.delete(client.sessionId);
     if (!player) return;
 
-    const snapshot = toSaved(player, this.map.id, inventory, equipment, bank);
+    const snapshot = toSaved(player, this.map.id, inventory, equipment, bank, quests);
     this.state.players.delete(client.sessionId);
     try {
       await characterStore.save(snapshot);
@@ -461,6 +489,16 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.grantXp(sessionId, player, meleeAmt, vitalityAmt);
       for (const stack of rollDrops(def.drops)) {
         this.spawnLoot(stack.itemId, stack.qty, enemy.x, enemy.y, player.id, now);
+      }
+      // Advance any "kill" quest objectives for this mob kind.
+      const log = this.questLogs.get(sessionId);
+      if (log) {
+        const next = recordKill(log, enemy.kind, questDef);
+        if (next !== log) {
+          this.questLogs.set(sessionId, next);
+          const client = this.clients.find((c) => c.sessionId === sessionId);
+          if (client) this.sendQuests(client);
+        }
       }
     });
     contributors.clear();
@@ -935,6 +973,78 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.sendInventory(client);
   }
 
+  // --- quests ---------------------------------------------------------------
+
+  /** Push the owner their quest log (private — never broadcast). */
+  private sendQuests(client: Client): void {
+    const payload: QuestsPayload = { quests: this.questLogs.get(client.sessionId) ?? [] };
+    client.send(ServerMessage.Quests, payload);
+  }
+
+  /** Accept an available quest (prerequisite + dedupe checked server-side). */
+  private handleQuestAccept(client: Client, msg: QuestActionPayload): void {
+    const def = questDef(msg.questId);
+    if (!def) return;
+    const log = this.questLogs.get(client.sessionId) ?? [];
+    if (!canAccept(log, def)) return;
+    this.questLogs.set(client.sessionId, acceptQuest(log, def));
+    this.sendQuests(client);
+  }
+
+  /** Turn in a quest whose objectives are met: consume collect items, pay out. */
+  private handleQuestComplete(client: Client, msg: QuestActionPayload): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+    const def = questDef(msg.questId);
+    if (!def) return;
+    const log = this.questLogs.get(sessionId) ?? [];
+    const qp = findQuest(log, msg.questId);
+    if (!qp || qp.status !== "active") return;
+
+    let inventory = this.inventories.get(sessionId) ?? [];
+    if (!questReady(def, qp, inventory)) {
+      this.systemTo(client, "You haven't finished that quest yet.");
+      return;
+    }
+
+    // Consume collect-objective items (ledgered destroy).
+    for (const obj of def.objectives) {
+      if (obj.type !== "collect") continue;
+      const r = removeItem(inventory, obj.itemId, obj.count);
+      inventory = r.inventory;
+      if (r.removed > 0) {
+        void recordLedger({ account: player.id, itemId: obj.itemId, delta: -r.removed, reason: "quest_turnin" });
+      }
+    }
+    // Pay out item + coin rewards (ledgered create).
+    const payouts = [...(def.rewards.items ?? [])];
+    if (def.rewards.coins) payouts.push({ itemId: "coins", qty: def.rewards.coins });
+    for (const stack of payouts) {
+      const r = addItem(inventory, stack.itemId, stack.qty, itemDef(stack.itemId)?.maxStack ?? 1);
+      inventory = r.inventory;
+      if (r.added > 0) {
+        void recordLedger({ account: player.id, itemId: stack.itemId, delta: r.added, reason: "quest_reward" });
+      }
+    }
+    this.inventories.set(sessionId, inventory);
+    for (const reward of def.rewards.xp ?? []) {
+      this.awardQuestXp(sessionId, player, reward.skill, reward.amount);
+    }
+
+    this.questLogs.set(sessionId, completeQuest(log, msg.questId));
+    this.sendInventory(client);
+    this.sendQuests(client);
+    this.systemTo(client, `Quest complete: ${def.name}!`);
+  }
+
+  /** Route a quest's XP reward to the right skill (combat vs non-combat). */
+  private awardQuestXp(sessionId: string, player: PlayerSchema, skill: SkillId, amount: number): void {
+    if (skill === "melee") this.grantXp(sessionId, player, amount, 0);
+    else if (skill === "vitality") this.grantXp(sessionId, player, 0, amount);
+    else this.grantSkillXp(sessionId, player, skill, amount);
+  }
+
   /** A player's combat stats: level-derived base + equipped-gear bonuses. The
    *  gear maxHp bonus is already baked into player.maxHp (see applyMaxHp). */
   private playerStats(sessionId: string, player: PlayerSchema): CombatStats {
@@ -1195,6 +1305,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
           this.inventories.get(sessionId) ?? [],
           this.equipment.get(sessionId) ?? {},
           this.banks.get(sessionId) ?? [],
+          this.questLogs.get(sessionId) ?? [],
         ),
       ),
     );
@@ -1228,6 +1339,7 @@ function toSaved(
   inventory: Inventory,
   equipment: Equipment,
   bank: Bank,
+  quests: QuestLog,
 ): SavedCharacter {
   return {
     playerId: p.id,
@@ -1248,5 +1360,6 @@ function toSaved(
     inventory,
     equipment,
     bank,
+    quests,
   };
 }
