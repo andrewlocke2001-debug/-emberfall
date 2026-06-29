@@ -162,6 +162,21 @@
         padding: 4px 10px; cursor: pointer; font-size: 12px; }
       .quest-btn:hover { background: #2f6fe0; }
       .quest-empty { font-size: 12px; color: #5b6678; }
+
+      /* NPC dialogue panel (opens on talk) */
+      #dialogue { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+        z-index: 9; display: none; flex-direction: column; gap: 6px; padding: 12px; width: min(440px, 86vw);
+        background: rgba(13,16,24,0.97); border: 1px solid #3a4156; border-radius: 10px; }
+      #dialogue .dialogue-head { display: flex; align-items: center; justify-content: space-between; }
+      #dialogue-name { font-size: 14px; font-weight: 700; color: #ffe066; }
+      #dialogue .dialogue-head button { border: 0; background: #2a3142; color: #cdd6e6; border-radius: 6px;
+        padding: 2px 8px; cursor: pointer; font-size: 13px; }
+      #dialogue-text { font-size: 13px; color: #dfe6f2; line-height: 1.4; }
+      #dialogue-opts { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+      .dialogue-opt { text-align: left; border: 1px solid #2a3142; background: #1a2030; color: #e6e6e6;
+        border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+      .dialogue-opt:hover { border-color: #3b82f6; }
+      .dialogue-note { font-size: 12px; color: #8893a7; padding: 2px 2px; }
     </style>
   </head>
   <body>
@@ -211,6 +226,11 @@
     <div id="quests">
       <div class="quest-header"><span>Quest Log (J)</span><button id="quest-close" type="button">✕</button></div>
       <div id="quest-list"></div>
+    </div>
+    <div id="dialogue">
+      <div class="dialogue-head"><div id="dialogue-name"></div><button id="dialogue-close" type="button">✕</button></div>
+      <div id="dialogue-text"></div>
+      <div id="dialogue-opts"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

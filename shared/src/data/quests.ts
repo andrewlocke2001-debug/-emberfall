@@ -33,6 +33,15 @@ export interface QuestDef {
 }
 
 export const QUESTS: Record<string, QuestDef> = {
+  // First contact — meet the Hearthwarden who runs the gate.
+  greet_mira: {
+    id: "greet_mira",
+    name: "A Warden's Welcome",
+    summary: "Speak with Warden Mira in Meadowbrook.",
+    objectives: [{ type: "talk", npcId: "hearthwarden_mira", desc: "Talk to Warden Mira" }],
+    rewards: { coins: 10 },
+    giver: "hearthwarden_mira",
+  },
   // Tutorial gather quest — proves the gather→turn-in loop with no combat.
   miners_welcome: {
     id: "miners_welcome",

@@ -57,6 +57,25 @@ export function recordKill(log: QuestLog, mobKind: string, lookup: QuestLookup):
   });
 }
 
+/** Mark talk objectives done on every active quest matching the NPC. */
+export function recordTalk(log: QuestLog, npcId: string, lookup: QuestLookup): QuestLog {
+  return log.map((qp) => {
+    if (qp.status !== "active") return qp;
+    const def = lookup(qp.questId);
+    if (!def) return qp;
+    let changed = false;
+    const progress = qp.progress.map((p, i) => {
+      const obj = def.objectives[i];
+      if (obj?.type === "talk" && obj.npcId === npcId && p < 1) {
+        changed = true;
+        return 1;
+      }
+      return p;
+    });
+    return changed ? { ...qp, progress } : qp;
+  });
+}
+
 export interface ObjStatus {
   current: number;
   required: number;

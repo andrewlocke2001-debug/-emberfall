@@ -13,6 +13,7 @@ import type {
   CraftPayload,
   ConsumePayload,
   QuestActionPayload,
+  TalkPayload,
 } from "./messages";
 
 /**
@@ -77,6 +78,10 @@ export const QuestActionSchema = z.strictObject({
   questId: z.string().min(1).max(64),
 });
 
+export const TalkSchema = z.strictObject({
+  npcId: z.string().min(1).max(64),
+});
+
 // --- compile-time drift guards (no runtime cost) -----------------------------
 
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -92,7 +97,9 @@ const _gather: AssertEqual<z.output<typeof GatherSchema>, GatherPayload> = true;
 const _craft: AssertEqual<z.output<typeof CraftSchema>, CraftPayload> = true;
 const _consume: AssertEqual<z.output<typeof ConsumeSchema>, ConsumePayload> = true;
 const _quest: AssertEqual<z.output<typeof QuestActionSchema>, QuestActionPayload> = true;
+const _talk: AssertEqual<z.output<typeof TalkSchema>, TalkPayload> = true;
 void _quest;
+void _talk;
 void _move;
 void _ability;
 void _chat;

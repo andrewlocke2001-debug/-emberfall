@@ -47,6 +47,8 @@ export const ClientMessage = {
   QuestAccept: "questAccept",
   /** Turn in a quest whose objectives are met. */
   QuestComplete: "questComplete",
+  /** Talk to an NPC (advances talk objectives; proximity-checked). */
+  Talk: "talk",
 } as const;
 
 /** Server → client message types. */
@@ -177,6 +179,11 @@ export interface ConsumePayload {
 /** Client → server: accept / turn in a quest by id. */
 export interface QuestActionPayload {
   questId: string;
+}
+
+/** Client → server: talk to an NPC by id (proximity-checked server-side). */
+export interface TalkPayload {
+  npcId: string;
 }
 
 /** One quest's state on the wire (mirrors systems/quests QuestProgress). */

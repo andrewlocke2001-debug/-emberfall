@@ -3,6 +3,7 @@ import {
   acceptQuest,
   canAccept,
   recordKill,
+  recordTalk,
   objectiveStatus,
   questReady,
   completeQuest,
@@ -64,6 +65,26 @@ describe("recordKill", () => {
     log = completeQuest(log, "cull");
     log = recordKill(log, "wolf", lookup);
     expect(log[0]!.progress).toEqual([0]); // completed → no progress
+  });
+});
+
+describe("recordTalk", () => {
+  const talkQuest: QuestDef = {
+    id: "greet",
+    name: "Greet",
+    summary: "",
+    objectives: [{ type: "talk", npcId: "mira", desc: "" }],
+    rewards: {},
+  };
+  const talkLookup = (id: string): QuestDef | undefined => (id === "greet" ? talkQuest : undefined);
+
+  it("completes a talk objective for the matching NPC only", () => {
+    let log = acceptQuest([], talkQuest);
+    log = recordTalk(log, "dorin", talkLookup);
+    expect(log[0]!.progress).toEqual([0]);
+    log = recordTalk(log, "mira", talkLookup);
+    expect(log[0]!.progress).toEqual([1]);
+    expect(questReady(talkQuest, log[0]!, [])).toBe(true);
   });
 });
 

@@ -190,8 +190,15 @@ yet on real devices because we're not deployed.
   pays rewards (coins/items/XP) — all ledgered. Client quest log panel
   (toggle **J**) with live objective progress + accept/turn-in. 109 unit + 17
   e2e (new quest.spec). `talk` objectives + quest-givers wired in P5.2.
-- Next: **P5.2** NPCs + dialogue + quest-givers, **P5.3** vendors, **P5.4**
-  starter arc + close-out.
+- **P5.2 done**: **NPCs + dialogue + quest-givers**. NPCs are data
+  (`shared/data/npcs.ts`: placement + greeting + offered quests); Warden Mira +
+  Dorin the Smith stand in Meadowbrook. `Talk` is a proximity-gated zod message;
+  `recordTalk` (pure, tested) completes `talk` objectives. Client renders NPC
+  markers; clicking opens a dialogue panel (greeting + accept/turn-in/status for
+  that NPC's quests). No migration (talk uses the existing quest log). 110 unit
+  + 18 e2e (new npc.spec). Full branching dialogue trees deferred (v1 =
+  greeting + quest options).
+- Next: **P5.3** vendors, **P5.4** starter arc + close-out.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +

@@ -11,6 +11,7 @@ import {
   LOOT_OWNERSHIP_MS,
   LOOT_DESPAWN_MS,
   GATHER_RANGE,
+  TALK_RANGE,
   distSq,
   type CombatEventPayload,
   type JoinZoneOptions,
@@ -34,6 +35,7 @@ import {
   type ConsumePayload,
   type QuestActionPayload,
   type QuestsPayload,
+  type TalkPayload,
 } from "@mmo/shared";
 import { addItem, removeItem, type Inventory } from "@mmo/shared/systems/inventory";
 import { craft } from "@mmo/shared/systems/crafting";
@@ -41,6 +43,7 @@ import {
   acceptQuest,
   canAccept,
   recordKill,
+  recordTalk,
   questReady,
   completeQuest,
   findQuest,
@@ -58,6 +61,7 @@ import { nearBank } from "@mmo/shared/data/banks";
 import { resourceNode } from "@mmo/shared/data/resources";
 import { recipeDef } from "@mmo/shared/data/recipes";
 import { questDef } from "@mmo/shared/data/quests";
+import { npcDef } from "@mmo/shared/data/npcs";
 import { EnemySchema, PlayerSchema, ZoneState, GroundLootSchema } from "@mmo/shared/schema/state";
 import {
   MoveSchema,
@@ -71,6 +75,7 @@ import {
   CraftSchema,
   ConsumeSchema,
   QuestActionSchema,
+  TalkSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -256,6 +261,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
     this.onMessage(ClientMessage.QuestComplete, QuestActionSchema, (client, msg: QuestActionPayload) => {
       this.handleQuestComplete(client, msg);
+    });
+
+    this.onMessage(ClientMessage.Talk, TalkSchema, (client, msg: TalkPayload) => {
+      this.handleTalk(client, msg);
     });
 
     // Global chat arrives from any zone in this process — fan it out to ours.
@@ -1036,6 +1045,23 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.sendInventory(client);
     this.sendQuests(client);
     this.systemTo(client, `Quest complete: ${def.name}!`);
+  }
+
+  /** Talk to a nearby NPC — advances any matching talk objectives. */
+  private handleTalk(client: Client, msg: TalkPayload): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+    const npc = npcDef(msg.npcId);
+    if (!npc || npc.zone !== this.map.id) return;
+    if (distSq(player.x, player.y, npc.x, npc.y) > TALK_RANGE * TALK_RANGE) return;
+    const log = this.questLogs.get(sessionId);
+    if (!log) return;
+    const next = recordTalk(log, npc.id, questDef);
+    if (next !== log) {
+      this.questLogs.set(sessionId, next);
+      this.sendQuests(client);
+    }
   }
 
   /** Route a quest's XP reward to the right skill (combat vs non-combat). */

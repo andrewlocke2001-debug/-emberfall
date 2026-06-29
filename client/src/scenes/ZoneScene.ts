@@ -33,8 +33,10 @@ import { InventoryPanel } from "../ui/InventoryPanel";
 import { BankPanel } from "../ui/BankPanel";
 import { CraftPanel } from "../ui/CraftPanel";
 import { QuestPanel } from "../ui/QuestPanel";
+import { DialoguePanel } from "../ui/DialoguePanel";
 import type { ItemStack } from "@mmo/shared";
 import type { QuestLog } from "@mmo/shared/systems/quests";
+import { npcsInZone, type NpcDef } from "@mmo/shared/data/npcs";
 
 const RECONCILE_SNAP = 64; // px of drift beyond which we hard-snap the local player
 const REMOTE_LERP = 0.25; // interpolation factor for remote entities
@@ -94,6 +96,8 @@ export class ZoneScene extends Phaser.Scene {
   /** Quest log panel (toggle J) + last-known quest log. */
   private questPanel?: QuestPanel;
   private questLog: QuestLog = [];
+  /** NPC conversation panel (opens on talk). */
+  private dialogue?: DialoguePanel;
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map?: ZoneMap;
@@ -190,6 +194,12 @@ export class ZoneScene extends Phaser.Scene {
       onComplete: (questId) => this.connection.room.send(ClientMessage.QuestComplete, { questId }),
     });
     this.events.once("shutdown", () => this.questPanel?.destroy());
+
+    this.dialogue = new DialoguePanel({
+      onAccept: (questId) => this.connection.room.send(ClientMessage.QuestAccept, { questId }),
+      onComplete: (questId) => this.connection.room.send(ClientMessage.QuestComplete, { questId }),
+    });
+    this.events.once("shutdown", () => this.dialogue?.destroy());
 
     this.bankPanel = new BankPanel({
       onDeposit: (itemId, qty) => this.connection.room.send(ClientMessage.Deposit, { itemId, qty }),
@@ -478,10 +488,12 @@ export class ZoneScene extends Phaser.Scene {
       this.bankPanel?.setBag(p.slots);
       this.craftPanel?.setBag(p.slots);
       this.questPanel?.setBag(p.slots);
+      this.dialogue?.setBag(p.slots);
     });
     this.connection.room.onMessage(ServerMessage.Quests, (p: { quests: QuestLog }) => {
       this.questLog = p.quests;
       this.questPanel?.setQuests(p.quests);
+      this.dialogue?.setQuests(p.quests);
     });
     this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
       this.equipmentSlots = p.equipment;
@@ -524,7 +536,29 @@ export class ZoneScene extends Phaser.Scene {
     this.drawTilemap(this.map);
     for (const b of BANKS[zoneId] ?? []) this.drawBankMarker(b.x, b.y);
     for (const n of NODES[zoneId] ?? []) this.drawNodeMarker(n.id, n.type, n.x, n.y);
+    for (const npc of npcsInZone(zoneId)) this.drawNpcMarker(npc);
     this.cameras.main.setBounds(0, 0, this.map.pixelWidth, this.map.pixelHeight);
+  }
+
+  /** A clickable NPC: opens the conversation and tells the server we talked. */
+  private drawNpcMarker(npc: NpcDef): void {
+    const dot = this.add
+      .circle(0, 0, 11, npc.color)
+      .setStrokeStyle(2, 0xffe066)
+      .setInteractive({ useHandCursor: true });
+    dot.on("pointerdown", () => {
+      this.dialogue?.open(npc);
+      this.connection.room.send(ClientMessage.Talk, { npcId: npc.id });
+    });
+    const label = this.add
+      .text(0, -20, npc.name, {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "12px",
+        color: "#ffe066",
+      })
+      .setOrigin(0.5)
+      .setStroke("#000", 3);
+    this.add.container(npc.x, npc.y, [dot, label]).setDepth(3);
   }
 
   /** A clickable resource node (click to start gathering). */
@@ -696,6 +730,7 @@ export class ZoneScene extends Phaser.Scene {
       quests: () => this.questLog,
       questAccept: (questId: string) => room.send(ClientMessage.QuestAccept, { questId }),
       questComplete: (questId: string) => room.send(ClientMessage.QuestComplete, { questId }),
+      talk: (npcId: string) => room.send(ClientMessage.Talk, { npcId }),
       setTarget: (id: string | null) => this.selectTarget(id),
       attack: (targetId: string) =>
         room.send(ClientMessage.UseAbility, { abilityId: "strike", targetId }),

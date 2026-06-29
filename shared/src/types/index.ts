@@ -53,6 +53,9 @@ export type SkillId = (typeof SKILL_IDS)[number];
 /** How close (world units) a player must be to a resource node to gather it. */
 export const GATHER_RANGE = 64;
 
+/** How close (world units) a player must be to an NPC to talk to it. */
+export const TALK_RANGE = 80;
+
 /** Level cap for P2 (GW-style low ceiling; raised in later content). */
 export const LEVEL_CAP = 50;
 
