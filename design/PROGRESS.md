@@ -198,7 +198,14 @@ yet on real devices because we're not deployed.
   that NPC's quests). No migration (talk uses the existing quest log). 110 unit
   + 18 e2e (new npc.spec). Full branching dialogue trees deferred (v1 =
   greeting + quest options).
-- Next: **P5.3** vendors, **P5.4** starter arc + close-out.
+- **P5.3 done**: **vendors** (coin faucet + sink). Vendors are data
+  (`shared/data/vendors.ts`); Trader Bram in Meadowbrook sells potions/food/
+  basic gear. Pure pricing (`systems/shop.ts`: buy = value, sell = 40% of value;
+  3 unit tests). `Buy`/`Sell` are proximity-gated zod messages; the server
+  checks coins/stock/space, moves coins↔items, and ledgers both sides (reasons
+  `buy`/`sell`). Client shop panel (click a vendor) with Buy/Sell columns + a
+  coin readout. No migration. 113 unit + 19 e2e (new vendor.spec).
+- Next: **P5.4** starter arc content + close-out.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +

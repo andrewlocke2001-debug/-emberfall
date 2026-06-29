@@ -177,6 +177,23 @@
         border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
       .dialogue-opt:hover { border-color: #3b82f6; }
       .dialogue-note { font-size: 12px; color: #8893a7; padding: 2px 2px; }
+
+      /* Vendor shop panel (opens on clicking a vendor) */
+      #shop { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        z-index: 9; display: none; flex-direction: column; gap: 8px; padding: 12px; width: 460px;
+        background: rgba(13,16,24,0.97); border: 1px solid #2a3142; border-radius: 10px; }
+      #shop .shop-head { display: flex; align-items: baseline; justify-content: space-between; }
+      #shop-name { font-size: 14px; font-weight: 700; color: #ffe066; }
+      #shop-coins { font-size: 12px; color: #ffd34d; }
+      #shop .shop-head button { border: 0; background: #2a3142; color: #cdd6e6; border-radius: 6px;
+        padding: 2px 8px; cursor: pointer; font-size: 13px; }
+      #shop-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      #shop-cols h4 { margin: 0 0 4px; font-size: 12px; color: #8893a7; font-weight: 600; }
+      .shop-col-list { display: flex; flex-direction: column; gap: 4px; max-height: 46vh; overflow-y: auto; }
+      .shop-row { text-align: left; border: 1px solid #2a3142; background: #1a2030; color: #e6e6e6;
+        border-radius: 6px; padding: 5px 8px; font-size: 13px; cursor: pointer; }
+      .shop-row:hover { border-color: #3b82f6; }
+      .shop-empty { font-size: 12px; color: #5b6678; padding: 4px 2px; }
     </style>
   </head>
   <body>
@@ -231,6 +248,13 @@
       <div class="dialogue-head"><div id="dialogue-name"></div><button id="dialogue-close" type="button">✕</button></div>
       <div id="dialogue-text"></div>
       <div id="dialogue-opts"></div>
+    </div>
+    <div id="shop">
+      <div class="shop-head"><div id="shop-name"></div><div id="shop-coins"></div><button id="shop-close" type="button">✕</button></div>
+      <div id="shop-cols">
+        <div><h4>Buy</h4><div id="shop-buy" class="shop-col-list"></div></div>
+        <div><h4>Sell</h4><div id="shop-sell" class="shop-col-list"></div></div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

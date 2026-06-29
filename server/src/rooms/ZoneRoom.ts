@@ -36,9 +36,11 @@ import {
   type QuestActionPayload,
   type QuestsPayload,
   type TalkPayload,
+  type TradePayload,
 } from "@mmo/shared";
-import { addItem, removeItem, type Inventory } from "@mmo/shared/systems/inventory";
+import { addItem, removeItem, countItem, canAdd, type Inventory } from "@mmo/shared/systems/inventory";
 import { craft } from "@mmo/shared/systems/crafting";
+import { buyCost, sellValue } from "@mmo/shared/systems/shop";
 import {
   acceptQuest,
   canAccept,
@@ -62,6 +64,7 @@ import { resourceNode } from "@mmo/shared/data/resources";
 import { recipeDef } from "@mmo/shared/data/recipes";
 import { questDef } from "@mmo/shared/data/quests";
 import { npcDef } from "@mmo/shared/data/npcs";
+import { vendorDef } from "@mmo/shared/data/vendors";
 import { EnemySchema, PlayerSchema, ZoneState, GroundLootSchema } from "@mmo/shared/schema/state";
 import {
   MoveSchema,
@@ -76,6 +79,7 @@ import {
   ConsumeSchema,
   QuestActionSchema,
   TalkSchema,
+  TradeSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -265,6 +269,14 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
     this.onMessage(ClientMessage.Talk, TalkSchema, (client, msg: TalkPayload) => {
       this.handleTalk(client, msg);
+    });
+
+    this.onMessage(ClientMessage.Buy, TradeSchema, (client, msg: TradePayload) => {
+      this.handleBuy(client, msg);
+    });
+
+    this.onMessage(ClientMessage.Sell, TradeSchema, (client, msg: TradePayload) => {
+      this.handleSell(client, msg);
     });
 
     // Global chat arrives from any zone in this process — fan it out to ours.
@@ -1062,6 +1074,59 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.questLogs.set(sessionId, next);
       this.sendQuests(client);
     }
+  }
+
+  /** Buy `qty` of an item from a nearby vendor (coins → item; a coin sink). */
+  private handleBuy(client: Client, msg: TradePayload): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive) return;
+    const vendor = vendorDef(msg.vendorId);
+    if (!vendor || vendor.zone !== this.map.id) return;
+    if (distSq(player.x, player.y, vendor.x, vendor.y) > TALK_RANGE * TALK_RANGE) return;
+    if (!vendor.stock.includes(msg.itemId)) return; // not sold here
+    const def = itemDef(msg.itemId);
+    if (!def) return;
+
+    const cost = buyCost(def) * msg.qty;
+    const inv = this.inventories.get(sessionId) ?? [];
+    if (countItem(inv, "coins") < cost) {
+      this.systemTo(client, "You can't afford that.");
+      return;
+    }
+    if (!canAdd(inv, def.id, msg.qty, def.maxStack)) {
+      this.systemTo(client, "Your bag is full.");
+      return;
+    }
+    let next = removeItem(inv, "coins", cost).inventory;
+    next = addItem(next, def.id, msg.qty, def.maxStack).inventory;
+    this.inventories.set(sessionId, next);
+    void recordLedger({ account: player.id, itemId: "coins", delta: -cost, reason: "buy" });
+    void recordLedger({ account: player.id, itemId: def.id, delta: msg.qty, reason: "buy" });
+    this.sendInventory(client);
+  }
+
+  /** Sell `qty` of an item to a nearby vendor (item → coins; a coin faucet). */
+  private handleSell(client: Client, msg: TradePayload): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive) return;
+    const vendor = vendorDef(msg.vendorId);
+    if (!vendor || vendor.zone !== this.map.id) return;
+    if (distSq(player.x, player.y, vendor.x, vendor.y) > TALK_RANGE * TALK_RANGE) return;
+    if (msg.itemId === "coins") return; // can't sell coins for coins
+    const def = itemDef(msg.itemId);
+    if (!def || def.value <= 0) return; // worthless / unknown
+
+    const inv = this.inventories.get(sessionId) ?? [];
+    const removed = removeItem(inv, msg.itemId, msg.qty);
+    if (removed.removed <= 0) return; // none held
+    const pay = sellValue(def) * removed.removed;
+    const next = addItem(removed.inventory, "coins", pay, itemDef("coins")?.maxStack ?? 1).inventory;
+    this.inventories.set(sessionId, next);
+    void recordLedger({ account: player.id, itemId: msg.itemId, delta: -removed.removed, reason: "sell" });
+    void recordLedger({ account: player.id, itemId: "coins", delta: pay, reason: "sell" });
+    this.sendInventory(client);
   }
 
   /** Route a quest's XP reward to the right skill (combat vs non-combat). */

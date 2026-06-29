@@ -49,6 +49,10 @@ export const ClientMessage = {
   QuestComplete: "questComplete",
   /** Talk to an NPC (advances talk objectives; proximity-checked). */
   Talk: "talk",
+  /** Buy an item from a vendor (proximity-checked). */
+  Buy: "buy",
+  /** Sell an item to a vendor (proximity-checked). */
+  Sell: "sell",
 } as const;
 
 /** Server → client message types. */
@@ -184,6 +188,13 @@ export interface QuestActionPayload {
 /** Client → server: talk to an NPC by id (proximity-checked server-side). */
 export interface TalkPayload {
   npcId: string;
+}
+
+/** Client → server: buy/sell `qty` of an item at a vendor (proximity-checked). */
+export interface TradePayload {
+  vendorId: string;
+  itemId: string;
+  qty: number;
 }
 
 /** One quest's state on the wire (mirrors systems/quests QuestProgress). */

@@ -14,6 +14,7 @@ import type {
   ConsumePayload,
   QuestActionPayload,
   TalkPayload,
+  TradePayload,
 } from "./messages";
 
 /**
@@ -82,6 +83,13 @@ export const TalkSchema = z.strictObject({
   npcId: z.string().min(1).max(64),
 });
 
+/** buy + sell share this shape (a vendor, an item, and a positive quantity). */
+export const TradeSchema = z.strictObject({
+  vendorId: z.string().min(1).max(64),
+  itemId: z.string().min(1).max(64),
+  qty: z.number().int().min(1).max(1000),
+});
+
 // --- compile-time drift guards (no runtime cost) -----------------------------
 
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -98,8 +106,10 @@ const _craft: AssertEqual<z.output<typeof CraftSchema>, CraftPayload> = true;
 const _consume: AssertEqual<z.output<typeof ConsumeSchema>, ConsumePayload> = true;
 const _quest: AssertEqual<z.output<typeof QuestActionSchema>, QuestActionPayload> = true;
 const _talk: AssertEqual<z.output<typeof TalkSchema>, TalkPayload> = true;
+const _trade: AssertEqual<z.output<typeof TradeSchema>, TradePayload> = true;
 void _quest;
 void _talk;
+void _trade;
 void _move;
 void _ability;
 void _chat;
