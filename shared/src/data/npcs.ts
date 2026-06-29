@@ -30,7 +30,7 @@ export const NPCS: Record<string, NpcDef> = {
     y: 464,
     greeting:
       "Welcome to Meadowbrook, stranger. The frontier's hard, but we look after our own. Make yourself useful and you'll do fine.",
-    quests: ["greet_mira", "miners_welcome", "thin_the_pack"],
+    quests: ["greet_mira", "miners_welcome", "supper_for_the_inn", "thin_the_pack", "the_ember_scar"],
     color: 0x6fae8f,
   },
   smith_dorin: {

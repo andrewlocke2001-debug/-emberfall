@@ -61,6 +61,16 @@ export const QUESTS: Record<string, QuestDef> = {
     requires: "miners_welcome",
     giver: "hearthwarden_mira",
   },
+  // Teaches the fishing → cooking loop.
+  supper_for_the_inn: {
+    id: "supper_for_the_inn",
+    name: "Supper for the Inn",
+    summary: "Cook 3 Shrimp for the Meadowbrook inn.",
+    objectives: [{ type: "collect", itemId: "shrimp", count: 3, desc: "Cook 3 Shrimp" }],
+    rewards: { coins: 40, xp: [{ skill: "cooking", amount: 40 }] },
+    requires: "greet_mira",
+    giver: "hearthwarden_mira",
+  },
   // Spotlight-lite: a small combine quest gating a real reward.
   forge_proven: {
     id: "forge_proven",
@@ -70,6 +80,21 @@ export const QUESTS: Record<string, QuestDef> = {
     rewards: { coins: 60, items: [{ itemId: "iron_ore", qty: 3 }], xp: [{ skill: "smithing", amount: 50 }] },
     requires: "miners_welcome",
     giver: "smith_dorin",
+  },
+  // Spotlight capstone — pulls the arc together with a contested-wilds hunt and
+  // a Fine-tier reward (the iron sword). (Richer set-piece mechanics — choices,
+  // puzzles — are a later content pass; the framework supports the objectives.)
+  the_ember_scar: {
+    id: "the_ember_scar",
+    name: "The Ember Scar",
+    summary: "Drive a Bandit from the Greenreach scar and bring back 2 Ash Pelts.",
+    objectives: [
+      { type: "kill", mob: "bandit", count: 1, desc: "Defeat a Bandit" },
+      { type: "collect", itemId: "ash_pelt", count: 2, desc: "Collect 2 Ash Pelts" },
+    ],
+    rewards: { coins: 200, items: [{ itemId: "iron_sword", qty: 1 }], xp: [{ skill: "melee", amount: 150 }] },
+    requires: "thin_the_pack",
+    giver: "hearthwarden_mira",
   },
 };
 

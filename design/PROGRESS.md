@@ -205,7 +205,16 @@ yet on real devices because we're not deployed.
   checks coins/stock/space, moves coins↔items, and ledgers both sides (reasons
   `buy`/`sell`). Client shop panel (click a vendor) with Buy/Sell columns + a
   coin readout. No migration. 113 unit + 19 e2e (new vendor.spec).
-- Next: **P5.4** starter arc content + close-out.
+- **P5.4 done**: **starter quest arc** + content-integrity test. Added
+  `supper_for_the_inn` (fish→cook) and the spotlight capstone `the_ember_scar`
+  (kill a bandit + collect ash pelts → 200c + an iron sword), forming a coherent
+  Mira/Dorin arc: greet → mine → cook → smith/cull → spotlight. New
+  `data/content.test.ts` validates every cross-reference (items/mobs/npcs/
+  vendors/recipes/nodes/quests). 119 unit + 19 e2e.
+- **P5 COMPLETE (local)** — quests, NPCs/dialogue, vendors, a starter arc.
+  Deferred (need deploy + real people, or a later content pass): the soft-launch
+  with 10 strangers (P5 exit, blocked on deploy); branching dialogue trees;
+  expanding the arc toward the GDD's 25-quest target.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
