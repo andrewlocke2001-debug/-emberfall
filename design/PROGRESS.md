@@ -216,6 +216,16 @@ yet on real devices because we're not deployed.
   with 10 strangers (P5 exit, blocked on deploy); branching dialogue trees;
   expanding the arc toward the GDD's 25-quest target.
 
+## P6 — social fabric (in progress, local)
+- **P6.1 done**: **whispers** (private DMs). `/w <name> <text>` in chat (or the
+  `Whisper` zod message). The sender's room censors + rate-limits (shared chat
+  throttle), echoes to the sender, and publishes on the globalBus; whichever
+  room holds the named recipient delivers — so whispers cross zones. Purple
+  `[w] from » to:` lines in chat. No migration. 119 unit + 20 e2e (new
+  whisper.spec: cross-context delivery + sender echo).
+- Next: **P6.2** friends list + presence, **P6.3** parties (shared XP),
+  **P6.4** guilds v1, **P6.5** hiscores.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.

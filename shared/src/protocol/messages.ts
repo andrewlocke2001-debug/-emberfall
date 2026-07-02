@@ -20,6 +20,8 @@ export const ClientMessage = {
   Move: "move",
   UseAbility: "useAbility",
   Chat: "chat",
+  /** Send a private message to a player by display name. */
+  Whisper: "whisper",
   /** Ask the server to (re)send our inventory + equipment — sent once the
    *  client's handlers are registered, so the initial push can't lose the
    *  join race. */
@@ -99,8 +101,11 @@ export interface CombatEventPayload {
   heal?: boolean;
 }
 
-/** Chat channels available in P1. Party/guild channels arrive with P6. */
+/** Chat channels a client can post to (whisper is its own message). */
 export type ChatChannel = "zone" | "global";
+
+/** Channels a displayed line can belong to (adds whisper for the UI). */
+export type ChatDisplayChannel = ChatChannel | "whisper";
 
 /** Client → server: say something. Server validates, censors, rebroadcasts. */
 export interface ChatPayload {
@@ -108,9 +113,15 @@ export interface ChatPayload {
   text: string;
 }
 
+/** Client → server: a private message to a player by display name. */
+export interface WhisperPayload {
+  to: string;
+  text: string;
+}
+
 /** Server → client: a (already censored) chat line to display. */
 export interface ChatBroadcastPayload {
-  channel: ChatChannel;
+  channel: ChatDisplayChannel;
   /** Display name of the sender. */
   from: string;
   /** Zone the sender was in (shown for global messages). */
@@ -118,6 +129,8 @@ export interface ChatBroadcastPayload {
   text: string;
   /** Server timestamp (ms). */
   at: number;
+  /** Whisper recipient's display name (whisper channel only). */
+  to?: string;
 }
 
 /**

@@ -3,10 +3,15 @@ import type { ChatBroadcastPayload, ChatChannel } from "@mmo/shared";
 export interface ChatBoxOptions {
   /** Send a message on a channel. */
   onSend: (channel: ChatChannel, text: string) => void;
+  /** Send a private message: "/w <name> <text>". */
+  onWhisper: (to: string, text: string) => void;
   /** Fired when the chat input gains/loses focus (so the game can pause
    *  keyboard movement while the player is typing). */
   onFocusChange: (focused: boolean) => void;
 }
+
+/** Matches "/w name rest" or "/whisper name rest" (name is one token). */
+const WHISPER_RE = /^\/w(?:hisper)?\s+(\S+)\s+([\s\S]+)$/i;
 
 const MAX_LINES = 60;
 
@@ -35,7 +40,11 @@ export class ChatBox {
       e.preventDefault();
       const text = this.input.value.trim();
       this.input.value = "";
-      if (text) this.opts.onSend(this.channel, text);
+      if (text) {
+        const w = WHISPER_RE.exec(text);
+        if (w) this.opts.onWhisper(w[1]!, w[2]!.trim());
+        else this.opts.onSend(this.channel, text);
+      }
       this.input.blur();
     } else if (e.key === "Escape") {
       this.input.value = "";
@@ -65,10 +74,11 @@ export class ChatBox {
 
   addMessage(p: ChatBroadcastPayload): void {
     const line = document.createElement("div");
-    line.className = p.channel === "global" ? "line global" : "line";
+    line.className = `line ${p.channel}`;
     const from = document.createElement("span");
     from.className = "from";
-    from.textContent = `${p.channel === "global" ? "[G] " : ""}${p.from}: `;
+    if (p.channel === "whisper") from.textContent = `[w] ${p.from} » ${p.to}: `;
+    else from.textContent = `${p.channel === "global" ? "[G] " : ""}${p.from}: `;
     line.appendChild(from);
     line.appendChild(document.createTextNode(p.text));
     this.log.appendChild(line);

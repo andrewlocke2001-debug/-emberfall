@@ -24,6 +24,17 @@ class GlobalBus extends EventEmitter {
     this.on("chat", handler);
     return () => this.off("chat", handler);
   }
+
+  /** Publish a whisper; the room holding the recipient (by name) delivers it. */
+  publishWhisper(message: ChatBroadcastPayload): void {
+    this.emit("whisper", message);
+  }
+
+  /** Subscribe to whispers; returns an unsubscribe function. */
+  onWhisper(handler: (message: ChatBroadcastPayload) => void): () => void {
+    this.on("whisper", handler);
+    return () => this.off("whisper", handler);
+  }
 }
 
 export const globalBus = new GlobalBus();

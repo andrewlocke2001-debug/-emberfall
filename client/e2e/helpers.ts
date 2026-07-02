@@ -29,6 +29,7 @@ export interface MmoTestApi {
   questAccept(questId: string): void;
   questComplete(questId: string): void;
   talk(npcId: string): void;
+  whisper(to: string, text: string): void;
   buy(vendorId: string, itemId: string, qty: number): void;
   sell(vendorId: string, itemId: string, qty: number): void;
   enemyHp(id: string): number | null;

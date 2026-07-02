@@ -170,6 +170,7 @@ export class ZoneScene extends Phaser.Scene {
     // movement so typing doesn't drive the character.
     this.chat = new ChatBox({
       onSend: (channel, text) => this.connection.room.send(ClientMessage.Chat, { channel, text }),
+      onWhisper: (to, text) => this.connection.room.send(ClientMessage.Whisper, { to, text }),
       onFocusChange: (focused) => {
         if (this.input.keyboard) this.input.keyboard.enabled = !focused;
       },
@@ -761,6 +762,7 @@ export class ZoneScene extends Phaser.Scene {
       questAccept: (questId: string) => room.send(ClientMessage.QuestAccept, { questId }),
       questComplete: (questId: string) => room.send(ClientMessage.QuestComplete, { questId }),
       talk: (npcId: string) => room.send(ClientMessage.Talk, { npcId }),
+      whisper: (to: string, text: string) => room.send(ClientMessage.Whisper, { to, text }),
       buy: (vendorId: string, itemId: string, qty: number) =>
         room.send(ClientMessage.Buy, { vendorId, itemId, qty }),
       sell: (vendorId: string, itemId: string, qty: number) =>

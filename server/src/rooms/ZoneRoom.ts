@@ -21,6 +21,7 @@ import {
   type TransferPayload,
   type ChatPayload,
   type ChatBroadcastPayload,
+  type WhisperPayload,
   type LevelUpPayload,
   type SkillId,
   type InventoryPayload,
@@ -70,6 +71,7 @@ import {
   MoveSchema,
   UseAbilitySchema,
   ChatSchema,
+  WhisperSchema,
   EquipSchema,
   UnequipSchema,
   PickupSchema,
@@ -144,6 +146,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly chatLimiter = new RateLimiter(5, 10_000);
   /** Unsubscribe handle for the global-chat bus (set in onCreate). */
   private unsubscribeGlobal?: () => void;
+  /** Unsubscribe handle for the whisper bus (set in onCreate). */
+  private unsubscribeWhisper?: () => void;
   /** Per-enemy AI: spawn home, current target session, last attack time. */
   private readonly enemyAI = new Map<
     string,
@@ -279,9 +283,19 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.handleSell(client, msg);
     });
 
+    this.onMessage(ClientMessage.Whisper, WhisperSchema, (client, msg: WhisperPayload) => {
+      this.handleWhisper(client, msg);
+    });
+
     // Global chat arrives from any zone in this process — fan it out to ours.
     this.unsubscribeGlobal = globalBus.onChat((payload) => {
       this.broadcast(ServerMessage.Chat, payload);
+    });
+
+    // Whispers arrive from any zone — deliver to the named recipient if they're
+    // in this room.
+    this.unsubscribeWhisper = globalBus.onWhisper((payload) => {
+      if (payload.to) this.deliverWhisperTo(payload.to, payload);
     });
 
     // The authoritative game loop.
@@ -395,6 +409,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
   override async onDispose(): Promise<void> {
     this.unsubscribeGlobal?.();
+    this.unsubscribeWhisper?.();
     await this.snapshotAll();
   }
 
@@ -609,6 +624,36 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     } else {
       this.broadcast(ServerMessage.Chat, payload);
     }
+  }
+
+  /** Send a private message: echo to the sender + route to the recipient. */
+  private handleWhisper(client: Client, msg: WhisperPayload): void {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (!this.chatLimiter.allow(client.sessionId)) return; // shares the chat throttle
+    const text = censorText(msg.text).trim().slice(0, 200);
+    const to = msg.to.trim().slice(0, 24);
+    if (!text || !to) return;
+
+    const payload: ChatBroadcastPayload = {
+      channel: "whisper",
+      from: player.name,
+      to,
+      zone: this.map.id,
+      text,
+      at: Date.now(),
+    };
+    client.send(ServerMessage.Chat, payload); // the sender's own copy
+    globalBus.publishWhisper(payload); // delivered by whichever room holds `to`
+  }
+
+  /** Deliver a whisper to a recipient by display name, if they're in this room. */
+  private deliverWhisperTo(name: string, payload: ChatBroadcastPayload): void {
+    const want = name.trim().toLowerCase();
+    this.state.players.forEach((p, sid) => {
+      if (p.name.trim().toLowerCase() !== want) return;
+      this.clients.find((c) => c.sessionId === sid)?.send(ServerMessage.Chat, payload);
+    });
   }
 
   // --- GM commands (role-gated, audit-logged) --------------------------------

@@ -5,6 +5,7 @@ import type {
   MovePayload,
   UseAbilityPayload,
   ChatPayload,
+  WhisperPayload,
   EquipPayload,
   UnequipPayload,
   PickupPayload,
@@ -41,6 +42,11 @@ export const UseAbilitySchema = z.strictObject({
 
 export const ChatSchema = z.strictObject({
   channel: z.enum(["zone", "global"]),
+  text: z.string().min(1).max(200),
+});
+
+export const WhisperSchema = z.strictObject({
+  to: z.string().min(1).max(24),
   text: z.string().min(1).max(200),
 });
 
@@ -97,6 +103,8 @@ type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : ne
 const _move: AssertEqual<z.output<typeof MoveSchema>, MovePayload> = true;
 const _ability: AssertEqual<z.output<typeof UseAbilitySchema>, UseAbilityPayload> = true;
 const _chat: AssertEqual<z.output<typeof ChatSchema>, ChatPayload> = true;
+const _whisper: AssertEqual<z.output<typeof WhisperSchema>, WhisperPayload> = true;
+void _whisper;
 const _equip: AssertEqual<z.output<typeof EquipSchema>, EquipPayload> = true;
 const _unequip: AssertEqual<z.output<typeof UnequipSchema>, UnequipPayload> = true;
 const _pickup: AssertEqual<z.output<typeof PickupSchema>, PickupPayload> = true;
