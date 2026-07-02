@@ -7,7 +7,7 @@ import type { Prisma } from "../generated/prisma/client";
 
 // why: Prisma's InputJsonValue rejects interface arrays / typed records (no
 // index signature). The stored shapes are plain JSON, so these casts are sound.
-const asJson = (v: ItemStack[] | Equipment | QuestLog): Prisma.InputJsonValue =>
+const asJson = (v: ItemStack[] | Equipment | QuestLog | string[]): Prisma.InputJsonValue =>
   v as unknown as Prisma.InputJsonValue;
 
 // Bank uses the same defensive parse as the bag (pg adapter can hand JSONB
@@ -40,6 +40,8 @@ export interface SavedCharacter {
   bank: ItemStack[];
   /** Quest log (JSON column). Server is the sole writer. */
   quests: QuestLog;
+  /** Friend display names (JSON column). Server is the sole writer. */
+  friends: string[];
 }
 
 /** Coerce the JSON `inventory` column into well-formed stacks (defensive). */
@@ -112,6 +114,20 @@ function parseQuests(raw: unknown): QuestLog {
   });
 }
 
+/** Coerce a JSON string-array column (e.g. friends) defensively. */
+function parseNames(raw: unknown): string[] {
+  let value: unknown = raw;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(value)) return [];
+  return value.filter((n): n is string => typeof n === "string" && n.length > 0);
+}
+
 /**
  * Prisma-backed character persistence (replaced the M0 JSON snapshot store).
  * Same interface, now async: load on join, write-through on leave + periodic
@@ -152,9 +168,16 @@ class CharacterStore {
         equipment: asJson({}),
         bank: asJson([]),
         quests: asJson([]),
+        friends: asJson([]),
       },
     });
     return toSavedCharacter(row);
+  }
+
+  /** Does a character with this display name exist? (friend-add validation) */
+  async nameExists(name: string): Promise<boolean> {
+    const row = await prisma.player.findFirst({ where: { name }, select: { id: true } });
+    return row !== null;
   }
 
   /** Snapshot a character's current state. Upsert: defensive against wipes. */
@@ -178,6 +201,7 @@ class CharacterStore {
       equipment: asJson(c.equipment),
       bank: asJson(c.bank),
       quests: asJson(c.quests),
+      friends: asJson(c.friends),
     };
     await prisma.player.upsert({
       where: { id: c.playerId },
@@ -207,6 +231,7 @@ function toSavedCharacter(row: {
   equipment: unknown;
   bank: unknown;
   quests: unknown;
+  friends: unknown;
 }): SavedCharacter {
   return {
     playerId: row.id,
@@ -228,6 +253,7 @@ function toSavedCharacter(row: {
     equipment: parseEquipment(row.equipment),
     bank: parseInventory(row.bank),
     quests: parseQuests(row.quests),
+    friends: parseNames(row.friends),
   };
 }
 

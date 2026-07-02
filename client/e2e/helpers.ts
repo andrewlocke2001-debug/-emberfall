@@ -30,6 +30,10 @@ export interface MmoTestApi {
   questComplete(questId: string): void;
   talk(npcId: string): void;
   whisper(to: string, text: string): void;
+  friends(): { name: string; online: boolean; zone?: string }[];
+  friendAdd(name: string): void;
+  friendRemove(name: string): void;
+  requestFriends(): void;
   buy(vendorId: string, itemId: string, qty: number): void;
   sell(vendorId: string, itemId: string, qty: number): void;
   enemyHp(id: string): number | null;

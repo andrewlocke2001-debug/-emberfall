@@ -55,6 +55,8 @@ model Player {
   bank       Json     @default("[]")
   // Quest log as JSON: array of { questId, status, progress[] }.
   quests     Json     @default("[]")
+  // Friends as JSON: array of friend display names.
+  friends    Json     @default("[]")
   createdAt  DateTime @default(now())
   lastSeen   DateTime @updatedAt
 }

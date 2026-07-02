@@ -223,8 +223,15 @@ yet on real devices because we're not deployed.
   room holds the named recipient delivers — so whispers cross zones. Purple
   `[w] from » to:` lines in chat. No migration. 119 unit + 20 e2e (new
   whisper.spec: cross-context delivery + sender echo).
-- Next: **P6.2** friends list + presence, **P6.3** parties (shared XP),
-  **P6.4** guilds v1, **P6.5** hiscores.
+- **P6.2 done**: **friends list + presence**. Persisted per-player friends
+  (JSON column, migration `add_friends`, capped 50, must name a real
+  character). New process-local `presence` service (name → zone; registered on
+  join, guard-unregistered on leave so zone transfers can't wipe it) — the
+  second Redis seam for P11. `FriendAdd`/`FriendRemove`/`RequestFriends` zod
+  messages → a `Friends` push with live online/zone per entry. Client friends
+  panel (toggle **F**): add-by-name, green/grey presence dots, per-row remove.
+  119 unit + 21 e2e (new friends.spec: add → online in meadowbrook → remove).
+- Next: **P6.3** parties (shared XP), **P6.4** guilds v1, **P6.5** hiscores.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +

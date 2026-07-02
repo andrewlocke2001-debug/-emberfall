@@ -38,6 +38,10 @@ import {
   type QuestsPayload,
   type TalkPayload,
   type TradePayload,
+  type FriendActionPayload,
+  type FriendsPayload,
+  type FriendEntry,
+  FRIENDS_MAX,
 } from "@mmo/shared";
 import { addItem, removeItem, countItem, canAdd, type Inventory } from "@mmo/shared/systems/inventory";
 import { craft } from "@mmo/shared/systems/crafting";
@@ -82,6 +86,7 @@ import {
   QuestActionSchema,
   TalkSchema,
   TradeSchema,
+  FriendActionSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -101,6 +106,7 @@ import { parseCommand, isGm, parseGmAllowlist, type GmCommand } from "@mmo/share
 import { verifyToken } from "../auth";
 import { censorText } from "../chat";
 import { globalBus } from "../services/globalBus";
+import { presence } from "../services/presence";
 import { characterStore, type SavedCharacter } from "../persistence/store";
 import { recordLedger } from "../persistence/ledger";
 
@@ -191,6 +197,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly banks = new Map<string, Bank>();
   /** Authoritative per-session quest log (off synced state, persisted). */
   private readonly questLogs = new Map<string, QuestLog>();
+  /** Authoritative per-session friends list (off synced state, persisted). */
+  private readonly friendLists = new Map<string, string[]>();
 
   override onCreate(options?: { zoneId?: string }): void {
     const zoneId =
@@ -287,6 +295,16 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.handleWhisper(client, msg);
     });
 
+    this.onMessage(ClientMessage.FriendAdd, FriendActionSchema, (client, msg: FriendActionPayload) => {
+      void this.handleFriendAdd(client, msg);
+    });
+
+    this.onMessage(ClientMessage.FriendRemove, FriendActionSchema, (client, msg: FriendActionPayload) => {
+      this.handleFriendRemove(client, msg);
+    });
+
+    this.onMessage(ClientMessage.RequestFriends, (client) => this.sendFriends(client));
+
     // Global chat arrives from any zone in this process — fan it out to ours.
     this.unsubscribeGlobal = globalBus.onChat((payload) => {
       this.broadcast(ServerMessage.Chat, payload);
@@ -360,6 +378,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.equipment.set(client.sessionId, saved.equipment);
     this.banks.set(client.sessionId, saved.bank);
     this.questLogs.set(client.sessionId, saved.quests);
+    this.friendLists.set(client.sessionId, saved.friends);
+    presence.register(saved.name, this.map.id);
     this.sendInventory(client);
     this.sendEquipment(client);
     this.sendQuests(client);
@@ -392,13 +412,19 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const equipment = this.equipment.get(client.sessionId) ?? {};
     const bank = this.banks.get(client.sessionId) ?? [];
     const quests = this.questLogs.get(client.sessionId) ?? [];
+    const friends = this.friendLists.get(client.sessionId) ?? [];
     this.inventories.delete(client.sessionId);
     this.equipment.delete(client.sessionId);
     this.banks.delete(client.sessionId);
     this.questLogs.delete(client.sessionId);
+    this.friendLists.delete(client.sessionId);
     if (!player) return;
 
-    const snapshot = toSaved(player, this.map.id, inventory, equipment, bank, quests);
+    // Unregister presence — but only if we still own the entry (on a zone
+    // transfer the destination room may have already re-registered them).
+    if (presence.get(player.name)?.zone === this.map.id) presence.unregister(player.name);
+
+    const snapshot = toSaved(player, this.map.id, inventory, equipment, bank, quests, friends);
     this.state.players.delete(client.sessionId);
     try {
       await characterStore.save(snapshot);
@@ -654,6 +680,53 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (p.name.trim().toLowerCase() !== want) return;
       this.clients.find((c) => c.sessionId === sid)?.send(ServerMessage.Chat, payload);
     });
+  }
+
+  // --- friends ----------------------------------------------------------------
+
+  /** Push the owner their friends list with live presence. */
+  private sendFriends(client: Client): void {
+    const names = this.friendLists.get(client.sessionId) ?? [];
+    const friends: FriendEntry[] = names.map((name) => {
+      const p = presence.get(name);
+      return p ? { name, online: true, zone: p.zone } : { name, online: false };
+    });
+    const payload: FriendsPayload = { friends };
+    client.send(ServerMessage.Friends, payload);
+  }
+
+  /** Add a friend by display name (must be a real character; capped; deduped). */
+  private async handleFriendAdd(client: Client, msg: FriendActionPayload): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const name = msg.name.trim();
+    if (!name || name.toLowerCase() === player.name.trim().toLowerCase()) return; // not yourself
+    const list = this.friendLists.get(client.sessionId) ?? [];
+    if (list.length >= FRIENDS_MAX) {
+      this.systemTo(client, "Your friends list is full.");
+      return;
+    }
+    if (list.some((n) => n.toLowerCase() === name.toLowerCase())) return; // already added
+    if (!(await characterStore.nameExists(name))) {
+      this.systemTo(client, `No character named "${name}".`);
+      return;
+    }
+    // Re-fetch after the await — the session may have changed/left meanwhile.
+    const fresh = this.friendLists.get(client.sessionId);
+    if (!fresh || fresh.length >= FRIENDS_MAX) return;
+    this.friendLists.set(client.sessionId, [...fresh, name]);
+    this.sendFriends(client);
+  }
+
+  /** Remove a name from the friends list (case-insensitive). */
+  private handleFriendRemove(client: Client, msg: FriendActionPayload): void {
+    const list = this.friendLists.get(client.sessionId);
+    if (!list) return;
+    const want = msg.name.trim().toLowerCase();
+    const next = list.filter((n) => n.toLowerCase() !== want);
+    if (next.length === list.length) return;
+    this.friendLists.set(client.sessionId, next);
+    this.sendFriends(client);
   }
 
   // --- GM commands (role-gated, audit-logged) --------------------------------
@@ -1442,6 +1515,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
           this.equipment.get(sessionId) ?? {},
           this.banks.get(sessionId) ?? [],
           this.questLogs.get(sessionId) ?? [],
+          this.friendLists.get(sessionId) ?? [],
         ),
       ),
     );
@@ -1476,6 +1550,7 @@ function toSaved(
   equipment: Equipment,
   bank: Bank,
   quests: QuestLog,
+  friends: string[],
 ): SavedCharacter {
   return {
     playerId: p.id,
@@ -1497,5 +1572,6 @@ function toSaved(
     equipment,
     bank,
     quests,
+    friends,
   };
 }

@@ -59,6 +59,9 @@ export const TALK_RANGE = 80;
 /** Fraction of an item's value a vendor pays when buying it from a player. */
 export const VENDOR_BUYBACK_RATE = 0.4;
 
+/** Maximum entries in a player's friends list. */
+export const FRIENDS_MAX = 50;
+
 /** Level cap for P2 (GW-style low ceiling; raised in later content). */
 export const LEVEL_CAP = 50;
 

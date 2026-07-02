@@ -55,6 +55,12 @@ export const ClientMessage = {
   Buy: "buy",
   /** Sell an item to a vendor (proximity-checked). */
   Sell: "sell",
+  /** Add a player (by display name) to the friends list. */
+  FriendAdd: "friendAdd",
+  /** Remove a name from the friends list. */
+  FriendRemove: "friendRemove",
+  /** Ask for the friends list with live presence. */
+  RequestFriends: "requestFriends",
 } as const;
 
 /** Server → client message types. */
@@ -68,6 +74,7 @@ export const ServerMessage = {
   Equipment: "equipment",
   Bank: "bank",
   Quests: "quests",
+  Friends: "friends",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -208,6 +215,24 @@ export interface TradePayload {
   vendorId: string;
   itemId: string;
   qty: number;
+}
+
+/** Client → server: add/remove a friend by display name. */
+export interface FriendActionPayload {
+  name: string;
+}
+
+/** One friends-list row with live presence. */
+export interface FriendEntry {
+  name: string;
+  online: boolean;
+  /** Zone the friend is currently in (online only). */
+  zone?: string;
+}
+
+/** Server → client: the owner's friends list (sent on request and change). */
+export interface FriendsPayload {
+  friends: FriendEntry[];
 }
 
 /** One quest's state on the wire (mirrors systems/quests QuestProgress). */

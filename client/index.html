@@ -195,6 +195,30 @@
         border-radius: 6px; padding: 5px 8px; font-size: 13px; cursor: pointer; }
       .shop-row:hover { border-color: #3b82f6; }
       .shop-empty { font-size: 12px; color: #5b6678; padding: 4px 2px; }
+
+      /* Friends panel (toggle F) */
+      #friends { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        z-index: 9; display: none; flex-direction: column; gap: 8px; padding: 12px; width: 320px;
+        background: rgba(13,16,24,0.97); border: 1px solid #2a3142; border-radius: 10px; }
+      #friends .friends-header { display: flex; align-items: center; justify-content: space-between;
+        font-size: 14px; color: #cdd6e6; }
+      #friends .friends-header button { border: 0; background: #2a3142; color: #cdd6e6; border-radius: 6px;
+        padding: 2px 8px; cursor: pointer; font-size: 13px; }
+      #friends .friends-addrow { display: flex; gap: 6px; }
+      #friends-input { flex: 1 1 auto; padding: 6px 10px; border-radius: 6px; border: 1px solid #2a3142;
+        background: rgba(26,32,48,0.92); color: #fff; font-size: 13px; outline: none; }
+      #friends-input:focus { border-color: #3b82f6; }
+      #friends-add { flex: 0 0 auto; border: 0; background: #3b82f6; color: #fff; border-radius: 6px;
+        padding: 6px 12px; cursor: pointer; font-size: 13px; }
+      #friends-list { display: flex; flex-direction: column; gap: 4px; max-height: 46vh; overflow-y: auto; }
+      .friend-row { display: flex; align-items: center; gap: 8px; border: 1px solid #2a3142;
+        background: #1a2030; border-radius: 6px; padding: 5px 8px; font-size: 13px; }
+      .friend-dot { width: 8px; height: 8px; border-radius: 50%; background: #5b6678; flex: 0 0 auto; }
+      .friend-dot.online { background: #6fcf6f; }
+      .friend-name { flex: 1 1 auto; }
+      .friend-remove { border: 0; background: transparent; color: #8893a7; cursor: pointer; font-size: 12px; }
+      .friend-remove:hover { color: #ef6b6b; }
+      .friends-empty { font-size: 12px; color: #5b6678; }
     </style>
   </head>
   <body>
@@ -256,6 +280,14 @@
         <div><h4>Buy</h4><div id="shop-buy" class="shop-col-list"></div></div>
         <div><h4>Sell</h4><div id="shop-sell" class="shop-col-list"></div></div>
       </div>
+    </div>
+    <div id="friends">
+      <div class="friends-header"><span>Friends (F)</span><button id="friends-close" type="button">✕</button></div>
+      <div class="friends-addrow">
+        <input id="friends-input" type="text" maxlength="24" placeholder="Add by name…" autocomplete="off" />
+        <button id="friends-add" type="button">Add</button>
+      </div>
+      <div id="friends-list"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -35,7 +35,8 @@ import { CraftPanel } from "../ui/CraftPanel";
 import { QuestPanel } from "../ui/QuestPanel";
 import { DialoguePanel } from "../ui/DialoguePanel";
 import { ShopPanel } from "../ui/ShopPanel";
-import type { ItemStack } from "@mmo/shared";
+import { FriendsPanel } from "../ui/FriendsPanel";
+import type { ItemStack, FriendEntry, FriendsPayload } from "@mmo/shared";
 import type { QuestLog } from "@mmo/shared/systems/quests";
 import { npcsInZone, type NpcDef } from "@mmo/shared/data/npcs";
 import { vendorsInZone, type VendorDef } from "@mmo/shared/data/vendors";
@@ -102,6 +103,9 @@ export class ZoneScene extends Phaser.Scene {
   private dialogue?: DialoguePanel;
   /** Vendor shop panel (opens on clicking a vendor). */
   private shop?: ShopPanel;
+  /** Friends panel (toggle F) + last-known list. */
+  private friendsPanel?: FriendsPanel;
+  private friendsList: FriendEntry[] = [];
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map?: ZoneMap;
@@ -129,12 +133,12 @@ export class ZoneScene extends Phaser.Scene {
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
-    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J") as Record<
+    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F") as Record<
       string,
       Phaser.Input.Keyboard.Key
     >;
     this.escKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,UP,DOWN,LEFT,RIGHT");
+    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,UP,DOWN,LEFT,RIGHT");
 
     this.selectionRing = this.add
       .circle(0, 0, 28)
@@ -211,6 +215,21 @@ export class ZoneScene extends Phaser.Scene {
       onSell: (vendorId, itemId, qty) => this.connection.room.send(ClientMessage.Sell, { vendorId, itemId, qty }),
     });
     this.events.once("shutdown", () => this.shop?.destroy());
+
+    this.friendsPanel = new FriendsPanel({
+      onAdd: (name) => this.connection.room.send(ClientMessage.FriendAdd, { name }),
+      onRemove: (name) => this.connection.room.send(ClientMessage.FriendRemove, { name }),
+      onRefresh: () => this.connection.room.send(ClientMessage.RequestFriends),
+    });
+    // Pause Phaser keyboard while typing a friend's name (same as chat).
+    const friendsInput = document.getElementById("friends-input");
+    friendsInput?.addEventListener("focus", () => {
+      if (this.input.keyboard) this.input.keyboard.enabled = false;
+    });
+    friendsInput?.addEventListener("blur", () => {
+      if (this.input.keyboard) this.input.keyboard.enabled = true;
+    });
+    this.events.once("shutdown", () => this.friendsPanel?.destroy());
 
     this.bankPanel = new BankPanel({
       onDeposit: (itemId, qty) => this.connection.room.send(ClientMessage.Deposit, { itemId, qty }),
@@ -365,6 +384,7 @@ export class ZoneScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys["B"]!) && this.atBank) this.bankPanel?.toggle();
 
     if (Phaser.Input.Keyboard.JustDown(this.keys["J"]!)) this.questPanel?.toggle();
+    if (Phaser.Input.Keyboard.JustDown(this.keys["F"]!)) this.friendsPanel?.toggle();
 
     // Crafting panel (C); refresh its skill gates from live XP while open.
     if (Phaser.Input.Keyboard.JustDown(this.keys["C"]!)) this.craftPanel?.toggle();
@@ -506,6 +526,10 @@ export class ZoneScene extends Phaser.Scene {
       this.questLog = p.quests;
       this.questPanel?.setQuests(p.quests);
       this.dialogue?.setQuests(p.quests);
+    });
+    this.connection.room.onMessage(ServerMessage.Friends, (p: FriendsPayload) => {
+      this.friendsList = p.friends;
+      this.friendsPanel?.setFriends(p.friends);
     });
     this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
       this.equipmentSlots = p.equipment;
@@ -763,6 +787,10 @@ export class ZoneScene extends Phaser.Scene {
       questComplete: (questId: string) => room.send(ClientMessage.QuestComplete, { questId }),
       talk: (npcId: string) => room.send(ClientMessage.Talk, { npcId }),
       whisper: (to: string, text: string) => room.send(ClientMessage.Whisper, { to, text }),
+      friends: () => this.friendsList,
+      friendAdd: (name: string) => room.send(ClientMessage.FriendAdd, { name }),
+      friendRemove: (name: string) => room.send(ClientMessage.FriendRemove, { name }),
+      requestFriends: () => room.send(ClientMessage.RequestFriends),
       buy: (vendorId: string, itemId: string, qty: number) =>
         room.send(ClientMessage.Buy, { vendorId, itemId, qty }),
       sell: (vendorId: string, itemId: string, qty: number) =>
