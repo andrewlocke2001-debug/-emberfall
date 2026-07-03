@@ -41,7 +41,11 @@ import {
   type FriendActionPayload,
   type FriendsPayload,
   type FriendEntry,
+  type PartyInvitePayload,
+  type PartyPayload,
+  type PartyMemberEntry,
   FRIENDS_MAX,
+  PARTY_LEVEL_RANGE,
 } from "@mmo/shared";
 import { addItem, removeItem, countItem, canAdd, type Inventory } from "@mmo/shared/systems/inventory";
 import { craft } from "@mmo/shared/systems/crafting";
@@ -87,6 +91,7 @@ import {
   TalkSchema,
   TradeSchema,
   FriendActionSchema,
+  PartyInviteSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -107,6 +112,7 @@ import { verifyToken } from "../auth";
 import { censorText } from "../chat";
 import { globalBus } from "../services/globalBus";
 import { presence } from "../services/presence";
+import { parties } from "../services/party";
 import { characterStore, type SavedCharacter } from "../persistence/store";
 import { recordLedger } from "../persistence/ledger";
 
@@ -154,6 +160,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private unsubscribeGlobal?: () => void;
   /** Unsubscribe handle for the whisper bus (set in onCreate). */
   private unsubscribeWhisper?: () => void;
+  /** Unsubscribe handle for party-roster changes (set in onCreate). */
+  private unsubscribeParty?: () => void;
   /** Per-enemy AI: spawn home, current target session, last attack time. */
   private readonly enemyAI = new Map<
     string,
@@ -305,6 +313,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
     this.onMessage(ClientMessage.RequestFriends, (client) => this.sendFriends(client));
 
+    this.onMessage(ClientMessage.PartyInvite, PartyInviteSchema, (client, msg: PartyInvitePayload) => {
+      this.handlePartyInvite(client, msg);
+    });
+    this.onMessage(ClientMessage.PartyAccept, (client) => this.handlePartyAccept(client));
+    this.onMessage(ClientMessage.PartyLeave, (client) => this.handlePartyLeave(client));
+    this.onMessage(ClientMessage.RequestParty, (client) => this.sendParty(client));
+
     // Global chat arrives from any zone in this process — fan it out to ours.
     this.unsubscribeGlobal = globalBus.onChat((payload) => {
       this.broadcast(ServerMessage.Chat, payload);
@@ -314,6 +329,16 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     // in this room.
     this.unsubscribeWhisper = globalBus.onWhisper((payload) => {
       if (payload.to) this.deliverWhisperTo(payload.to, payload);
+    });
+
+    // Party rosters changed somewhere — refresh any affected player we hold.
+    this.unsubscribeParty = globalBus.onPartyChanged((names) => {
+      const wanted = new Set(names.map((n) => n.trim().toLowerCase()));
+      this.state.players.forEach((p, sid) => {
+        if (!wanted.has(p.name.trim().toLowerCase())) return;
+        const client = this.clients.find((c) => c.sessionId === sid);
+        if (client) this.sendParty(client);
+      });
     });
 
     // The authoritative game loop.
@@ -383,6 +408,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.sendInventory(client);
     this.sendEquipment(client);
     this.sendQuests(client);
+    this.sendParty(client);
 
     if (isGm(name, this.gmAllow)) {
       this.gmSessions.add(client.sessionId);
@@ -436,6 +462,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   override async onDispose(): Promise<void> {
     this.unsubscribeGlobal?.();
     this.unsubscribeWhisper?.();
+    this.unsubscribeParty?.();
     await this.snapshotAll();
   }
 
@@ -544,13 +571,33 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const meleeAmt = def.xpReward;
     const vitalityAmt = Math.floor(def.xpReward * VITALITY_XP_FRACTION);
     const now = Date.now();
-    // GW2-style: every contributor gets XP and their OWN loot roll (no steals).
+    // Party XP: contributors' party members in this zone (alive, within the
+    // level range) share kill credit even without tagging the mob. Loot rolls
+    // stay tag-based — only real damage earns a personal drop.
+    const credited = new Set(contributors);
     contributors.forEach((sessionId) => {
+      const tagger = this.state.players.get(sessionId);
+      if (!tagger) return;
+      const party = parties.partyOf(tagger.name);
+      if (!party) return;
+      const memberKeys = new Set(party.members.map((m) => m.trim().toLowerCase()));
+      this.state.players.forEach((cand, candSid) => {
+        if (credited.has(candSid) || !cand.alive) return;
+        if (!memberKeys.has(cand.name.trim().toLowerCase())) return;
+        if (Math.abs(cand.level - tagger.level) > PARTY_LEVEL_RANGE) return;
+        credited.add(candSid);
+      });
+    });
+
+    // GW2-style: every credited player gets XP; every TAGGER gets a loot roll.
+    credited.forEach((sessionId) => {
       const player = this.state.players.get(sessionId);
       if (!player) return;
       this.grantXp(sessionId, player, meleeAmt, vitalityAmt);
-      for (const stack of rollDrops(def.drops)) {
-        this.spawnLoot(stack.itemId, stack.qty, enemy.x, enemy.y, player.id, now);
+      if (contributors.has(sessionId)) {
+        for (const stack of rollDrops(def.drops)) {
+          this.spawnLoot(stack.itemId, stack.qty, enemy.x, enemy.y, player.id, now);
+        }
       }
       // Advance any "kill" quest objectives for this mob kind.
       const log = this.questLogs.get(sessionId);
@@ -727,6 +774,81 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     if (next.length === list.length) return;
     this.friendLists.set(client.sessionId, next);
     this.sendFriends(client);
+  }
+
+  // --- parties ----------------------------------------------------------------
+
+  /** Push the owner their party roster (with presence) + any pending invite. */
+  private sendParty(client: Client): void {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const party = parties.partyOf(player.name);
+    const members: PartyMemberEntry[] = (party?.members ?? []).map((name) => {
+      const p = presence.get(name);
+      return {
+        name,
+        leader: party!.leader.trim().toLowerCase() === name.trim().toLowerCase(),
+        online: !!p,
+        ...(p ? { zone: p.zone } : {}),
+      };
+    });
+    const invitedBy = parties.inviteFor(player.name);
+    const payload: PartyPayload = { members, ...(invitedBy ? { invitedBy } : {}) };
+    client.send(ServerMessage.Party, payload);
+  }
+
+  /** Invite an online player to the party (transient — recipient must be on). */
+  private handlePartyInvite(client: Client, msg: PartyInvitePayload): void {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const target = presence.get(msg.name);
+    if (!target) {
+      this.systemTo(client, `${msg.name} isn't online.`);
+      return;
+    }
+    const result = parties.invite(player.name, target.name);
+    if (result === "invitee_in_party") {
+      this.systemTo(client, `${target.name} is already in a party.`);
+      return;
+    }
+    if (result === "party_full") {
+      this.systemTo(client, "Your party is full.");
+      return;
+    }
+    if (result !== "ok") return;
+    this.systemTo(client, `Invited ${target.name} to your party.`);
+    // Tell the invitee (System whisper reaches them in any zone) + refresh
+    // their party panel so the Accept button appears.
+    globalBus.publishWhisper({
+      channel: "whisper",
+      from: "System",
+      to: target.name,
+      zone: this.map.id,
+      text: `${player.name} invited you to a party. Open the party panel (P) to accept.`,
+      at: Date.now(),
+    });
+    globalBus.publishPartyChanged([target.name]);
+  }
+
+  private handlePartyAccept(client: Client): void {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const inviter = parties.inviteFor(player.name);
+    const result = parties.accept(player.name);
+    if (result !== "ok") {
+      if (result === "party_full") this.systemTo(client, "That party is now full.");
+      this.sendParty(client); // clears a stale invite in the UI
+      return;
+    }
+    const party = parties.partyOf(player.name);
+    globalBus.publishPartyChanged(party ? party.members : [player.name, inviter ?? ""]);
+  }
+
+  private handlePartyLeave(client: Client): void {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const affected = parties.leave(player.name);
+    if (affected.length > 0) globalBus.publishPartyChanged(affected);
   }
 
   // --- GM commands (role-gated, audit-logged) --------------------------------

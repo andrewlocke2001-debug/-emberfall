@@ -62,6 +62,11 @@ export const VENDOR_BUYBACK_RATE = 0.4;
 /** Maximum entries in a player's friends list. */
 export const FRIENDS_MAX = 50;
 
+/** Maximum players in a party. */
+export const PARTY_MAX = 5;
+/** Max melee-level gap for a party member to share kill XP. */
+export const PARTY_LEVEL_RANGE = 10;
+
 /** Level cap for P2 (GW-style low ceiling; raised in later content). */
 export const LEVEL_CAP = 50;
 

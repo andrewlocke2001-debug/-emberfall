@@ -61,6 +61,14 @@ export const ClientMessage = {
   FriendRemove: "friendRemove",
   /** Ask for the friends list with live presence. */
   RequestFriends: "requestFriends",
+  /** Invite a player (by display name) to your party. */
+  PartyInvite: "partyInvite",
+  /** Accept your pending party invite. */
+  PartyAccept: "partyAccept",
+  /** Leave your current party. */
+  PartyLeave: "partyLeave",
+  /** Ask for current party state. */
+  RequestParty: "requestParty",
 } as const;
 
 /** Server → client message types. */
@@ -75,6 +83,7 @@ export const ServerMessage = {
   Bank: "bank",
   Quests: "quests",
   Friends: "friends",
+  Party: "party",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -233,6 +242,27 @@ export interface FriendEntry {
 /** Server → client: the owner's friends list (sent on request and change). */
 export interface FriendsPayload {
   friends: FriendEntry[];
+}
+
+/** Client → server: invite a player to your party by display name. */
+export interface PartyInvitePayload {
+  name: string;
+}
+
+/** One party-roster row with live presence. */
+export interface PartyMemberEntry {
+  name: string;
+  leader: boolean;
+  online: boolean;
+  /** Zone the member is currently in (online only). */
+  zone?: string;
+}
+
+/** Server → client: your party roster (empty members = not in a party). */
+export interface PartyPayload {
+  members: PartyMemberEntry[];
+  /** Who invited you, when you have a pending invite. */
+  invitedBy?: string;
 }
 
 /** One quest's state on the wire (mirrors systems/quests QuestProgress). */

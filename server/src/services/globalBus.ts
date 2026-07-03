@@ -35,6 +35,17 @@ class GlobalBus extends EventEmitter {
     this.on("whisper", handler);
     return () => this.off("whisper", handler);
   }
+
+  /** Announce that these players' party rosters changed (by display name). */
+  publishPartyChanged(names: string[]): void {
+    this.emit("partyChanged", names);
+  }
+
+  /** Subscribe to party-roster changes; returns an unsubscribe function. */
+  onPartyChanged(handler: (names: string[]) => void): () => void {
+    this.on("partyChanged", handler);
+    return () => this.off("partyChanged", handler);
+  }
 }
 
 export const globalBus = new GlobalBus();

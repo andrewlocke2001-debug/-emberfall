@@ -231,7 +231,19 @@ yet on real devices because we're not deployed.
   messages → a `Friends` push with live online/zone per entry. Client friends
   panel (toggle **F**): add-by-name, green/grey presence dots, per-row remove.
   119 unit + 21 e2e (new friends.spec: add → online in meadowbrook → remove).
-- Next: **P6.3** parties (shared XP), **P6.4** guilds v1, **P6.5** hiscores.
+- **P6.3 done**: **parties + shared kill XP**. Pure `PartyRegistry` in
+  `shared/systems/party.ts` (invite/accept/leave; cap 5; leader promotion;
+  disband at 1; 5 unit tests) instanced once process-wide
+  (`services/party.ts`). Invites require the target online; the invitee gets a
+  System whisper + a roster push (`partyChanged` on the globalBus fans roster
+  updates to whichever rooms hold the members — parties survive zone travel
+  and brief relogs; members show offline via presence). **Shared XP**: on a
+  mob death, party members of any tagger who are in the same zone, alive, and
+  within PARTY_LEVEL_RANGE (10) melee levels get full kill XP + quest kill
+  credit; **loot rolls stay tag-based**. Client party panel (toggle **P**):
+  invite-by-name, accept banner, leader crown, presence, leave. 124 unit + 22
+  e2e (new party.spec: invite → accept → shared roster → leave disbands).
+- Next: **P6.4** guilds v1, **P6.5** hiscores.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +

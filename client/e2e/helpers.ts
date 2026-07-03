@@ -34,6 +34,14 @@ export interface MmoTestApi {
   friendAdd(name: string): void;
   friendRemove(name: string): void;
   requestFriends(): void;
+  party(): {
+    members: { name: string; leader: boolean; online: boolean; zone?: string }[];
+    invitedBy?: string;
+  };
+  partyInvite(name: string): void;
+  partyAccept(): void;
+  partyLeave(): void;
+  requestParty(): void;
   buy(vendorId: string, itemId: string, qty: number): void;
   sell(vendorId: string, itemId: string, qty: number): void;
   enemyHp(id: string): number | null;
