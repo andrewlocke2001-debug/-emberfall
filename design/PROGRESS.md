@@ -257,7 +257,15 @@ yet on real devices because we're not deployed.
   found form, accept banner, roster with 👑/⭐ ranks + presence, promote/
   demote + kick (rank-gated), leave. 128 unit + 23 e2e (new guild.spec: found
   → invite/accept → guild chat → disband).
-- Next: **P6.5** hiscores + P6 close-out.
+- **P6.5 done**: **public hiscores**. The game server serves `/hiscores`
+  (server-rendered, crawlable HTML — no client bundle) and `/api/hiscores`
+  (JSON): top 50 per skill + a total-level board (ordered by summed XP; levels
+  derived with the shared curve). Names HTML-escaped; read-only queries.
+  128 unit + 24 e2e (new hiscores.spec: JSON rows ranked + HTML page).
+- **P6 COMPLETE (local)** — whispers, friends+presence, parties+shared XP,
+  guilds v1 + guild chat, public hiscores. The P6 exit ("a 4-person party
+  quests for an hour; a guild of strangers exists that you didn't create")
+  needs real players — deferred with the deploy, same as the P5 soft launch.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
@@ -270,6 +278,22 @@ yet on real devices because we're not deployed.
   moving prisma migrate out of boot (release_command) for fast cold starts.
 
 ## Shipped
+
+### 2026-06-26 — P6 social fabric complete ✅ (P6.1–P6.5)
+- **Whispers** `/w name text` (cross-zone via the bus, censored + throttled).
+- **Friends + presence** (persisted list, cap 50; process-local presence
+  service with a transfer-safe unregister guard).
+- **Parties + shared XP** (pure PartyRegistry, cap 5, leader promotion; roster
+  fan-out via the bus; same-zone/level-range shared kill XP; loot stays
+  tag-based).
+- **Guilds v1** (durable: Guild table + membership on Player; ranks
+  leader/officer/member with a pure permission matrix; transient invites;
+  leadership hand-off + disband-when-empty; members-only guild chat channel;
+  snapshots never write membership so kicks can't be clobbered).
+- **Public hiscores** (/hiscores HTML + /api/hiscores JSON; per-skill + total).
+- 128 unit + 24 e2e; typecheck clean. Migrations: add_friends, add_guilds.
+- All social fan-out goes through globalBus/presence/parties seams → the P11
+  Redis swap stays a services-layer change.
 
 ### 2026-06-24 — P4.3 rested XP (P4 complete) ✅
 - WoW-style rested buffer: offline time banks credit (`restedAccrual`, capped)

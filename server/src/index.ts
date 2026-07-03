@@ -7,6 +7,7 @@ import express from "express";
 import { ZONE_IDS } from "@mmo/shared/data/zones";
 import { ZoneRoom } from "./rooms/ZoneRoom";
 import { AuthError, registerAccount, loginAccount, guestAccount, type AuthResult } from "./auth";
+import { getHiscores, isHiscoreBoard, renderHiscoresHtml } from "./hiscores";
 
 const PORT = Number(process.env["PORT"] ?? 2567);
 
@@ -51,6 +52,28 @@ const gameServer = new Server({
     app.post("/auth/register", route((b) => registerAccount(b["username"]!, b["password"]!)));
     app.post("/auth/login", route((b) => loginAccount(b["username"]!, b["password"]!)));
     app.post("/auth/guest", route((b) => guestAccount(b["name"])));
+
+    // Public hiscores — crawlable HTML + a JSON API (read-only).
+    const boardFrom = (q: unknown): "total" | ReturnType<typeof String> =>
+      typeof q === "string" && isHiscoreBoard(q) ? q : "total";
+    app.get("/hiscores", async (req, res) => {
+      try {
+        const board = boardFrom(req.query["skill"]) as Parameters<typeof getHiscores>[0];
+        res.type("html").send(renderHiscoresHtml(board, await getHiscores(board)));
+      } catch (err) {
+        console.error("[hiscores] failed:", err);
+        res.status(500).send("Hiscores are unavailable right now.");
+      }
+    });
+    app.get("/api/hiscores", async (req, res) => {
+      try {
+        const board = boardFrom(req.query["skill"]) as Parameters<typeof getHiscores>[0];
+        res.json({ board, rows: await getHiscores(board) });
+      } catch (err) {
+        console.error("[hiscores] failed:", err);
+        res.status(500).json({ error: "Hiscores are unavailable right now." });
+      }
+    });
 
     if (existsSync(clientDist)) {
       // index.html must never be cached, or players keep running a stale
