@@ -66,9 +66,12 @@ export class ChatBox {
   }
 
   private toggleChannel(): void {
-    this.channel = this.channel === "zone" ? "global" : "zone";
-    this.channelBtn.textContent = this.channel === "zone" ? "Zone" : "Global";
+    // Cycle zone → global → guild.
+    this.channel = this.channel === "zone" ? "global" : this.channel === "global" ? "guild" : "zone";
+    const labels: Record<ChatChannel, string> = { zone: "Zone", global: "Global", guild: "Guild" };
+    this.channelBtn.textContent = labels[this.channel];
     this.channelBtn.classList.toggle("global", this.channel === "global");
+    this.channelBtn.classList.toggle("guild", this.channel === "guild");
     this.input.focus();
   }
 
@@ -78,6 +81,7 @@ export class ChatBox {
     const from = document.createElement("span");
     from.className = "from";
     if (p.channel === "whisper") from.textContent = `[w] ${p.from} » ${p.to}: `;
+    else if (p.channel === "guild") from.textContent = `[gld] ${p.from}: `;
     else from.textContent = `${p.channel === "global" ? "[G] " : ""}${p.from}: `;
     line.appendChild(from);
     line.appendChild(document.createTextNode(p.text));

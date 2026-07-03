@@ -42,6 +42,20 @@ export interface MmoTestApi {
   partyAccept(): void;
   partyLeave(): void;
   requestParty(): void;
+  guild(): {
+    name?: string;
+    tag?: string;
+    myRank?: "leader" | "officer" | "member";
+    members: { name: string; rank: string; online: boolean; zone?: string }[];
+    invitedTo?: { guildName: string; by: string };
+  };
+  guildCreate(name: string, tag: string): void;
+  guildInvite(name: string): void;
+  guildAccept(): void;
+  guildLeave(): void;
+  guildKick(name: string): void;
+  guildSetRank(name: string, rank: "officer" | "member"): void;
+  requestGuild(): void;
   buy(vendorId: string, itemId: string, qty: number): void;
   sell(vendorId: string, itemId: string, qty: number): void;
   enemyHp(id: string): number | null;

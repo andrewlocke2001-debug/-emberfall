@@ -42,6 +42,11 @@ export interface SavedCharacter {
   quests: QuestLog;
   /** Friend display names (JSON column). Server is the sole writer. */
   friends: string[];
+  /** Guild membership at load time (written ONLY by persistence/guilds.ts —
+   *  save() never touches it, so snapshots can't clobber a kick/promotion;
+   *  optional because room snapshots don't carry it). */
+  guildId?: string | null;
+  guildRank?: string | null;
 }
 
 /** Coerce the JSON `inventory` column into well-formed stacks (defensive). */
@@ -232,6 +237,8 @@ function toSavedCharacter(row: {
   bank: unknown;
   quests: unknown;
   friends: unknown;
+  guildId: string | null;
+  guildRank: string | null;
 }): SavedCharacter {
   return {
     playerId: row.id,
@@ -254,6 +261,8 @@ function toSavedCharacter(row: {
     bank: parseInventory(row.bank),
     quests: parseQuests(row.quests),
     friends: parseNames(row.friends),
+    guildId: row.guildId,
+    guildRank: row.guildRank,
   };
 }
 

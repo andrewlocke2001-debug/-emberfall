@@ -44,9 +44,22 @@ import {
   type PartyInvitePayload,
   type PartyPayload,
   type PartyMemberEntry,
+  type GuildCreatePayload,
+  type GuildActionPayload,
+  type GuildSetRankPayload,
+  type GuildPayload,
+  type GuildMemberEntry,
   FRIENDS_MAX,
   PARTY_LEVEL_RANGE,
 } from "@mmo/shared";
+import {
+  validGuildName,
+  validGuildTag,
+  canKick,
+  canSetRank,
+  GUILD_MEMBERS_MAX,
+  type GuildRank,
+} from "@mmo/shared/systems/guild";
 import { addItem, removeItem, countItem, canAdd, type Inventory } from "@mmo/shared/systems/inventory";
 import { craft } from "@mmo/shared/systems/crafting";
 import { buyCost, sellValue } from "@mmo/shared/systems/shop";
@@ -92,6 +105,9 @@ import {
   TradeSchema,
   FriendActionSchema,
   PartyInviteSchema,
+  GuildCreateSchema,
+  GuildActionSchema,
+  GuildSetRankSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -113,6 +129,15 @@ import { censorText } from "../chat";
 import { globalBus } from "../services/globalBus";
 import { presence } from "../services/presence";
 import { parties } from "../services/party";
+import { guildInvites } from "../services/guildInvites";
+import {
+  createGuild,
+  getGuild,
+  listGuildMembers,
+  setMembership,
+  membershipOf,
+  removeMember,
+} from "../persistence/guilds";
 import { characterStore, type SavedCharacter } from "../persistence/store";
 import { recordLedger } from "../persistence/ledger";
 
@@ -207,6 +232,11 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly questLogs = new Map<string, QuestLog>();
   /** Authoritative per-session friends list (off synced state, persisted). */
   private readonly friendLists = new Map<string, string[]>();
+  /** Per-session guild membership cache (DB is the source of truth). */
+  private readonly guildCache = new Map<string, { guildId: string; rank: GuildRank } | null>();
+  /** Unsubscribe handles for the guild buses (set in onCreate). */
+  private unsubscribeGuildChat?: () => void;
+  private unsubscribeGuildChanged?: () => void;
 
   override onCreate(options?: { zoneId?: string }): void {
     const zoneId =
@@ -320,6 +350,28 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.onMessage(ClientMessage.PartyLeave, (client) => this.handlePartyLeave(client));
     this.onMessage(ClientMessage.RequestParty, (client) => this.sendParty(client));
 
+    this.onMessage(ClientMessage.GuildCreate, GuildCreateSchema, (client, msg: GuildCreatePayload) => {
+      void this.handleGuildCreate(client, msg);
+    });
+    this.onMessage(ClientMessage.GuildInvite, GuildActionSchema, (client, msg: GuildActionPayload) => {
+      void this.handleGuildInvite(client, msg);
+    });
+    this.onMessage(ClientMessage.GuildAccept, (client) => {
+      void this.handleGuildAccept(client);
+    });
+    this.onMessage(ClientMessage.GuildLeave, (client) => {
+      void this.handleGuildLeave(client);
+    });
+    this.onMessage(ClientMessage.GuildKick, GuildActionSchema, (client, msg: GuildActionPayload) => {
+      void this.handleGuildKick(client, msg);
+    });
+    this.onMessage(ClientMessage.GuildSetRank, GuildSetRankSchema, (client, msg: GuildSetRankPayload) => {
+      void this.handleGuildSetRank(client, msg);
+    });
+    this.onMessage(ClientMessage.RequestGuild, (client) => {
+      void this.sendGuild(client);
+    });
+
     // Global chat arrives from any zone in this process — fan it out to ours.
     this.unsubscribeGlobal = globalBus.onChat((payload) => {
       this.broadcast(ServerMessage.Chat, payload);
@@ -338,6 +390,24 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         if (!wanted.has(p.name.trim().toLowerCase())) return;
         const client = this.clients.find((c) => c.sessionId === sid);
         if (client) this.sendParty(client);
+      });
+    });
+
+    // Guild chat: deliver to every session in this room belonging to the guild.
+    this.unsubscribeGuildChat = globalBus.onGuildChat((guildId, payload) => {
+      this.guildCache.forEach((membership, sid) => {
+        if (membership?.guildId !== guildId) return;
+        this.clients.find((c) => c.sessionId === sid)?.send(ServerMessage.Chat, payload);
+      });
+    });
+
+    // Guild state changed for these players — re-read the DB and push.
+    this.unsubscribeGuildChanged = globalBus.onGuildChanged((names) => {
+      const wanted = new Set(names.map((n) => n.trim().toLowerCase()));
+      this.state.players.forEach((p, sid) => {
+        if (!wanted.has(p.name.trim().toLowerCase())) return;
+        const client = this.clients.find((c) => c.sessionId === sid);
+        if (client) void this.refreshGuild(client, p.id);
       });
     });
 
@@ -404,11 +474,16 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.banks.set(client.sessionId, saved.bank);
     this.questLogs.set(client.sessionId, saved.quests);
     this.friendLists.set(client.sessionId, saved.friends);
+    this.guildCache.set(
+      client.sessionId,
+      saved.guildId ? { guildId: saved.guildId, rank: (saved.guildRank ?? "member") as GuildRank } : null,
+    );
     presence.register(saved.name, this.map.id);
     this.sendInventory(client);
     this.sendEquipment(client);
     this.sendQuests(client);
     this.sendParty(client);
+    void this.sendGuild(client);
 
     if (isGm(name, this.gmAllow)) {
       this.gmSessions.add(client.sessionId);
@@ -444,6 +519,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.banks.delete(client.sessionId);
     this.questLogs.delete(client.sessionId);
     this.friendLists.delete(client.sessionId);
+    this.guildCache.delete(client.sessionId);
     if (!player) return;
 
     // Unregister presence — but only if we still own the entry (on a zone
@@ -463,6 +539,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.unsubscribeGlobal?.();
     this.unsubscribeWhisper?.();
     this.unsubscribeParty?.();
+    this.unsubscribeGuildChat?.();
+    this.unsubscribeGuildChanged?.();
     await this.snapshotAll();
   }
 
@@ -694,6 +772,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     };
     if (msg.channel === "global") {
       globalBus.publishChat(payload); // fans out to every room, including this one
+    } else if (msg.channel === "guild") {
+      const membership = this.guildCache.get(client.sessionId);
+      if (!membership) {
+        this.systemTo(client, "You're not in a guild.");
+        return;
+      }
+      globalBus.publishGuildChat(membership.guildId, payload); // members-only fan-out
     } else {
       this.broadcast(ServerMessage.Chat, payload);
     }
@@ -849,6 +934,184 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     if (!player) return;
     const affected = parties.leave(player.name);
     if (affected.length > 0) globalBus.publishPartyChanged(affected);
+  }
+
+  // --- guilds -----------------------------------------------------------------
+
+  /** Re-read membership from the DB into the cache, then push guild state. */
+  private async refreshGuild(client: Client, accountId: string): Promise<void> {
+    const membership = await membershipOf(accountId);
+    this.guildCache.set(client.sessionId, membership);
+    await this.sendGuild(client);
+  }
+
+  /** Push the owner their guild roster (with presence) or pending invite. */
+  private async sendGuild(client: Client): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const membership = this.guildCache.get(client.sessionId);
+    if (!membership) {
+      const invite = guildInvites.get(player.name);
+      const payload: GuildPayload = {
+        members: [],
+        ...(invite ? { invitedTo: { guildName: invite.guildName, by: invite.inviterName } } : {}),
+      };
+      client.send(ServerMessage.Guild, payload);
+      return;
+    }
+    const [guild, rows] = await Promise.all([
+      getGuild(membership.guildId),
+      listGuildMembers(membership.guildId),
+    ]);
+    if (!guild) {
+      // Guild vanished (disband raced us) — clear and resend as guildless.
+      this.guildCache.set(client.sessionId, null);
+      client.send(ServerMessage.Guild, { members: [] } satisfies GuildPayload);
+      return;
+    }
+    const members: GuildMemberEntry[] = rows.map((m) => {
+      const p = presence.get(m.name);
+      return { name: m.name, rank: m.rank, online: !!p, ...(p ? { zone: p.zone } : {}) };
+    });
+    const payload: GuildPayload = {
+      name: guild.name,
+      tag: guild.tag,
+      myRank: membership.rank,
+      members,
+    };
+    client.send(ServerMessage.Guild, payload);
+  }
+
+  /** Found a guild (validated name/tag; founder becomes leader). */
+  private async handleGuildCreate(client: Client, msg: GuildCreatePayload): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (this.guildCache.get(client.sessionId)) {
+      this.systemTo(client, "You're already in a guild.");
+      return;
+    }
+    if (!validGuildName(msg.name) || !validGuildTag(msg.tag)) {
+      this.systemTo(client, "Guild name must be 3-24 characters; tag 2-4 letters/numbers.");
+      return;
+    }
+    const result = await createGuild(player.id, msg.name, msg.tag);
+    if (!result.ok) {
+      this.systemTo(client, result.error);
+      return;
+    }
+    await this.refreshGuild(client, player.id);
+    this.systemTo(client, `Founded ${result.guild.name} [${result.guild.tag}]!`);
+  }
+
+  /** Invite an online player (officer+ only; capped roster). */
+  private async handleGuildInvite(client: Client, msg: GuildActionPayload): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    const membership = this.guildCache.get(client.sessionId);
+    if (!player || !membership) return;
+    if (membership.rank === "member") {
+      this.systemTo(client, "Only the leader and officers can invite.");
+      return;
+    }
+    const target = presence.get(msg.name);
+    if (!target) {
+      this.systemTo(client, `${msg.name} isn't online.`);
+      return;
+    }
+    const guild = await getGuild(membership.guildId);
+    if (!guild) return;
+    const members = await listGuildMembers(membership.guildId);
+    if (members.length >= GUILD_MEMBERS_MAX) {
+      this.systemTo(client, "Your guild is full.");
+      return;
+    }
+    if (members.some((m) => m.name.trim().toLowerCase() === target.name.trim().toLowerCase())) {
+      this.systemTo(client, `${target.name} is already in your guild.`);
+      return;
+    }
+    guildInvites.set(target.name, {
+      guildId: guild.id,
+      guildName: guild.name,
+      inviterName: player.name,
+    });
+    this.systemTo(client, `Invited ${target.name} to ${guild.name}.`);
+    globalBus.publishWhisper({
+      channel: "whisper",
+      from: "System",
+      to: target.name,
+      zone: this.map.id,
+      text: `${player.name} invited you to the guild ${guild.name} [${guild.tag}]. Open the guild panel (G) to accept.`,
+      at: Date.now(),
+    });
+    globalBus.publishGuildChanged([target.name]);
+  }
+
+  /** Accept the pending guild invite (re-validated against the DB). */
+  private async handleGuildAccept(client: Client): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (this.guildCache.get(client.sessionId)) return; // already in one
+    const invite = guildInvites.consume(player.name);
+    if (!invite) return;
+    const guild = await getGuild(invite.guildId);
+    if (!guild) {
+      this.systemTo(client, "That guild no longer exists.");
+      await this.sendGuild(client);
+      return;
+    }
+    const members = await listGuildMembers(guild.id);
+    if (members.length >= GUILD_MEMBERS_MAX) {
+      this.systemTo(client, "That guild is now full.");
+      await this.sendGuild(client);
+      return;
+    }
+    await setMembership(player.id, guild.id, "member");
+    globalBus.publishGuildChanged([player.name, ...members.map((m) => m.name)]);
+  }
+
+  /** Leave the guild (leadership hands off; disbands when empty). */
+  private async handleGuildLeave(client: Client): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    const membership = this.guildCache.get(client.sessionId);
+    if (!player || !membership) return;
+    const affected = await removeMember(membership.guildId, player.id);
+    if (affected.length > 0) globalBus.publishGuildChanged(affected);
+  }
+
+  /** Kick a member (rank rules from shared/systems/guild). */
+  private async handleGuildKick(client: Client, msg: GuildActionPayload): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    const membership = this.guildCache.get(client.sessionId);
+    if (!player || !membership) return;
+    const members = await listGuildMembers(membership.guildId);
+    const target = members.find(
+      (m) => m.name.trim().toLowerCase() === msg.name.trim().toLowerCase(),
+    );
+    if (!target || target.id === player.id) return;
+    if (!canKick(membership.rank, target.rank)) {
+      this.systemTo(client, "You can't kick that member.");
+      return;
+    }
+    const affected = await removeMember(membership.guildId, target.id);
+    if (affected.length > 0) globalBus.publishGuildChanged(affected);
+    this.systemTo(client, `Removed ${target.name} from the guild.`);
+  }
+
+  /** Promote/demote between officer and member (leader only). */
+  private async handleGuildSetRank(client: Client, msg: GuildSetRankPayload): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    const membership = this.guildCache.get(client.sessionId);
+    if (!player || !membership) return;
+    const members = await listGuildMembers(membership.guildId);
+    const target = members.find(
+      (m) => m.name.trim().toLowerCase() === msg.name.trim().toLowerCase(),
+    );
+    if (!target) return;
+    if (!canSetRank(membership.rank, target.rank, msg.rank)) {
+      this.systemTo(client, "Only the leader can change ranks.");
+      return;
+    }
+    await setMembership(target.id, membership.guildId, msg.rank);
+    globalBus.publishGuildChanged(members.map((m) => m.name));
   }
 
   // --- GM commands (role-gated, audit-logged) --------------------------------

@@ -37,7 +37,14 @@ import { DialoguePanel } from "../ui/DialoguePanel";
 import { ShopPanel } from "../ui/ShopPanel";
 import { FriendsPanel } from "../ui/FriendsPanel";
 import { PartyPanel } from "../ui/PartyPanel";
-import type { ItemStack, FriendEntry, FriendsPayload, PartyPayload } from "@mmo/shared";
+import { GuildPanel } from "../ui/GuildPanel";
+import type {
+  ItemStack,
+  FriendEntry,
+  FriendsPayload,
+  PartyPayload,
+  GuildPayload,
+} from "@mmo/shared";
 import type { QuestLog } from "@mmo/shared/systems/quests";
 import { npcsInZone, type NpcDef } from "@mmo/shared/data/npcs";
 import { vendorsInZone, type VendorDef } from "@mmo/shared/data/vendors";
@@ -110,6 +117,9 @@ export class ZoneScene extends Phaser.Scene {
   /** Party panel (toggle P) + last-known roster. */
   private partyPanel?: PartyPanel;
   private partyState: PartyPayload = { members: [] };
+  /** Guild panel (toggle G) + last-known state. */
+  private guildPanel?: GuildPanel;
+  private guildState: GuildPayload = { members: [] };
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map?: ZoneMap;
@@ -137,12 +147,12 @@ export class ZoneScene extends Phaser.Scene {
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
-    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,P") as Record<
+    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,P,G") as Record<
       string,
       Phaser.Input.Keyboard.Key
     >;
     this.escKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,P,UP,DOWN,LEFT,RIGHT");
+    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,P,G,UP,DOWN,LEFT,RIGHT");
 
     this.selectionRing = this.add
       .circle(0, 0, 28)
@@ -249,6 +259,26 @@ export class ZoneScene extends Phaser.Scene {
       if (this.input.keyboard) this.input.keyboard.enabled = true;
     });
     this.events.once("shutdown", () => this.partyPanel?.destroy());
+
+    this.guildPanel = new GuildPanel({
+      onCreate: (name, tag) => this.connection.room.send(ClientMessage.GuildCreate, { name, tag }),
+      onInvite: (name) => this.connection.room.send(ClientMessage.GuildInvite, { name }),
+      onAccept: () => this.connection.room.send(ClientMessage.GuildAccept),
+      onLeave: () => this.connection.room.send(ClientMessage.GuildLeave),
+      onKick: (name) => this.connection.room.send(ClientMessage.GuildKick, { name }),
+      onSetRank: (name, rank) => this.connection.room.send(ClientMessage.GuildSetRank, { name, rank }),
+      onRefresh: () => this.connection.room.send(ClientMessage.RequestGuild),
+    });
+    // The guild panel builds its inputs dynamically — pause Phaser keys for any
+    // focused field inside it (focusin/focusout bubble; focus/blur don't).
+    const guildRoot = document.getElementById("guild");
+    guildRoot?.addEventListener("focusin", () => {
+      if (this.input.keyboard) this.input.keyboard.enabled = false;
+    });
+    guildRoot?.addEventListener("focusout", () => {
+      if (this.input.keyboard) this.input.keyboard.enabled = true;
+    });
+    this.events.once("shutdown", () => this.guildPanel?.destroy());
 
     this.bankPanel = new BankPanel({
       onDeposit: (itemId, qty) => this.connection.room.send(ClientMessage.Deposit, { itemId, qty }),
@@ -405,6 +435,7 @@ export class ZoneScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys["J"]!)) this.questPanel?.toggle();
     if (Phaser.Input.Keyboard.JustDown(this.keys["F"]!)) this.friendsPanel?.toggle();
     if (Phaser.Input.Keyboard.JustDown(this.keys["P"]!)) this.partyPanel?.toggle();
+    if (Phaser.Input.Keyboard.JustDown(this.keys["G"]!)) this.guildPanel?.toggle();
 
     // Crafting panel (C); refresh its skill gates from live XP while open.
     if (Phaser.Input.Keyboard.JustDown(this.keys["C"]!)) this.craftPanel?.toggle();
@@ -554,6 +585,10 @@ export class ZoneScene extends Phaser.Scene {
     this.connection.room.onMessage(ServerMessage.Party, (p: PartyPayload) => {
       this.partyState = p;
       this.partyPanel?.setParty(p);
+    });
+    this.connection.room.onMessage(ServerMessage.Guild, (p: GuildPayload) => {
+      this.guildState = p;
+      this.guildPanel?.setGuild(p);
     });
     this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
       this.equipmentSlots = p.equipment;
@@ -820,6 +855,14 @@ export class ZoneScene extends Phaser.Scene {
       partyAccept: () => room.send(ClientMessage.PartyAccept),
       partyLeave: () => room.send(ClientMessage.PartyLeave),
       requestParty: () => room.send(ClientMessage.RequestParty),
+      guild: () => this.guildState,
+      guildCreate: (name: string, tag: string) => room.send(ClientMessage.GuildCreate, { name, tag }),
+      guildInvite: (name: string) => room.send(ClientMessage.GuildInvite, { name }),
+      guildAccept: () => room.send(ClientMessage.GuildAccept),
+      guildLeave: () => room.send(ClientMessage.GuildLeave),
+      guildKick: (name: string) => room.send(ClientMessage.GuildKick, { name }),
+      guildSetRank: (name: string, rank: string) => room.send(ClientMessage.GuildSetRank, { name, rank }),
+      requestGuild: () => room.send(ClientMessage.RequestGuild),
       buy: (vendorId: string, itemId: string, qty: number) =>
         room.send(ClientMessage.Buy, { vendorId, itemId, qty }),
       sell: (vendorId: string, itemId: string, qty: number) =>

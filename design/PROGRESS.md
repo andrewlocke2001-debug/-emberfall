@@ -243,7 +243,21 @@ yet on real devices because we're not deployed.
   credit; **loot rolls stay tag-based**. Client party panel (toggle **P**):
   invite-by-name, accept banner, leader crown, presence, leave. 124 unit + 22
   e2e (new party.spec: invite → accept → shared roster → leave disbands).
-- Next: **P6.4** guilds v1, **P6.5** hiscores.
+- **P6.4 done**: **guilds v1** (durable). New `Guild` table (unique name +
+  [TAG], leaderId) + `Player.guildId/guildRank` (migration `add_guilds`).
+  Pure rules in `shared/systems/guild.ts` (name/tag validation, canKick,
+  canSetRank; 4 unit tests). Create/invite/accept/leave/kick/set-rank are zod
+  messages; invites are transient (target must be online, System whisper +
+  panel refresh); leader leaving hands off to an officer (else first member);
+  the last member out disbands (guild deleted). Rooms cache membership per
+  session (DB is truth; `guildChanged` on the bus triggers a DB re-read +
+  push; snapshots deliberately never write membership so a kick can't be
+  clobbered). **Guild chat**: chat channel cycles zone→global→guild; guild
+  lines fan out members-only via the bus. Client guild panel (toggle **G**):
+  found form, accept banner, roster with 👑/⭐ ranks + presence, promote/
+  demote + kick (rank-gated), leave. 128 unit + 23 e2e (new guild.spec: found
+  → invite/accept → guild chat → disband).
+- Next: **P6.5** hiscores + P6 close-out.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +

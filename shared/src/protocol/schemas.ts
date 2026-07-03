@@ -18,6 +18,9 @@ import type {
   TradePayload,
   FriendActionPayload,
   PartyInvitePayload,
+  GuildCreatePayload,
+  GuildActionPayload,
+  GuildSetRankPayload,
 } from "./messages";
 
 /**
@@ -43,7 +46,7 @@ export const UseAbilitySchema = z.strictObject({
 });
 
 export const ChatSchema = z.strictObject({
-  channel: z.enum(["zone", "global"]),
+  channel: z.enum(["zone", "global", "guild"]),
   text: z.string().min(1).max(200),
 });
 
@@ -107,6 +110,21 @@ export const PartyInviteSchema = z.strictObject({
   name: z.string().min(1).max(24),
 });
 
+export const GuildCreateSchema = z.strictObject({
+  name: z.string().min(3).max(24),
+  tag: z.string().min(2).max(4),
+});
+
+/** guildInvite + guildKick share this shape (a display name). */
+export const GuildActionSchema = z.strictObject({
+  name: z.string().min(1).max(24),
+});
+
+export const GuildSetRankSchema = z.strictObject({
+  name: z.string().min(1).max(24),
+  rank: z.enum(["officer", "member"]),
+});
+
 // --- compile-time drift guards (no runtime cost) -----------------------------
 
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -128,8 +146,14 @@ const _talk: AssertEqual<z.output<typeof TalkSchema>, TalkPayload> = true;
 const _trade: AssertEqual<z.output<typeof TradeSchema>, TradePayload> = true;
 const _friend: AssertEqual<z.output<typeof FriendActionSchema>, FriendActionPayload> = true;
 const _partyInvite: AssertEqual<z.output<typeof PartyInviteSchema>, PartyInvitePayload> = true;
+const _guildCreate: AssertEqual<z.output<typeof GuildCreateSchema>, GuildCreatePayload> = true;
+const _guildAction: AssertEqual<z.output<typeof GuildActionSchema>, GuildActionPayload> = true;
+const _guildRank: AssertEqual<z.output<typeof GuildSetRankSchema>, GuildSetRankPayload> = true;
 void _friend;
 void _partyInvite;
+void _guildCreate;
+void _guildAction;
+void _guildRank;
 void _quest;
 void _talk;
 void _trade;

@@ -53,6 +53,8 @@
       #chat-log .from { color: #ffe066; }
       #chat-log .global .from { color: #7cc7ff; }
       #chat-log .whisper .from { color: #c89bff; }
+      #chat-log .guild .from { color: #7fe0a7; }
+      #chat-channel.guild { background: #1f4d33; color: #b9e6cd; }
       #chat-row { display: flex; gap: 6px; }
       #chat-channel { flex: 0 0 auto; padding: 6px 10px; border: 0; border-radius: 6px;
         cursor: pointer; font-size: 13px; background: #2a3142; color: #cdd6e6; }
@@ -245,6 +247,26 @@
       .party-leave { margin-top: 4px; border: 0; background: #5a2530; color: #ffb9c2; border-radius: 6px;
         padding: 5px 10px; cursor: pointer; font-size: 12px; }
       .party-empty { font-size: 12px; color: #5b6678; }
+
+      /* Guild panel (toggle G) */
+      #guild { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        z-index: 9; display: none; flex-direction: column; gap: 8px; padding: 12px; width: 340px;
+        background: rgba(13,16,24,0.97); border: 1px solid #2a3142; border-radius: 10px; }
+      #guild .guild-header { display: flex; align-items: center; justify-content: space-between;
+        font-size: 14px; color: #ffe066; font-weight: 600; }
+      #guild .guild-header button { border: 0; background: #2a3142; color: #cdd6e6; border-radius: 6px;
+        padding: 2px 8px; cursor: pointer; font-size: 13px; font-weight: 400; }
+      #guild-body { display: flex; flex-direction: column; gap: 6px; max-height: 52vh; overflow-y: auto; }
+      .guild-create, .guild-invite-row { display: flex; gap: 6px; }
+      .guild-input { flex: 1 1 auto; min-width: 0; padding: 6px 10px; border-radius: 6px;
+        border: 1px solid #2a3142; background: rgba(26,32,48,0.92); color: #fff; font-size: 13px; outline: none; }
+      .guild-input:focus { border-color: #3b82f6; }
+      #guild-tag-input { flex: 0 0 64px; text-transform: uppercase; }
+      #guild-create-btn, #guild-invite-btn { flex: 0 0 auto; border: 0; background: #3b82f6; color: #fff;
+        border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+      .guild-mini-btn { border: 0; background: #2a3142; color: #cdd6e6; border-radius: 5px;
+        padding: 2px 7px; cursor: pointer; font-size: 11px; }
+      .guild-mini-btn:hover { background: #3b82f6; color: #fff; }
     </style>
   </head>
   <body>
@@ -322,6 +344,10 @@
         <button id="party-invite" type="button">Invite</button>
       </div>
       <div id="party-list"></div>
+    </div>
+    <div id="guild">
+      <div class="guild-header"><span id="guild-title">Guild (G)</span><button id="guild-close" type="button">✕</button></div>
+      <div id="guild-body"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

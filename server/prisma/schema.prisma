@@ -57,8 +57,23 @@ model Player {
   quests     Json     @default("[]")
   // Friends as JSON: array of friend display names.
   friends    Json     @default("[]")
+  // Guild membership (loose reference, consistent with the id conventions).
+  guildId    String?
+  guildRank  String?
   createdAt  DateTime @default(now())
   lastSeen   DateTime @updatedAt
+
+  @@index([guildId])
+}
+
+// A guild: the durable social unit (name + [TAG] + a leader account id).
+// Membership lives on Player.guildId/guildRank.
+model Guild {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  tag       String   @unique
+  leaderId  String
+  createdAt DateTime @default(now())
 }
 
 // Economy audit ledger (kit rule #6): EVERY item creation (+delta) and

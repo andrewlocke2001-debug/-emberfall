@@ -69,6 +69,20 @@ export const ClientMessage = {
   PartyLeave: "partyLeave",
   /** Ask for current party state. */
   RequestParty: "requestParty",
+  /** Found a new guild (name + tag). */
+  GuildCreate: "guildCreate",
+  /** Invite a player (by display name) to your guild. */
+  GuildInvite: "guildInvite",
+  /** Accept your pending guild invite. */
+  GuildAccept: "guildAccept",
+  /** Leave your guild (leader hands off or disbands when last out). */
+  GuildLeave: "guildLeave",
+  /** Kick a member (rank-gated). */
+  GuildKick: "guildKick",
+  /** Promote/demote a member between officer and member (leader only). */
+  GuildSetRank: "guildSetRank",
+  /** Ask for current guild state. */
+  RequestGuild: "requestGuild",
 } as const;
 
 /** Server → client message types. */
@@ -84,6 +98,7 @@ export const ServerMessage = {
   Quests: "quests",
   Friends: "friends",
   Party: "party",
+  Guild: "guild",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -118,7 +133,7 @@ export interface CombatEventPayload {
 }
 
 /** Chat channels a client can post to (whisper is its own message). */
-export type ChatChannel = "zone" | "global";
+export type ChatChannel = "zone" | "global" | "guild";
 
 /** Channels a displayed line can belong to (adds whisper for the UI). */
 export type ChatDisplayChannel = ChatChannel | "whisper";
@@ -263,6 +278,41 @@ export interface PartyPayload {
   members: PartyMemberEntry[];
   /** Who invited you, when you have a pending invite. */
   invitedBy?: string;
+}
+
+/** Client → server: found a guild. */
+export interface GuildCreatePayload {
+  name: string;
+  tag: string;
+}
+
+/** Client → server: guild action on a player by display name. */
+export interface GuildActionPayload {
+  name: string;
+}
+
+/** Client → server: set a member's rank (leader only; officer/member). */
+export interface GuildSetRankPayload {
+  name: string;
+  rank: "officer" | "member";
+}
+
+/** One guild-roster row with live presence. */
+export interface GuildMemberEntry {
+  name: string;
+  rank: "leader" | "officer" | "member";
+  online: boolean;
+  zone?: string;
+}
+
+/** Server → client: your guild state (no `name` = not in a guild). */
+export interface GuildPayload {
+  name?: string;
+  tag?: string;
+  myRank?: "leader" | "officer" | "member";
+  members: GuildMemberEntry[];
+  /** Pending invite, when you have one. */
+  invitedTo?: { guildName: string; by: string };
 }
 
 /** One quest's state on the wire (mirrors systems/quests QuestProgress). */

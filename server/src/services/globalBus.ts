@@ -46,6 +46,26 @@ class GlobalBus extends EventEmitter {
     this.on("partyChanged", handler);
     return () => this.off("partyChanged", handler);
   }
+
+  /** Publish a guild chat line; rooms deliver to members of `guildId`. */
+  publishGuildChat(guildId: string, message: ChatBroadcastPayload): void {
+    this.emit("guildChat", guildId, message);
+  }
+
+  onGuildChat(handler: (guildId: string, message: ChatBroadcastPayload) => void): () => void {
+    this.on("guildChat", handler);
+    return () => this.off("guildChat", handler);
+  }
+
+  /** Announce that these players' guild state changed (by display name). */
+  publishGuildChanged(names: string[]): void {
+    this.emit("guildChanged", names);
+  }
+
+  onGuildChanged(handler: (names: string[]) => void): () => void {
+    this.on("guildChanged", handler);
+    return () => this.off("guildChanged", handler);
+  }
 }
 
 export const globalBus = new GlobalBus();
