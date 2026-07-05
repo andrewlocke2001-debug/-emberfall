@@ -1,5 +1,6 @@
 import meadowbrookJson from "./maps/meadowbrook.json";
 import greenreachJson from "./maps/greenreach.json";
+import tanglewoodJson from "./maps/tanglewood.json";
 import { loadZoneMap, type TiledMap, type ZoneMap } from "../systems/zonemap";
 
 /**
@@ -7,12 +8,13 @@ import { loadZoneMap, type TiledMap, type ZoneMap } from "../systems/zonemap";
  * both the server (collision/spawns/exits) and the client (rendering) so they
  * share one source of truth. Regenerate the JSON with `npm run mapgen`.
  */
-export const ZONE_IDS = ["meadowbrook", "greenreach"] as const;
+export const ZONE_IDS = ["meadowbrook", "greenreach", "tanglewood"] as const;
 export type ZoneId = (typeof ZONE_IDS)[number];
 
 export const ZONES: Record<ZoneId, ZoneMap> = {
   meadowbrook: loadZoneMap("meadowbrook", meadowbrookJson as unknown as TiledMap),
   greenreach: loadZoneMap("greenreach", greenreachJson as unknown as TiledMap),
+  tanglewood: loadZoneMap("tanglewood", tanglewoodJson as unknown as TiledMap),
 };
 
 /** Where brand-new characters (and anyone with no valid saved zone) start. */

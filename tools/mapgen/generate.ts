@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { MapSource } from "./types";
 import { meadowbrook } from "./maps/meadowbrook";
 import { greenreach } from "./maps/greenreach";
+import { tanglewood } from "./maps/tanglewood";
 
 /**
  * ASCII → Tiled-format JSON compiler. Run from the repo root:
@@ -31,14 +32,25 @@ const GROUND: Record<string, number> = {
   e: 1,
   w: 1,
   b: 1,
+  t: 1,
+  r: 1,
+  m: 1,
   E: 2,
 };
 const OBSTACLE: Record<string, number> = { "#": 3, T: 4, "~": 5, f: 7 };
 
 /** Map chars to mob families (see @mmo/shared/data/mobs). */
-const ENEMY_CHARS: Record<string, string> = { D: "dummy", e: "emberling", w: "wolf", b: "bandit" };
+const ENEMY_CHARS: Record<string, string> = {
+  D: "dummy",
+  e: "emberling",
+  w: "wolf",
+  b: "bandit",
+  t: "thorn_stalker",
+  r: "ruin_sentinel",
+  m: "ember_wraith",
+};
 
-const MAPS: MapSource[] = [meadowbrook, greenreach];
+const MAPS: MapSource[] = [meadowbrook, greenreach, tanglewood];
 
 function compile(src: MapSource): object {
   const height = src.ascii.length;

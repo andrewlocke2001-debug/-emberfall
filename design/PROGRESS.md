@@ -267,6 +267,19 @@ yet on real devices because we're not deployed.
   quests for an hour; a guild of strangers exists that you didn't create")
   needs real players — deferred with the deploy, same as the P5 soft launch.
 
+## P7 — Cinder Depths + Tanglewood (in progress, local)
+- **P7.1 done**: **Tanglewood** — the level 20–40 forest east of Greenreach
+  (60×60; dense tree corridors, old Accord ruins, a wraith pond). Greenreach's
+  road now runs its full width to a new east gate; travel is
+  meadowbrook ⇄ greenreach ⇄ tanglewood. Three new mob families in data:
+  **Thorn Stalker** (20), **Ruin Sentinel** (30, armored, drops iron bars +
+  rarely an **Ancient Relic** — new rare vendor-treasure item), **Ember
+  Wraith** (38, fast hitter). Gathering: two iron rocks in the north glade + a
+  guarded trout pool. mapgen gained chars t/r/m; maps.test now covers all
+  three zones. 132 unit + 24 e2e; no migration (pure content).
+- Next: **P7.2** Cinder Depths instanced dungeon (rooms-per-run, bosses,
+  telegraphs, lockout).
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.

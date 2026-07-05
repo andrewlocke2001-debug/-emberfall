@@ -202,6 +202,16 @@ export const ITEMS: Record<string, ItemDef> = {
     desc: "Cooked. Restores 12 HP.",
   },
 
+  // --- pre-Fall valuables (Tanglewood drops; vendor treasure) ---
+  ancient_relic: {
+    id: "ancient_relic",
+    name: "Ancient Relic",
+    rarity: "rare",
+    maxStack: STACK_MAX,
+    value: 120,
+    desc: "A shard of the Accord's works, still faintly warm. Collectors pay well.",
+  },
+
   // --- materials (mob drops; feed Smithing/Cooking later) ---
   ash_pelt: {
     id: "ash_pelt",

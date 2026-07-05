@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import meadowbrook from "./meadowbrook.json";
 import greenreach from "./greenreach.json";
+import tanglewood from "./tanglewood.json";
 
 interface TiledObject {
   name: string;
@@ -21,6 +22,7 @@ interface TiledMap {
 const maps: Record<string, TiledMap> = {
   meadowbrook: meadowbrook as unknown as TiledMap,
   greenreach: greenreach as unknown as TiledMap,
+  tanglewood: tanglewood as unknown as TiledMap,
 };
 
 const layer = (map: TiledMap, name: string): TiledLayer | undefined =>

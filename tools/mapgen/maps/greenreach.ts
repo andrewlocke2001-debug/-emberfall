@@ -16,9 +16,11 @@ function paint(): string[] {
   p.outlineRect(0, 0, 59, 59, "T");
   p.outlineRect(1, 1, 58, 58, "T");
 
-  // West gate breaching the forest at rows 29–30, road heading east.
-  p.hline(2, 41, 29, ",").hline(2, 41, 30, ",");
+  // West gate breaching the forest at rows 29–30, road running the full width
+  // to the east gate (Tanglewood, P7).
+  p.hline(2, 57, 29, ",").hline(2, 57, 30, ",");
   p.fillRect(0, 29, 1, 30, "E");
+  p.fillRect(58, 29, 59, 30, "X");
   // Road forks: north to the dummy glade, south toward the lake meadow.
   p.vline(40, 18, 29, ",").vline(41, 18, 29, ",");
   p.vline(40, 30, 44, ",").vline(41, 30, 44, ",");
@@ -59,8 +61,10 @@ function paint(): string[] {
   p.set(30, 38, "w"); // wolf, mid meadow
   p.set(50, 24, "b"); // bandit, east fields
 
-  // West entry (arrivals from Meadowbrook) + default spawn near the gate.
+  // West entry (arrivals from Meadowbrook), east entry (arrivals from
+  // Tanglewood) + default spawn near the west gate.
   p.set(4, 29, "1");
+  p.set(55, 30, "2");
   p.set(6, 31, "s");
 
   return p.rows();
@@ -69,7 +73,10 @@ function paint(): string[] {
 export const greenreach: MapSource = {
   id: "greenreach",
   displayName: "Greenreach",
-  exits: { E: { to: "meadowbrook", entry: "east" } },
-  entries: { "1": "west" },
+  exits: {
+    E: { to: "meadowbrook", entry: "east" },
+    X: { to: "tanglewood", entry: "west" },
+  },
+  entries: { "1": "west", "2": "east" },
   ascii: paint(),
 };

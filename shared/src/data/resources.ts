@@ -100,6 +100,13 @@ export const NODES: Partial<Record<ZoneId, ResourceNode[]>> = {
     { id: "iron-1", type: "iron_rock", x: 400, y: 360 },
     { id: "trout-1", type: "trout_spot", x: 240, y: 980 },
   ],
+  // Tanglewood: richer iron in the north glade + trout at the wraith pond
+  // (the pond is guarded — better yield lives behind danger).
+  tanglewood: [
+    { id: "iron-1", type: "iron_rock", x: 880, y: 400 },
+    { id: "iron-2", type: "iron_rock", x: 944, y: 400 },
+    { id: "trout-1", type: "trout_spot", x: 1360, y: 1552 },
+  ],
 };
 
 /** Resolve a node id in a zone to its placement + definition. */
