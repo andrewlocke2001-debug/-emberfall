@@ -50,6 +50,9 @@ export interface ItemDef {
   bonus?: ItemBonus;
   /** HP restored when consumed (consumables only). */
   heal?: number;
+  /** Max durability for equippable gear — wears with use, repaired for coins
+   *  (P8). Omitted = the item never wears (currency, materials, consumables). */
+  maxDurability?: number;
   /** One-line tooltip flavor. */
   desc?: string;
 }
@@ -76,6 +79,7 @@ export const ITEMS: Record<string, ItemDef> = {
     value: 25,
     equipSlot: "weapon",
     bonus: { attack: 3, strength: 4 },
+    maxDurability: 120,
     desc: "A starter blade. Better than fists.",
   },
   iron_sword: {
@@ -86,6 +90,7 @@ export const ITEMS: Record<string, ItemDef> = {
     value: 120,
     equipSlot: "weapon",
     bonus: { attack: 6, strength: 8 },
+    maxDurability: 200,
     desc: "Forged steel with a keen edge.",
   },
 
@@ -98,6 +103,7 @@ export const ITEMS: Record<string, ItemDef> = {
     value: 30,
     equipSlot: "body",
     bonus: { defence: 4, maxHp: 6 },
+    maxDurability: 150,
     desc: "Boiled hide. Stops a scratch.",
   },
   bronze_helm: {
@@ -108,6 +114,7 @@ export const ITEMS: Record<string, ItemDef> = {
     value: 18,
     equipSlot: "head",
     bonus: { defence: 2 },
+    maxDurability: 120,
     desc: "Dented, but it does the job.",
   },
 

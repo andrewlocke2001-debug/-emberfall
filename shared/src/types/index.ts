@@ -59,6 +59,10 @@ export const TALK_RANGE = 80;
 /** Fraction of an item's value a vendor pays when buying it from a player. */
 export const VENDOR_BUYBACK_RATE = 0.4;
 
+/** Coins to fully repair a piece of gear, as a fraction of its value. Repairing
+ *  is a gold sink; a full-value item costs this fraction of its value to mend. */
+export const REPAIR_COST_RATE = 0.35;
+
 /** Maximum entries in a player's friends list. */
 export const FRIENDS_MAX = 50;
 
