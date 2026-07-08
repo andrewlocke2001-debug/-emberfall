@@ -19,12 +19,13 @@ function paint(): string[] {
   p.fillRect(10, 15, 29, 24, "=");
   // Corridor to the wraith gallery.
   p.fillRect(18, 9, 21, 15, "=");
-  // Wraith gallery (north) — the P7.3 boss arena opens beyond it.
+  // The boss arena (north): a wide chamber where the Warden of Ash waits.
   p.fillRect(8, 3, 31, 9, "=");
 
-  // Trash pulls (placeholder until the P7.3 bosses land).
+  // Trash pulls guard the approach; the Warden holds the arena with two adds.
   p.set(14, 20, "r");
   p.set(25, 19, "r");
+  p.set(19, 5, "W"); // Warden of Ash (boss)
   p.set(12, 6, "m");
   p.set(27, 6, "m");
 

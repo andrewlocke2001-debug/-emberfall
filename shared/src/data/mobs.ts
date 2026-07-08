@@ -8,6 +8,19 @@
  */
 import type { DropEntry } from "../systems/loot";
 
+/**
+ * A telegraphed area attack (bosses). The boss winds up for `windupMs`,
+ * showing a danger circle of `radius` centered where its target stood; when it
+ * lands, everyone still inside takes `damage`. Between slams it fights normally
+ * and can't start another for `cooldownMs`. Dodgeable by design.
+ */
+export interface TelegraphDef {
+  windupMs: number;
+  radius: number;
+  damage: number;
+  cooldownMs: number;
+}
+
 export interface MobDef {
   kind: string;
   name: string;
@@ -34,6 +47,10 @@ export interface MobDef {
   drops: DropEntry[];
   /** Client render tint. */
   color: number;
+  /** Optional telegraphed AoE attack (bosses only). */
+  telegraph?: TelegraphDef;
+  /** Marks a dungeon boss (bigger nameplate, arena guardian). */
+  boss?: boolean;
 }
 
 export const MOBS: Record<string, MobDef> = {
@@ -186,6 +203,33 @@ export const MOBS: Record<string, MobDef> = {
       { itemId: "health_potion", min: 1, max: 1, chance: 0.3 },
     ],
     color: 0xff9e5e,
+  },
+
+  // --- Cinder Depths boss (P7.3) ---
+  warden_of_ash: {
+    kind: "warden_of_ash",
+    name: "Warden of Ash",
+    level: 45,
+    attack: 48,
+    strength: 52,
+    defence: 42,
+    maxHp: 2400,
+    aggroRadius: 420,
+    leashRadius: 900,
+    attackRange: 56,
+    attackCooldownMs: 2400,
+    moveSpeed: 120,
+    respawnMs: 30000,
+    xpReward: 1200,
+    drops: [
+      { itemId: "coins", min: 400, max: 800, chance: 1 },
+      { itemId: "ancient_relic", min: 2, max: 4, chance: 1 },
+      { itemId: "cinder_heart", min: 1, max: 1, chance: 0.5 },
+    ],
+    color: 0xff5a2c,
+    boss: true,
+    // Slow, heavy, dodgeable: a 1.6s wind-up cinder slam every ~7s.
+    telegraph: { windupMs: 1600, radius: 140, damage: 55, cooldownMs: 7000 },
   },
 };
 

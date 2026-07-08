@@ -103,6 +103,12 @@ export class EnemySchema extends Schema {
   declare alive: boolean;
   /** Server time (ms) at which a dead enemy respawns (0 = not pending). */
   declare respawnAt: number;
+  /** Telegraphed AoE (bosses): server time the slam lands (0 = none). Clients
+   *  render a growing danger circle at (teleX,teleY,teleRadius) until then. */
+  declare teleAt: number;
+  declare teleX: number;
+  declare teleY: number;
+  declare teleRadius: number;
 
   constructor() {
     super();
@@ -115,6 +121,10 @@ export class EnemySchema extends Schema {
     this.maxHp = 200;
     this.alive = true;
     this.respawnAt = 0;
+    this.teleAt = 0;
+    this.teleX = 0;
+    this.teleY = 0;
+    this.teleRadius = 0;
   }
 }
 defineTypes(EnemySchema, {
@@ -127,6 +137,10 @@ defineTypes(EnemySchema, {
   maxHp: "number",
   alive: "boolean",
   respawnAt: "number",
+  teleAt: "number",
+  teleX: "number",
+  teleY: "number",
+  teleRadius: "number",
 });
 
 /** A pile of items lying on the ground (dropped loot). */

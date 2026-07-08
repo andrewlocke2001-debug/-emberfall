@@ -212,6 +212,18 @@ export const ITEMS: Record<string, ItemDef> = {
     desc: "A shard of the Accord's works, still faintly warm. Collectors pay well.",
   },
 
+  // --- Cinder Depths boss reward: a relic amulet (best neck slot so far) ---
+  cinder_heart: {
+    id: "cinder_heart",
+    name: "Cinderheart Amulet",
+    rarity: "relic",
+    maxStack: 1,
+    value: 600,
+    equipSlot: "amulet",
+    bonus: { attack: 6, strength: 8, defence: 4, maxHp: 20 },
+    desc: "The still-burning core of the Warden of Ash. It beats when you fight.",
+  },
+
   // --- materials (mob drops; feed Smithing/Cooking later) ---
   ash_pelt: {
     id: "ash_pelt",

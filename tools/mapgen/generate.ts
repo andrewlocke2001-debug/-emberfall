@@ -36,6 +36,7 @@ const GROUND: Record<string, number> = {
   t: 1,
   r: 1,
   m: 1,
+  W: 6,
   E: 2,
 };
 const OBSTACLE: Record<string, number> = { "#": 3, T: 4, "~": 5, f: 7 };
@@ -49,6 +50,7 @@ const ENEMY_CHARS: Record<string, string> = {
   t: "thorn_stalker",
   r: "ruin_sentinel",
   m: "ember_wraith",
+  W: "warden_of_ash",
 };
 
 const MAPS: MapSource[] = [meadowbrook, greenreach, tanglewood, cinderDepths];

@@ -30,6 +30,7 @@ export interface MmoTestApi {
   questAccept(questId: string): void;
   questComplete(questId: string): void;
   talk(npcId: string): void;
+  telegraphActive(): boolean;
   whisper(to: string, text: string): void;
   friends(): { name: string; online: boolean; zone?: string }[];
   friendAdd(name: string): void;

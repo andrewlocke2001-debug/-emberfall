@@ -71,6 +71,8 @@ export class ZoneScene extends Phaser.Scene {
 
   private readonly players = new Map<string, EntityView>();
   private readonly enemies = new Map<string, EntityView>();
+  /** Boss telegraph danger circles, keyed by enemy id. */
+  private readonly telegraphs = new Map<string, Phaser.GameObjects.Arc>();
   /** Ground-loot pile markers, keyed by loot id. */
   private readonly lootViews = new Map<string, Phaser.GameObjects.Container>();
 
@@ -407,6 +409,7 @@ export class ZoneScene extends Phaser.Scene {
       view.lerpTo(enemy.x, enemy.y, REMOTE_LERP);
       view.setHp(enemy.hp, enemy.maxHp);
       view.setAlive(enemy.alive);
+      this.updateTelegraph(id, enemy);
     });
 
     this.updateSelectionRing();
@@ -512,6 +515,8 @@ export class ZoneScene extends Phaser.Scene {
     $(room.state).enemies.onRemove((_enemy: EnemySchema, id: string) => {
       this.enemies.get(id)?.destroy();
       this.enemies.delete(id);
+      this.telegraphs.get(id)?.destroy();
+      this.telegraphs.delete(id);
       if (this.selectedTargetId === id) this.selectTarget(null);
     });
 
@@ -639,6 +644,29 @@ export class ZoneScene extends Phaser.Scene {
     for (const npc of npcsInZone(zoneId)) this.drawNpcMarker(npc);
     for (const v of vendorsInZone(zoneId)) this.drawVendorMarker(v);
     this.cameras.main.setBounds(0, 0, this.map.pixelWidth, this.map.pixelHeight);
+  }
+
+  /** Draw/refresh a boss's telegraphed-AoE danger circle (a "get out" warning). */
+  private updateTelegraph(id: string, enemy: EnemySchema): void {
+    let arc = this.telegraphs.get(id);
+    if (enemy.teleAt <= 0 || !enemy.alive) {
+      if (arc) {
+        arc.destroy();
+        this.telegraphs.delete(id);
+      }
+      return;
+    }
+    if (!arc) {
+      arc = this.add
+        .circle(enemy.teleX, enemy.teleY, enemy.teleRadius, 0xff3020, 0.28)
+        .setStrokeStyle(3, 0xff6040, 0.9)
+        .setDepth(1); // above the ground, below entities
+      this.telegraphs.set(id, arc);
+    }
+    arc.setPosition(enemy.teleX, enemy.teleY);
+    arc.setRadius(enemy.teleRadius);
+    // Pulse the fill so the warning reads as urgent while it winds up.
+    arc.setFillStyle(0xff3020, 0.22 + 0.16 * (0.5 + 0.5 * Math.sin(this.time.now / 90)));
   }
 
   /** A clickable vendor: opens the shop panel (the server gates each trade). */
@@ -799,6 +827,13 @@ export class ZoneScene extends Phaser.Scene {
       playerCount: () => room.state?.players?.size ?? 0,
       enemyCount: () => room.state?.enemies?.size ?? 0,
       enemyHp: (id: string) => room.state?.enemies?.get(id)?.hp ?? null,
+      telegraphActive: () => {
+        let active = false;
+        room.state?.enemies?.forEach((e) => {
+          if (e.teleAt > 0) active = true;
+        });
+        return active;
+      },
       enemyMaxHp: (id: string) => room.state?.enemies?.get(id)?.maxHp ?? null,
       me: () => {
         const p = room.state?.players?.get(room.sessionId);

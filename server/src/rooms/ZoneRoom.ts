@@ -128,7 +128,7 @@ import {
   mapForId,
   type ZoneId,
 } from "@mmo/shared/data/zones";
-import { mobDef, MOBS } from "@mmo/shared/data/mobs";
+import { mobDef, MOBS, type TelegraphDef } from "@mmo/shared/data/mobs";
 import { exitAt, type ZoneMap } from "@mmo/shared/systems/zonemap";
 import { RateLimiter } from "@mmo/shared/systems/ratelimit";
 import { parseCommand, isGm, parseGmAllowlist, type GmCommand } from "@mmo/shared/systems/gm";
@@ -196,10 +196,11 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private unsubscribeWhisper?: () => void;
   /** Unsubscribe handle for party-roster changes (set in onCreate). */
   private unsubscribeParty?: () => void;
-  /** Per-enemy AI: spawn home, current target session, last attack time. */
+  /** Per-enemy AI: spawn home, current target session, last attack time, and
+   *  (bosses) the next time a telegraphed slam may begin. */
   private readonly enemyAI = new Map<
     string,
-    { homeX: number; homeY: number; target: string | null; lastAttackAt: number }
+    { homeX: number; homeY: number; target: string | null; lastAttackAt: number; teleReadyAt: number }
   >();
   /**
    * Per-enemy set of session ids that have damaged it this life. Everyone who
@@ -593,7 +594,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     enemy.maxHp = def.maxHp;
     enemy.alive = true;
     this.state.enemies.set(enemy.id, enemy);
-    this.enemyAI.set(enemy.id, { homeX: x, homeY: y, target: null, lastAttackAt: 0 });
+    this.enemyAI.set(enemy.id, { homeX: x, homeY: y, target: null, lastAttackAt: 0, teleReadyAt: 0 });
     this.mobContributors.set(enemy.id, new Set());
     return enemy;
   }
@@ -659,6 +660,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (result.targetDied) {
         enemy.alive = false;
         enemy.respawnAt = now + mobDef(enemy.kind).respawnMs;
+        // Cancel any in-flight telegraph so a dead boss can't slam.
+        enemy.teleAt = 0;
+        enemy.teleRadius = 0;
         this.awardKill(enemy);
       }
     }
@@ -1776,12 +1780,15 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         enemy.alive = true;
         enemy.respawnAt = 0;
         this.mobContributors.get(enemy.id)?.clear(); // fresh life, fresh credit
+        enemy.teleAt = 0;
+        enemy.teleRadius = 0;
         const ai = this.enemyAI.get(enemy.id);
         if (ai) {
           enemy.x = ai.homeX;
           enemy.y = ai.homeY;
           ai.target = null;
           ai.lastAttackAt = 0;
+          ai.teleReadyAt = 0;
         }
       }
     });
@@ -1842,6 +1849,17 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const ai = this.enemyAI.get(enemy.id);
     if (!ai) return;
 
+    // Boss telegraph: while a slam is winding up the boss is rooted; when it
+    // lands, everyone still inside the circle is hit. Handled before anything
+    // else so a mid-cast leash can't interrupt it.
+    if (def.telegraph && enemy.teleAt > 0) {
+      if (now >= enemy.teleAt) {
+        this.resolveTelegraph(enemy, def.telegraph, now);
+        ai.teleReadyAt = now + def.telegraph.cooldownMs;
+      }
+      return;
+    }
+
     const homeDist = Math.hypot(enemy.x - ai.homeX, enemy.y - ai.homeY);
 
     // Drop a target that died, left, wandered out of leash, or pulled us too far.
@@ -1871,6 +1889,15 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     }
 
     if (target && ai.target) {
+      // Boss: begin a telegraphed slam centered on the target when it's ready,
+      // then root (return) for the wind-up. It slams from any range — get out.
+      if (def.telegraph && now >= ai.teleReadyAt) {
+        enemy.teleX = target.x;
+        enemy.teleY = target.y;
+        enemy.teleRadius = def.telegraph.radius;
+        enemy.teleAt = now + def.telegraph.windupMs;
+        return;
+      }
       const d = Math.hypot(enemy.x - target.x, enemy.y - target.y);
       if (d > def.attackRange) {
         this.moveToward(enemy, target.x, target.y, def.moveSpeed, dt);
@@ -1892,6 +1919,26 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     } else if (homeDist > 4) {
       this.moveToward(enemy, ai.homeX, ai.homeY, def.moveSpeed, dt); // drift home
     }
+  }
+
+  /** A telegraphed slam lands: hit every living player still inside the circle. */
+  private resolveTelegraph(enemy: EnemySchema, tele: TelegraphDef, now: number): void {
+    const r2 = tele.radius * tele.radius;
+    this.state.players.forEach((p, sid) => {
+      if (!p.alive) return;
+      if (distSq(p.x, p.y, enemy.teleX, enemy.teleY) > r2) return; // dodged out
+      p.hp = Math.max(0, p.hp - tele.damage);
+      const evt: CombatEventPayload = {
+        attackerId: enemy.id,
+        targetId: sid,
+        damage: tele.damage,
+        targetDied: p.hp <= 0,
+      };
+      this.broadcast(ServerMessage.CombatEvent, evt);
+      if (p.hp <= 0) this.killPlayer(p, sid, now);
+    });
+    enemy.teleAt = 0;
+    enemy.teleRadius = 0;
   }
 
   private moveToward(enemy: EnemySchema, tx: number, ty: number, speed: number, dt: number): void {

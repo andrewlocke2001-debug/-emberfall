@@ -291,7 +291,19 @@ yet on real devices because we're not deployed.
   the client renders dungeon maps (`mapForId`) and clears stale tickets on
   overworld travel. 136 unit + 25 e2e (new dungeon.spec: gate → distinct
   instanced room → return). No migration.
-- Next: **P7.3** dungeon bosses (telegraphed attacks, boss arena, run reward).
+- **P7.3 done**: **dungeon boss — Warden of Ash** with **telegraphed attacks**.
+  New boss mob (2400 HP, `boss:true`) holding the Cinder Depths north arena
+  with two adds. `MobDef.telegraph` (windup/radius/damage/cooldown) drives a
+  dodgeable AoE slam: the boss roots, `EnemySchema` streams the danger circle
+  (teleAt/teleX/teleY/teleRadius), and on landing every player still inside
+  takes the hit — move out and it whiffs. Cleared on death/respawn so a dead
+  boss never slams. Client renders a pulsing red danger circle at the telegraph.
+  Run reward = the boss drop table: guaranteed coins + 2–4 Ancient Relics and a
+  50% **Cinderheart Amulet** (new relic-tier amulet, best neck slot). mapgen
+  gained the `W` boss char. 136 unit + 26 e2e (new boss.spec: telegraph winds
+  up, slam damages a standing player). No migration.
+- Next: **P7.4** dungeon close-out (loot/reward polish, lockout or repeatable
+  tuning) or **P8**.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
