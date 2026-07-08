@@ -4,9 +4,11 @@ name: Deploy single-player to Pages
 # no server, no login) and publishes it to GitHub Pages. The result is a static
 # link anyone can play on any device, at zero hosting cost. Real multiplayer
 # still lives on the server; this is the free play-test build.
+# NOTE: manual-only for now. GitHub Pages needs a PUBLIC repo on the free plan;
+# `-emberfall` is private, so an auto-run would fail (and email) on every push.
+# Make the repo public (Settings ▸ change visibility), then run this from the
+# Actions tab → link: https://andrewlocke2001-debug.github.io/-emberfall/
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
