@@ -8,3 +8,5 @@ server/.data/
 client/test-results/
 client/playwright-report/
 client/.playwright/
+
+/test-results/
