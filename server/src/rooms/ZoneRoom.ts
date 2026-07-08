@@ -1170,6 +1170,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       case "droploot":
         this.gmDropLoot(client, player, args);
         break;
+      case "clearbag":
+        this.gmClearBag(client);
+        break;
       case "kick":
         this.gmKick(client, args);
         break;
@@ -1179,6 +1182,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     }
     // Audit trail — every executed GM command (goes to server logs / fly logs).
     console.log(`[gm] ${player.name} ran /${cmd} ${args.join(" ")}`.trimEnd());
+  }
+
+  /** /clearbag — empty the caller's inventory (test/debug hygiene). */
+  private gmClearBag(client: Client): void {
+    this.inventories.set(client.sessionId, []);
+    this.sendInventory(client);
+    this.systemTo(client, "Bag cleared.");
   }
 
   /** /heal [name] — fully restore (and revive) self or a named player. */

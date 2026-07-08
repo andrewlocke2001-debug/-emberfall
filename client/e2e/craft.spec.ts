@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { enterWorldAsGm } from "./helpers";
+import { enterWorldAsGm, clearBag } from "./helpers";
 import type { Page } from "@playwright/test";
 
 const count = (page: Page, id: string): Promise<number> =>
@@ -11,6 +11,7 @@ const count = (page: Page, id: string): Promise<number> =>
 test("smithing smelts ore into a bronze bar (with Smithing XP)", async ({ page }) => {
   await page.goto("/");
   await enterWorldAsGm(page);
+  await clearBag(page);
   await page.waitForTimeout(700);
 
   await page.fill("#chat-input", "/give copper_ore 1");
@@ -35,6 +36,7 @@ test("smithing smelts ore into a bronze bar (with Smithing XP)", async ({ page }
 test("cooking turns raw shrimp into food you can eat", async ({ page }) => {
   await page.goto("/");
   await enterWorldAsGm(page);
+  await clearBag(page);
   await page.waitForTimeout(700);
 
   await page.fill("#chat-input", "/give raw_shrimp 1");

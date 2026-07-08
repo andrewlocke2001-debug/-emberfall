@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { enterWorldAsGm } from "./helpers";
+import { enterWorldAsGm, clearBag } from "./helpers";
 import type { Page } from "@playwright/test";
 
 const count = (page: Page, id: string): Promise<number> =>
@@ -13,6 +13,7 @@ const count = (page: Page, id: string): Promise<number> =>
 test("buy from and sell to a vendor for coins", async ({ page }) => {
   await page.goto("/");
   await enterWorldAsGm(page);
+  await clearBag(page);
   await page.waitForTimeout(700);
 
   await page.fill("#chat-input", "/tp 624 432");

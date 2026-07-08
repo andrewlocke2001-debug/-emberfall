@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
 import { BootScene } from "./scenes/BootScene";
 import { ZoneScene } from "./scenes/ZoneScene";
+import { SOLO } from "./net/mode";
 import {
   getStoredToken,
   storeToken,
@@ -21,6 +22,14 @@ const buttons = [enterBtn, loginBtn, registerBtn];
 
 // Prefill the remembered name.
 nameInput.value = localStorage.getItem("mmo:name") ?? "";
+
+// Single-player build: no accounts, no server — just a name and Play.
+if (SOLO) {
+  passwordInput.style.display = "none";
+  loginBtn.style.display = "none";
+  registerBtn.style.display = "none";
+  enterBtn.textContent = "Play";
+}
 
 let busy = false;
 
@@ -81,9 +90,10 @@ function bootGame(token: string): void {
 }
 
 // Guest: reuse an existing session if present, else create a guest account.
+// In single-player there's no server — a placeholder token boots the local game.
 enterBtn.addEventListener("click", () =>
-  void authenticate(
-    async () => getStoredToken() ?? (await guestLogin(nameInput.value.trim() || undefined)).token,
+  void authenticate(async () =>
+    SOLO ? "solo" : (getStoredToken() ?? (await guestLogin(nameInput.value.trim() || undefined)).token),
   ),
 );
 // Log in / Register always (re)authenticate to the named account.

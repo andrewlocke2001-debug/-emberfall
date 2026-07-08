@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { enterWorldAsGm } from "./helpers";
+import { enterWorldAsGm, clearBag } from "./helpers";
 import type { Page } from "@playwright/test";
 
 const coins = (page: Page): Promise<number> =>
@@ -11,6 +11,7 @@ const coinPile = (page: Page): Promise<{ id: string } | undefined> =>
 test("ground loot can be dropped and picked up into the bag", async ({ page }) => {
   await page.goto("/");
   await enterWorldAsGm(page);
+  await clearBag(page);
   await page.waitForTimeout(700); // let the initial inventory arrive
 
   const before = await coins(page);

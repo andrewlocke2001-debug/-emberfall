@@ -305,6 +305,26 @@ yet on real devices because we're not deployed.
 - Next: **P7.4** dungeon close-out (loot/reward polish, lockout or repeatable
   tuning) or **P8**.
 
+## Single-player build (play-test track, alongside the roadmap)
+- **Client-only solo mode** so the game is play-testable for free (Fly trial
+  ended): `net/localRoom.ts` runs the whole game in-browser against the SAME
+  shared systems + schema as the server ZoneRoom — movement/collision, combat,
+  abilities, mob AI + boss telegraphs, death/respawn, loot, inventory,
+  equipment, gather, craft, bank, quests, NPCs, vendors, zone travel + the
+  instanced dungeon — persisting one character to localStorage. `net/mode.ts`
+  `SOLO` (VITE_SOLO=1 at build, or `?solo` at runtime) makes `connectToZone`
+  return a `SoloRoom` and `main.ts` skip login. Sandbox chat commands in solo:
+  `/give /tp /spawn /heal`. Verified by `solo.spec` (runs, /give, equip→maxHp,
+  mine ore, reload-persist) + full typecheck; the solo prod build succeeds.
+- **Deploy**: `.github/workflows/pages.yml` builds the solo client
+  (VITE_SOLO=1; vite base "./" already handles the /-emberfall/ subpath) and
+  publishes to GitHub Pages → a shareable static link, $0. Removed
+  `keepwarm.yml` (was pinging the dead Fly server every 5 min and emailing
+  failures); scoped `ci.yml` to `main`.
+- Also added a GM `/clearbag` command + `clearBag()` e2e helper so the shared
+  GameMaster fixture's 28-slot bag can be reset (it had filled over the session,
+  flaking the add-an-item tests).
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.

@@ -1,4 +1,4 @@
-import { type Page } from "@playwright/test";
+import { type Page, expect } from "@playwright/test";
 
 /** One inventory stack, mirrored from @mmo/shared ItemStack. */
 export interface TestItemStack {
@@ -131,4 +131,16 @@ export async function enterWorldAsGm(page: Page, name = "GameMaster"): Promise<v
     await page.waitForFunction(() => window.__mmo?.ready === true, undefined, { timeout: 20_000 });
   }
   await page.waitForFunction(() => window.__mmo!.me() !== null, undefined, { timeout: 20_000 });
+}
+
+/**
+ * Empty the GM's bag (a GM-only /clearbag). The GameMaster fixture persists
+ * across runs, so its 28-slot bag would otherwise fill with junk item types and
+ * make "add a new item" assertions flaky. Tests that add fresh items call this
+ * first for a clean, deterministic bag.
+ */
+export async function clearBag(page: Page): Promise<void> {
+  await page.fill("#chat-input", "/clearbag");
+  await page.press("#chat-input", "Enter");
+  await expect.poll(() => page.evaluate(() => window.__mmo!.inventory().length)).toBe(0);
 }

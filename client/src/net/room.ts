@@ -1,6 +1,8 @@
 import { Client, getStateCallbacks, type Room } from "@colyseus/sdk";
 import type { JoinZoneOptions } from "@mmo/shared";
 import type { ZoneState } from "@mmo/shared/schema/state";
+import { SOLO } from "./mode";
+import { SoloRoom, loadSoloSave } from "./localRoom";
 
 /**
  * Server endpoint resolution, in priority order:
@@ -90,6 +92,12 @@ export async function connectToZone(
   options: JoinZoneOptions,
   onStatus: StatusFn = () => {},
 ): Promise<ZoneConnection> {
+  // Single-player: run the whole game in-browser, no server, no login.
+  if (SOLO) {
+    const solo = new SoloRoom(zoneId, options.entry, loadSoloSave());
+    return { room: solo as unknown as Room<ZoneState>, $: solo.callbacks() };
+  }
+
   await wakeServer(onStatus);
   onStatus("Entering the realm…");
   const client = new Client(ENDPOINT);

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { enterWorldAsGm } from "./helpers";
+import { enterWorldAsGm, clearBag } from "./helpers";
 import type { Page } from "@playwright/test";
 
 const ore = (page: Page): Promise<number> =>
@@ -13,6 +13,7 @@ const miningXp = (page: Page): Promise<number> => page.evaluate(() => window.__m
 test("mining a rock yields ore and Mining XP", async ({ page }) => {
   await page.goto("/");
   await enterWorldAsGm(page);
+  await clearBag(page);
   await page.waitForTimeout(700);
 
   await page.fill("#chat-input", "/tp 304 1072");
