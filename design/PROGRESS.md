@@ -277,8 +277,21 @@ yet on real devices because we're not deployed.
   Wraith** (38, fast hitter). Gathering: two iron rocks in the north glade + a
   guarded trout pool. mapgen gained chars t/r/m; maps.test now covers all
   three zones. 132 unit + 24 e2e; no migration (pure content).
-- Next: **P7.2** Cinder Depths instanced dungeon (rooms-per-run, bosses,
-  telegraphs, lockout).
+- **P7.2 done**: **Cinder Depths — instanced dungeon**. New 40×40 dungeon map
+  under the Tanglewood ruins (linear crawl; boss arena reserved for P7.3), a
+  gate in the ruins and a south gate back out. Zones now split into overworld
+  `ZONE_IDS` (one persistent room each) vs instanced `DUNGEON_IDS`; `mapForId`
+  resolves either. The dungeon reuses `ZoneRoom` but is registered
+  `.filterBy(["ticket"])`, so each party (or solo) gets its own instance. A
+  server `dungeons` ticket service mints one unguessable ticket per party at
+  the gate (shared by member signature within a TTL); `onJoin` rejects anyone
+  the ticket doesn't name. Persistence rewrites a dungeon location to the
+  overworld return entry, so a relog never strands in a dead instance;
+  `maxClients` = party size. `TransferPayload.ticket` carries it into the join;
+  the client renders dungeon maps (`mapForId`) and clears stale tickets on
+  overworld travel. 136 unit + 25 e2e (new dungeon.spec: gate → distinct
+  instanced room → return). No migration.
+- Next: **P7.3** dungeon bosses (telegraphed attacks, boss arena, run reward).
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +

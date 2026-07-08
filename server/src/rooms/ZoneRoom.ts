@@ -50,6 +50,7 @@ import {
   type GuildPayload,
   type GuildMemberEntry,
   FRIENDS_MAX,
+  PARTY_MAX,
   PARTY_LEVEL_RANGE,
 } from "@mmo/shared";
 import {
@@ -119,7 +120,14 @@ import {
   maxHpForVitality,
   restedBonus,
 } from "@mmo/shared/systems/progression";
-import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
+import {
+  ZONES,
+  DEFAULT_ZONE,
+  isZoneId,
+  isDungeonId,
+  mapForId,
+  type ZoneId,
+} from "@mmo/shared/data/zones";
 import { mobDef, MOBS } from "@mmo/shared/data/mobs";
 import { exitAt, type ZoneMap } from "@mmo/shared/systems/zonemap";
 import { RateLimiter } from "@mmo/shared/systems/ratelimit";
@@ -129,6 +137,7 @@ import { censorText } from "../chat";
 import { globalBus } from "../services/globalBus";
 import { presence } from "../services/presence";
 import { parties } from "../services/party";
+import { dungeons } from "../services/dungeons";
 import { guildInvites } from "../services/guildInvites";
 import {
   createGuild,
@@ -237,11 +246,20 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   /** Unsubscribe handles for the guild buses (set in onCreate). */
   private unsubscribeGuildChat?: () => void;
   private unsubscribeGuildChanged?: () => void;
+  /** For an instanced dungeon room: the overworld zone its players return to
+   *  (persisted instead of the dungeon id, so a relog is never stranded). */
+  private returnZone?: ZoneId;
 
   override onCreate(options?: { zoneId?: string }): void {
-    const zoneId =
-      options?.zoneId && isZoneId(options.zoneId) ? options.zoneId : DEFAULT_ZONE;
-    this.map = ZONES[zoneId];
+    this.map = mapForId(options?.zoneId ?? "") ?? ZONES[DEFAULT_ZONE];
+
+    // A dungeon is an instanced room: cap it at a party and remember where its
+    // players return to, so persistence never strands them in a dead instance.
+    if (isDungeonId(this.map.id)) {
+      this.maxClients = PARTY_MAX;
+      const back = this.map.exits[0]?.to;
+      this.returnZone = back && isZoneId(back) ? back : DEFAULT_ZONE;
+    }
 
     this.gmAllow = parseGmAllowlist(process.env["GM_USERNAMES"]);
 
@@ -425,6 +443,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const playerId = claims.accountId;
     const name = claims.username;
 
+    // A dungeon instance only admits players its ticket names — the random
+    // ticket both routes to the right instance (filterBy) and gates entry, so
+    // a stray or copied ticket can't slip a stranger into someone's run.
+    if (isDungeonId(this.map.id) && !dungeons.allows(options?.ticket ?? "", name)) {
+      throw new ServerError(403, "This dungeon instance isn't yours to enter.");
+    }
+
     const def = this.map.entries["default"]!;
     const saved = await characterStore.loadOrCreate(playerId, name, this.map.id, def);
 
@@ -526,7 +551,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     // transfer the destination room may have already re-registered them).
     if (presence.get(player.name)?.zone === this.map.id) presence.unregister(player.name);
 
-    const snapshot = toSaved(player, this.map.id, inventory, equipment, bank, quests, friends);
+    const snapshot = this.finalizeSnapshot(
+      toSaved(player, this.map.id, inventory, equipment, bank, quests, friends),
+    );
     this.state.players.delete(client.sessionId);
     try {
       await characterStore.save(snapshot);
@@ -1710,6 +1737,12 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (!exit) return;
       this.transferring.add(sessionId);
       const payload: TransferPayload = { zone: exit.to, entry: exit.entry };
+      // A dungeon gate mints a per-party instance ticket: the whole party (or a
+      // solo) shares one instance, and the ticket authorizes their join.
+      if (isDungeonId(exit.to)) {
+        const party = parties.partyOf(player.name);
+        payload.ticket = dungeons.ticketFor(party ? party.members : [player.name]);
+      }
       this.clients.find((c) => c.sessionId === sessionId)?.send(ServerMessage.Transfer, payload);
     });
 
@@ -1889,18 +1922,32 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     });
   }
 
+  /**
+   * In a dungeon, never persist the instanced map id (a relog would try to
+   * rejoin a dead instance). Rewrite the saved location to the overworld
+   * return zone's return entry, so logging back in lands them at the gate.
+   */
+  private finalizeSnapshot(snap: SavedCharacter): SavedCharacter {
+    if (!this.returnZone) return snap;
+    const rz = ZONES[this.returnZone];
+    const entry = rz.entries["depths"] ?? rz.entries["default"]!;
+    return { ...snap, zone: this.returnZone, x: entry.x, y: entry.y };
+  }
+
   private async snapshotAll(): Promise<void> {
     const snapshots: SavedCharacter[] = [];
     this.state.players.forEach((player, sessionId) =>
       snapshots.push(
-        toSaved(
-          player,
-          this.map.id,
-          this.inventories.get(sessionId) ?? [],
-          this.equipment.get(sessionId) ?? {},
-          this.banks.get(sessionId) ?? [],
-          this.questLogs.get(sessionId) ?? [],
-          this.friendLists.get(sessionId) ?? [],
+        this.finalizeSnapshot(
+          toSaved(
+            player,
+            this.map.id,
+            this.inventories.get(sessionId) ?? [],
+            this.equipment.get(sessionId) ?? {},
+            this.banks.get(sessionId) ?? [],
+            this.questLogs.get(sessionId) ?? [],
+            this.friendLists.get(sessionId) ?? [],
+          ),
         ),
       ),
     );

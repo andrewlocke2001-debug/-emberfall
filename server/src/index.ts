@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import express from "express";
-import { ZONE_IDS } from "@mmo/shared/data/zones";
+import { ZONE_IDS, DUNGEON_IDS } from "@mmo/shared/data/zones";
 import { ZoneRoom } from "./rooms/ZoneRoom";
 import { AuthError, registerAccount, loginAccount, guestAccount, type AuthResult } from "./auth";
 import { getHiscores, isHiscoreBoard, renderHiscoresHtml } from "./hiscores";
@@ -106,6 +106,13 @@ const gameServer = new Server({
 // toward "massive" scale.
 for (const zoneId of ZONE_IDS) {
   gameServer.define(zoneId, ZoneRoom, { zoneId });
+}
+
+// Dungeons reuse ZoneRoom but are INSTANCED: filterBy(["ticket"]) routes each
+// party (or solo) to its own room instance, keyed by the server-issued ticket.
+// A stray join with no matching ticket is rejected in onJoin.
+for (const dungeonId of DUNGEON_IDS) {
+  gameServer.define(dungeonId, ZoneRoom, { zoneId: dungeonId }).filterBy(["ticket"]);
 }
 
 gameServer

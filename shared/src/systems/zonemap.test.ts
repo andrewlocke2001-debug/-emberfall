@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { exitAt } from "./zonemap";
-import { ZONES } from "../data/zones";
+import { ZONES, DUNGEONS, mapForId } from "../data/zones";
 
 describe("exitAt (real maps)", () => {
   it("detects standing on Meadowbrook's east gate → Greenreach", () => {
@@ -18,12 +18,12 @@ describe("exitAt (real maps)", () => {
     expect(exitAt(map, spawn.x, spawn.y)).toBeUndefined();
   });
 
-  it("every exit points at a real zone with the named entry", () => {
-    for (const map of Object.values(ZONES)) {
+  it("every exit points at a real map (zone or dungeon) with the named entry", () => {
+    for (const map of [...Object.values(ZONES), ...Object.values(DUNGEONS)]) {
       for (const exit of map.exits) {
-        const target = ZONES[exit.to as keyof typeof ZONES];
-        expect(target, `exit to unknown zone '${exit.to}'`).toBeTruthy();
-        expect(target.entries[exit.entry], `'${exit.to}' missing entry '${exit.entry}'`).toBeTruthy();
+        const target = mapForId(exit.to);
+        expect(target, `exit to unknown map '${exit.to}'`).toBeTruthy();
+        expect(target!.entries[exit.entry], `'${exit.to}' missing entry '${exit.entry}'`).toBeTruthy();
       }
     }
   });

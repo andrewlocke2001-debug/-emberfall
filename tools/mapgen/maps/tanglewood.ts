@@ -82,6 +82,12 @@ function paint(): string[] {
   p.set(37, 47, "m");
   p.set(42, 49, "m");
 
+  // The Cinder Depths gate inside the ruins (east), with the return entry
+  // just outside it on the road.
+  p.set(51, 27, "C");
+  p.set(51, 28, "C");
+  p.set(48, 28, "2");
+
   // West entry (arrivals from Greenreach) + default spawn just inside.
   p.set(4, 29, "1");
   p.set(6, 31, "s");
@@ -92,7 +98,10 @@ function paint(): string[] {
 export const tanglewood: MapSource = {
   id: "tanglewood",
   displayName: "Tanglewood",
-  exits: { X: { to: "greenreach", entry: "east" } },
-  entries: { "1": "west" },
+  exits: {
+    X: { to: "greenreach", entry: "east" },
+    C: { to: "cinder_depths", entry: "default" },
+  },
+  entries: { "1": "west", "2": "depths" },
   ascii: paint(),
 };

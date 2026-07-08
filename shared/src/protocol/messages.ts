@@ -13,6 +13,8 @@ export interface JoinZoneOptions {
   token: string;
   /** When arriving via a zone exit, the named entry point to spawn at. */
   entry?: string;
+  /** Dungeon instance ticket (routes to one instance + authorizes the join). */
+  ticket?: string;
 }
 
 /** Client → server message types. */
@@ -172,6 +174,9 @@ export interface ChatBroadcastPayload {
 export interface TransferPayload {
   zone: string;
   entry: string;
+  /** Instance ticket for a dungeon target — routes the party to one instance
+   *  (Colyseus filterBy) and authorizes the join. Absent for overworld zones. */
+  ticket?: string;
 }
 
 /**

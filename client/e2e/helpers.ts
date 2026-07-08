@@ -9,6 +9,7 @@ export interface TestItemStack {
 /** Shape of the in-page test API exposed by ZoneScene (see exposeTestApi). */
 export interface MmoTestApi {
   ready: boolean;
+  roomId(): string;
   zone(): string | null;
   playerCount(): number;
   enemyCount(): number;

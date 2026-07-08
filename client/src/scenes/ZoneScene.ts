@@ -20,7 +20,7 @@ import { levelForXp } from "@mmo/shared/systems/progression";
 import { ITEMS, type EquipSlot } from "@mmo/shared/data/items";
 import { BANKS, nearBank } from "@mmo/shared/data/banks";
 import { NODES, RESOURCES } from "@mmo/shared/data/resources";
-import { ZONES, DEFAULT_ZONE, isZoneId } from "@mmo/shared/data/zones";
+import { ZONES, DEFAULT_ZONE, mapForId, type ZoneId } from "@mmo/shared/data/zones";
 import { MOBS } from "@mmo/shared/data/mobs";
 import type { ZoneMap } from "@mmo/shared/systems/zonemap";
 import type { EnemySchema, PlayerSchema, GroundLootSchema } from "@mmo/shared/schema/state";
@@ -612,7 +612,12 @@ export class ZoneScene extends Phaser.Scene {
     this.connection.room.onMessage(ServerMessage.Transfer, (p: TransferPayload) => {
       localStorage.setItem("mmo:zone", p.zone);
       const opts = this.registry.get("joinOpts") as JoinZoneOptions;
-      this.registry.set("joinOpts", { ...opts, entry: p.entry });
+      // Carry a dungeon ticket into the join; clear any stale one otherwise so
+      // it can't leak into the next overworld join.
+      const next: JoinZoneOptions = { ...opts, entry: p.entry };
+      if (p.ticket) next.ticket = p.ticket;
+      else delete next.ticket;
+      this.registry.set("joinOpts", next);
       this.registry.set("zone", p.zone);
       void this.connection.room.leave();
       this.scene.start("Boot");
@@ -624,11 +629,11 @@ export class ZoneScene extends Phaser.Scene {
   /** Resolve the current zone from server state and draw it once. */
   private ensureWorld(): void {
     if (this.map) return;
-    const zoneId = isZoneId(this.connection.room.state.zoneId)
-      ? this.connection.room.state.zoneId
-      : DEFAULT_ZONE;
-    this.map = ZONES[zoneId];
+    this.map = mapForId(this.connection.room.state.zoneId) ?? ZONES[DEFAULT_ZONE];
     this.drawTilemap(this.map);
+    // Overworld furniture (banks/nodes/NPCs/vendors) is keyed by zone id;
+    // dungeons simply have none, so every lookup no-ops there.
+    const zoneId = this.map.id as ZoneId;
     for (const b of BANKS[zoneId] ?? []) this.drawBankMarker(b.x, b.y);
     for (const n of NODES[zoneId] ?? []) this.drawNodeMarker(n.id, n.type, n.x, n.y);
     for (const npc of npcsInZone(zoneId)) this.drawNpcMarker(npc);
@@ -789,6 +794,7 @@ export class ZoneScene extends Phaser.Scene {
     (window as unknown as { __mmo?: unknown }).__mmo = {
       ready: true,
       sessionId: () => room.sessionId,
+      roomId: () => room.roomId,
       zone: () => room.state?.zoneId ?? null,
       playerCount: () => room.state?.players?.size ?? 0,
       enemyCount: () => room.state?.enemies?.size ?? 0,
