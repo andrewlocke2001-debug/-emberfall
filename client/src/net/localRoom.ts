@@ -358,6 +358,10 @@ export class SoloRoom {
       case ClientMessage.Repair:
         this.doRepair();
         break;
+      case ClientMessage.TradeRequest:
+        // Single-player: no other players to trade with.
+        this.system("There's no one else here to trade with.");
+        break;
       case ClientMessage.Pickup:
         this.doPickup(msg.lootId);
         break;

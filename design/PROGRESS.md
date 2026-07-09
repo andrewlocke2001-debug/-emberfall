@@ -338,8 +338,19 @@ yet on real devices because we're not deployed.
   mirrored in the solo engine. 143 unit + 28 e2e (new durability.spec: wear in
   combat → repair at vendor). Also fixed a stuck-dead GameMaster e2e fixture
   (enterWorldAsGm now `/heal`s on entry) — cleared 7 cascading failures.
-- Next: **P8.2** secure player-to-player trade, **P8.3** the Exchange (order
-  book + tax sink), **P8.4** faucet/sink dashboard + close-out.
+- **P8.2 done**: **secure player-to-player trade**. Pure state machine
+  (`shared/systems/trade.ts`, 4 tests) enforcing the confirm-twice invariant:
+  ANY offer change clears BOTH confirmations. Server manages per-room trade
+  sessions: request (proximity-gated, by name) → accept → each side sets a full
+  offer (validated they hold it) → confirm-twice → **atomic swap** (re-validate
+  holdings + bag space; all-or-nothing) with paired ledger entries (reason
+  "trade", nets to zero = audit trail). Torn down on leave/death/zone-travel.
+  Client trade panel (toggle **T**): request-by-name, accept/decline banner,
+  your/their offers, add-from-bag + coins, confirm/cancel; auto-opens on a
+  request. Solo: friendly "no one else here" message. 147 unit + 29 e2e (new
+  trade.spec: GM trades a sword to a guest, confirm-twice, atomic swap).
+- Next: **P8.3** the Exchange (async order book + tax sink), **P8.4**
+  faucet/sink dashboard + close-out.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +

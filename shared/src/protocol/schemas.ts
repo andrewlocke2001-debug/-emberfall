@@ -21,6 +21,9 @@ import type {
   GuildCreatePayload,
   GuildActionPayload,
   GuildSetRankPayload,
+  TradeRequestPayload,
+  TradeRespondPayload,
+  TradeOfferPayload,
 } from "./messages";
 
 /**
@@ -125,6 +128,28 @@ export const GuildSetRankSchema = z.strictObject({
   rank: z.enum(["officer", "member"]),
 });
 
+export const TradeRequestSchema = z.strictObject({
+  name: z.string().min(1).max(24),
+});
+
+export const TradeRespondSchema = z.strictObject({
+  accept: z.boolean(),
+});
+
+/** A trade offer: up to a bagful of stacks + coins. The server re-validates the
+ *  player actually holds these before the swap. */
+export const TradeOfferSchema = z.strictObject({
+  items: z
+    .array(
+      z.strictObject({
+        itemId: z.string().min(1).max(64),
+        qty: z.number().int().min(1).max(2_147_483_647),
+      }),
+    )
+    .max(28),
+  coins: z.number().int().min(0).max(2_147_483_647),
+});
+
 // --- compile-time drift guards (no runtime cost) -----------------------------
 
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -149,6 +174,12 @@ const _partyInvite: AssertEqual<z.output<typeof PartyInviteSchema>, PartyInviteP
 const _guildCreate: AssertEqual<z.output<typeof GuildCreateSchema>, GuildCreatePayload> = true;
 const _guildAction: AssertEqual<z.output<typeof GuildActionSchema>, GuildActionPayload> = true;
 const _guildRank: AssertEqual<z.output<typeof GuildSetRankSchema>, GuildSetRankPayload> = true;
+const _tradeReq: AssertEqual<z.output<typeof TradeRequestSchema>, TradeRequestPayload> = true;
+const _tradeResp: AssertEqual<z.output<typeof TradeRespondSchema>, TradeRespondPayload> = true;
+const _tradeOffer: AssertEqual<z.output<typeof TradeOfferSchema>, TradeOfferPayload> = true;
+void _tradeReq;
+void _tradeResp;
+void _tradeOffer;
 void _friend;
 void _partyInvite;
 void _guildCreate;

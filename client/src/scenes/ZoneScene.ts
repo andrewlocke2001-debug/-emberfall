@@ -38,12 +38,14 @@ import { ShopPanel } from "../ui/ShopPanel";
 import { FriendsPanel } from "../ui/FriendsPanel";
 import { PartyPanel } from "../ui/PartyPanel";
 import { GuildPanel } from "../ui/GuildPanel";
+import { TradePanel } from "../ui/TradePanel";
 import type {
   ItemStack,
   FriendEntry,
   FriendsPayload,
   PartyPayload,
   GuildPayload,
+  TradeStatePayload,
 } from "@mmo/shared";
 import type { QuestLog } from "@mmo/shared/systems/quests";
 import { npcsInZone, type NpcDef } from "@mmo/shared/data/npcs";
@@ -123,6 +125,9 @@ export class ZoneScene extends Phaser.Scene {
   /** Guild panel (toggle G) + last-known state. */
   private guildPanel?: GuildPanel;
   private guildState: GuildPayload = { members: [] };
+  /** Trade panel (toggle T) + last-known trade state. */
+  private tradePanel?: TradePanel;
+  private tradeState: TradeStatePayload = { active: false };
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map?: ZoneMap;
@@ -150,12 +155,12 @@ export class ZoneScene extends Phaser.Scene {
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
-    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,P,G") as Record<
+    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,P,G,T") as Record<
       string,
       Phaser.Input.Keyboard.Key
     >;
     this.escKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,P,G,UP,DOWN,LEFT,RIGHT");
+    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,P,G,T,UP,DOWN,LEFT,RIGHT");
 
     this.selectionRing = this.add
       .circle(0, 0, 28)
@@ -283,6 +288,22 @@ export class ZoneScene extends Phaser.Scene {
       if (this.input.keyboard) this.input.keyboard.enabled = true;
     });
     this.events.once("shutdown", () => this.guildPanel?.destroy());
+
+    this.tradePanel = new TradePanel({
+      onRequest: (name) => this.connection.room.send(ClientMessage.TradeRequest, { name }),
+      onRespond: (accept) => this.connection.room.send(ClientMessage.TradeRespond, { accept }),
+      onOffer: (items, coins) => this.connection.room.send(ClientMessage.TradeOffer, { items, coins }),
+      onConfirm: () => this.connection.room.send(ClientMessage.TradeConfirm),
+      onCancel: () => this.connection.room.send(ClientMessage.TradeCancel),
+    });
+    const tradeRoot = document.getElementById("trade");
+    tradeRoot?.addEventListener("focusin", () => {
+      if (this.input.keyboard) this.input.keyboard.enabled = false;
+    });
+    tradeRoot?.addEventListener("focusout", () => {
+      if (this.input.keyboard) this.input.keyboard.enabled = true;
+    });
+    this.events.once("shutdown", () => this.tradePanel?.destroy());
 
     this.bankPanel = new BankPanel({
       onDeposit: (itemId, qty) => this.connection.room.send(ClientMessage.Deposit, { itemId, qty }),
@@ -441,6 +462,7 @@ export class ZoneScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys["F"]!)) this.friendsPanel?.toggle();
     if (Phaser.Input.Keyboard.JustDown(this.keys["P"]!)) this.partyPanel?.toggle();
     if (Phaser.Input.Keyboard.JustDown(this.keys["G"]!)) this.guildPanel?.toggle();
+    if (Phaser.Input.Keyboard.JustDown(this.keys["T"]!)) this.tradePanel?.toggle();
 
     // Crafting panel (C); refresh its skill gates from live XP while open.
     if (Phaser.Input.Keyboard.JustDown(this.keys["C"]!)) this.craftPanel?.toggle();
@@ -579,6 +601,7 @@ export class ZoneScene extends Phaser.Scene {
       this.questPanel?.setBag(p.slots);
       this.dialogue?.setBag(p.slots);
       this.shop?.setBag(p.slots);
+      this.tradePanel?.setBag(p.slots);
     });
     this.connection.room.onMessage(ServerMessage.Quests, (p: { quests: QuestLog }) => {
       this.questLog = p.quests;
@@ -596,6 +619,10 @@ export class ZoneScene extends Phaser.Scene {
     this.connection.room.onMessage(ServerMessage.Guild, (p: GuildPayload) => {
       this.guildState = p;
       this.guildPanel?.setGuild(p);
+    });
+    this.connection.room.onMessage(ServerMessage.Trade, (p: TradeStatePayload) => {
+      this.tradeState = p;
+      this.tradePanel?.setTrade(p);
     });
     this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
       this.equipmentSlots = p.equipment;
@@ -910,6 +937,13 @@ export class ZoneScene extends Phaser.Scene {
       guildKick: (name: string) => room.send(ClientMessage.GuildKick, { name }),
       guildSetRank: (name: string, rank: string) => room.send(ClientMessage.GuildSetRank, { name, rank }),
       requestGuild: () => room.send(ClientMessage.RequestGuild),
+      trade: () => this.tradeState,
+      tradeRequest: (name: string) => room.send(ClientMessage.TradeRequest, { name }),
+      tradeRespond: (accept: boolean) => room.send(ClientMessage.TradeRespond, { accept }),
+      tradeOffer: (items: ItemStack[], coins: number) =>
+        room.send(ClientMessage.TradeOffer, { items, coins }),
+      tradeConfirm: () => room.send(ClientMessage.TradeConfirm),
+      tradeCancel: () => room.send(ClientMessage.TradeCancel),
       buy: (vendorId: string, itemId: string, qty: number) =>
         room.send(ClientMessage.Buy, { vendorId, itemId, qty }),
       sell: (vendorId: string, itemId: string, qty: number) =>

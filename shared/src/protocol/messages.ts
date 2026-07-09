@@ -49,6 +49,16 @@ export const ClientMessage = {
   Consume: "consume",
   /** Repair all worn equipped gear for coins (proximity-checked at a vendor). */
   Repair: "repair",
+  /** Ask a nearby player to trade. */
+  TradeRequest: "tradeRequest",
+  /** Accept or decline a pending trade request. */
+  TradeRespond: "tradeRespond",
+  /** Replace my current trade offer (items + coins). */
+  TradeOffer: "tradeOffer",
+  /** Confirm my current offer (fires the swap when both sides confirm). */
+  TradeConfirm: "tradeConfirm",
+  /** Cancel/close the active trade or pending request. */
+  TradeCancel: "tradeCancel",
   /** Accept an available quest. */
   QuestAccept: "questAccept",
   /** Turn in a quest whose objectives are met. */
@@ -103,6 +113,8 @@ export const ServerMessage = {
   Friends: "friends",
   Party: "party",
   Guild: "guild",
+  /** The owner's live trade state (offers + confirmations, or a pending request). */
+  Trade: "trade",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -285,6 +297,41 @@ export interface PartyPayload {
   members: PartyMemberEntry[];
   /** Who invited you, when you have a pending invite. */
   invitedBy?: string;
+}
+
+/** Client → server: ask a player (by display name) to trade. */
+export interface TradeRequestPayload {
+  name: string;
+}
+
+/** Client → server: accept or decline a pending trade request. */
+export interface TradeRespondPayload {
+  accept: boolean;
+}
+
+/** Client → server: replace my current trade offer (full desired offer). */
+export interface TradeOfferPayload {
+  items: ItemStack[];
+  coins: number;
+}
+
+/** One side of a trade as shown to the client. */
+export interface TradeParticipant {
+  name: string;
+  items: ItemStack[];
+  coins: number;
+  confirmed: boolean;
+}
+
+/** Server → client: the owner's live trade state. */
+export interface TradeStatePayload {
+  active: boolean;
+  /** My offer (active trade only). */
+  me?: TradeParticipant;
+  /** My partner's offer (active trade only). */
+  them?: TradeParticipant;
+  /** A pending incoming request from this player (no active trade yet). */
+  requestFrom?: string;
 }
 
 /** Client → server: found a guild. */

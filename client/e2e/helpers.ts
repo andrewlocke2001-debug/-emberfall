@@ -60,6 +60,17 @@ export interface MmoTestApi {
   guildKick(name: string): void;
   guildSetRank(name: string, rank: "officer" | "member"): void;
   requestGuild(): void;
+  trade(): {
+    active: boolean;
+    me?: { name: string; items: TestItemStack[]; coins: number; confirmed: boolean };
+    them?: { name: string; items: TestItemStack[]; coins: number; confirmed: boolean };
+    requestFrom?: string;
+  };
+  tradeRequest(name: string): void;
+  tradeRespond(accept: boolean): void;
+  tradeOffer(items: TestItemStack[], coins: number): void;
+  tradeConfirm(): void;
+  tradeCancel(): void;
   buy(vendorId: string, itemId: string, qty: number): void;
   sell(vendorId: string, itemId: string, qty: number): void;
   enemyIds(): string[];

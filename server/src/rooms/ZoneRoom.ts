@@ -49,6 +49,12 @@ import {
   type GuildSetRankPayload,
   type GuildPayload,
   type GuildMemberEntry,
+  type TradeRequestPayload,
+  type TradeRespondPayload,
+  type TradeOfferPayload,
+  type TradeStatePayload,
+  type TradeParticipant,
+  type ItemStack,
   FRIENDS_MAX,
   PARTY_MAX,
   PARTY_LEVEL_RANGE,
@@ -81,6 +87,13 @@ import {
   type Equipment,
 } from "@mmo/shared/systems/equipment";
 import { deposit, withdraw, type Bank } from "@mmo/shared/systems/bank";
+import {
+  emptyOffer,
+  setOffer,
+  confirmOffer,
+  bothConfirmed,
+  type TradeOffer,
+} from "@mmo/shared/systems/trade";
 import {
   hasDurability,
   wear,
@@ -118,6 +131,9 @@ import {
   GuildCreateSchema,
   GuildActionSchema,
   GuildSetRankSchema,
+  TradeRequestSchema,
+  TradeRespondSchema,
+  TradeOfferSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -168,6 +184,13 @@ const VITALITY_XP_FRACTION = 1 / 3;
 
 /** The non-combat skills (gathering + crafting) — XP-only, no combat effects. */
 type NonCombatSkill = "mining" | "fishing" | "smithing" | "cooking";
+
+/** An active two-party trade. Both session ids map to the same instance. */
+interface TradeSession {
+  a: string;
+  b: string;
+  offers: Record<string, TradeOffer>;
+}
 
 /** Per-session transient input — never synced, never trusted as state. */
 interface InputState {
@@ -256,6 +279,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly friendLists = new Map<string, string[]>();
   /** Per-session guild membership cache (DB is the source of truth). */
   private readonly guildCache = new Map<string, { guildId: string; rank: GuildRank } | null>();
+  /** Pending trade requests: invitee sessionId → requester sessionId. */
+  private readonly tradeRequests = new Map<string, string>();
+  /** Active trades. Both participants' session ids key the SAME session object. */
+  private readonly trades = new Map<string, TradeSession>();
   /** Unsubscribe handles for the guild buses (set in onCreate). */
   private unsubscribeGuildChat?: () => void;
   private unsubscribeGuildChanged?: () => void;
@@ -341,6 +368,18 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     });
 
     this.onMessage(ClientMessage.Repair, (client) => this.handleRepair(client));
+
+    this.onMessage(ClientMessage.TradeRequest, TradeRequestSchema, (client, msg: TradeRequestPayload) => {
+      this.handleTradeRequest(client, msg);
+    });
+    this.onMessage(ClientMessage.TradeRespond, TradeRespondSchema, (client, msg: TradeRespondPayload) => {
+      this.handleTradeRespond(client, msg);
+    });
+    this.onMessage(ClientMessage.TradeOffer, TradeOfferSchema, (client, msg: TradeOfferPayload) => {
+      this.handleTradeOffer(client, msg);
+    });
+    this.onMessage(ClientMessage.TradeConfirm, (client) => this.handleTradeConfirm(client));
+    this.onMessage(ClientMessage.TradeCancel, (client) => this.handleTradeCancel(client));
 
     this.onMessage(ClientMessage.QuestAccept, QuestActionSchema, (client, msg: QuestActionPayload) => {
       this.handleQuestAccept(client, msg);
@@ -538,6 +577,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
   override async onLeave(client: Client): Promise<void> {
     const player = this.state.players.get(client.sessionId);
+    this.endTradesFor(client.sessionId); // tear down any trade/request first
     this.inputs.delete(client.sessionId);
     this.transferring.delete(client.sessionId);
     this.chatLimiter.forget(client.sessionId);
@@ -1416,6 +1456,251 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.systemTo(client, `Repaired your gear for ${cost} coins.`);
   }
 
+  // --- secure player-to-player trade ------------------------------------------
+
+  private clientFor(sessionId: string): Client | undefined {
+    return this.clients.find((c) => c.sessionId === sessionId);
+  }
+
+  /** Push a participant their live trade state (active offers, or a request). */
+  private sendTrade(client: Client): void {
+    const sid = client.sessionId;
+    const session = this.trades.get(sid);
+    if (session) {
+      const other = session.a === sid ? session.b : session.a;
+      const mine = session.offers[sid]!;
+      const theirs = session.offers[other]!;
+      const toParticipant = (name: string, o: TradeOffer): TradeParticipant => ({
+        name,
+        items: o.items,
+        coins: o.coins,
+        confirmed: o.confirmed,
+      });
+      const payload: TradeStatePayload = {
+        active: true,
+        me: toParticipant(this.state.players.get(sid)?.name ?? "", mine),
+        them: toParticipant(this.state.players.get(other)?.name ?? "", theirs),
+      };
+      client.send(ServerMessage.Trade, payload);
+      return;
+    }
+    const requester = this.tradeRequests.get(sid);
+    const payload: TradeStatePayload = { active: false };
+    if (requester) {
+      const name = this.state.players.get(requester)?.name;
+      if (name) payload.requestFrom = name;
+    }
+    client.send(ServerMessage.Trade, payload);
+  }
+
+  private sendTradeBoth(session: TradeSession): void {
+    for (const sid of [session.a, session.b]) {
+      const c = this.clientFor(sid);
+      if (c) this.sendTrade(c);
+    }
+  }
+
+  private handleTradeRequest(client: Client, msg: TradeRequestPayload): void {
+    const sid = client.sessionId;
+    const player = this.state.players.get(sid);
+    if (!player || !player.alive) return;
+    if (this.trades.has(sid)) {
+      this.systemTo(client, "Finish your current trade first.");
+      return;
+    }
+    const target = this.findPlayer(msg.name);
+    if (!target || target.sessionId === sid) {
+      this.systemTo(client, `${msg.name} isn't here.`);
+      return;
+    }
+    if (distSq(player.x, player.y, target.player.x, target.player.y) > TALK_RANGE * TALK_RANGE) {
+      this.systemTo(client, `Get closer to ${target.player.name} to trade.`);
+      return;
+    }
+    if (this.trades.has(target.sessionId)) {
+      this.systemTo(client, `${target.player.name} is busy.`);
+      return;
+    }
+    this.tradeRequests.set(target.sessionId, sid);
+    this.systemTo(client, `Asked ${target.player.name} to trade.`);
+    const tc = this.clientFor(target.sessionId);
+    if (tc) {
+      this.systemTo(tc, `${player.name} wants to trade — open Trade (T) to accept.`);
+      this.sendTrade(tc);
+    }
+  }
+
+  private handleTradeRespond(client: Client, msg: TradeRespondPayload): void {
+    const sid = client.sessionId;
+    const requesterSid = this.tradeRequests.get(sid);
+    if (!requesterSid) return;
+    this.tradeRequests.delete(sid);
+    const rc = this.clientFor(requesterSid);
+    if (!msg.accept) {
+      if (rc) this.systemTo(rc, "Trade declined.");
+      this.sendTrade(client);
+      return;
+    }
+    // Both must still be here and free.
+    if (
+      !this.state.players.get(sid) ||
+      !this.state.players.get(requesterSid) ||
+      this.trades.has(sid) ||
+      this.trades.has(requesterSid)
+    ) {
+      this.sendTrade(client);
+      return;
+    }
+    const session: TradeSession = {
+      a: requesterSid,
+      b: sid,
+      offers: { [requesterSid]: emptyOffer(), [sid]: emptyOffer() },
+    };
+    this.trades.set(sid, session);
+    this.trades.set(requesterSid, session);
+    this.sendTradeBoth(session);
+  }
+
+  private handleTradeOffer(client: Client, msg: TradeOfferPayload): void {
+    const sid = client.sessionId;
+    const session = this.trades.get(sid);
+    if (!session) return;
+    const inv = this.inventories.get(sid) ?? [];
+    // Coins travel in the coins field, never the item list.
+    const items = msg.items.filter((s) => s.itemId !== "coins" && !!itemDef(s.itemId));
+    // Must actually hold everything offered.
+    for (const s of items) if (countItem(inv, s.itemId) < s.qty) return;
+    if (countItem(inv, "coins") < msg.coins) return;
+
+    const other = session.a === sid ? session.b : session.a;
+    const res = setOffer(session.offers[sid]!, session.offers[other]!, items, msg.coins);
+    session.offers[sid] = res.mine;
+    session.offers[other] = res.theirs;
+    this.sendTradeBoth(session);
+  }
+
+  private handleTradeConfirm(client: Client): void {
+    const sid = client.sessionId;
+    const session = this.trades.get(sid);
+    if (!session) return;
+    session.offers[sid] = confirmOffer(session.offers[sid]!);
+    const other = session.a === sid ? session.b : session.a;
+    if (bothConfirmed(session.offers[sid]!, session.offers[other]!)) this.executeTrade(session);
+    else this.sendTradeBoth(session);
+  }
+
+  private handleTradeCancel(client: Client): void {
+    const sid = client.sessionId;
+    const session = this.trades.get(sid);
+    if (session) {
+      this.cancelTrade(session, "Trade cancelled.");
+      return;
+    }
+    // Cancel a pending incoming request too.
+    if (this.tradeRequests.delete(sid)) this.sendTrade(client);
+  }
+
+  /** End a trade for both sides without swapping; notify + refresh. */
+  private cancelTrade(session: TradeSession, reason: string): void {
+    this.trades.delete(session.a);
+    this.trades.delete(session.b);
+    for (const sid of [session.a, session.b]) {
+      const c = this.clientFor(sid);
+      if (c) {
+        this.systemTo(c, reason);
+        this.sendTrade(c);
+      }
+    }
+  }
+
+  /** Any trade/request involving this session is torn down (leave/death/travel). */
+  private endTradesFor(sessionId: string): void {
+    const session = this.trades.get(sessionId);
+    if (session) this.cancelTrade(session, "The other trader is no longer available.");
+    // Drop a request I sent or one sent to me.
+    this.tradeRequests.delete(sessionId);
+    this.tradeRequests.forEach((from, to) => {
+      if (from === sessionId) this.tradeRequests.delete(to);
+    });
+  }
+
+  private tradeHolds(inv: Inventory, offer: TradeOffer): boolean {
+    for (const s of offer.items) if (countItem(inv, s.itemId) < s.qty) return false;
+    return countItem(inv, "coins") >= offer.coins;
+  }
+
+  /** Add an offer's items+coins to a bag copy; null if it doesn't all fit. */
+  private tradeReceive(inv: Inventory, offer: TradeOffer): Inventory | null {
+    let cur = inv;
+    for (const s of offer.items) {
+      const r = addItem(cur, s.itemId, s.qty, itemDef(s.itemId)?.maxStack ?? 1);
+      if (r.added < s.qty) return null;
+      cur = r.inventory;
+    }
+    if (offer.coins > 0) {
+      const r = addItem(cur, "coins", offer.coins, itemDef("coins")?.maxStack ?? 1);
+      if (r.added < offer.coins) return null;
+      cur = r.inventory;
+    }
+    return cur;
+  }
+
+  private tradeRemove(inv: Inventory, offer: TradeOffer): Inventory {
+    let cur = inv;
+    for (const s of offer.items) cur = removeItem(cur, s.itemId, s.qty).inventory;
+    if (offer.coins > 0) cur = removeItem(cur, "coins", offer.coins).inventory;
+    return cur;
+  }
+
+  /** Atomically swap both confirmed offers, re-validating holdings + space. */
+  private executeTrade(session: TradeSession): void {
+    const { a, b } = session;
+    const pa = this.state.players.get(a);
+    const pb = this.state.players.get(b);
+    if (!pa || !pb) {
+      this.cancelTrade(session, "A trader left.");
+      return;
+    }
+    const offA = session.offers[a]!;
+    const offB = session.offers[b]!;
+    const invA = this.inventories.get(a) ?? [];
+    const invB = this.inventories.get(b) ?? [];
+    if (!this.tradeHolds(invA, offA) || !this.tradeHolds(invB, offB)) {
+      this.cancelTrade(session, "Trade failed — items changed.");
+      return;
+    }
+    // Remove each side's offer, then hand the other's offer in — but only apply
+    // if BOTH sides' incoming items fit (no partial/lost-item states).
+    const finalA = this.tradeReceive(this.tradeRemove(invA, offA), offB);
+    const finalB = this.tradeReceive(this.tradeRemove(invB, offB), offA);
+    if (!finalA || !finalB) {
+      this.cancelTrade(session, "Trade failed — not enough bag space.");
+      return;
+    }
+    this.inventories.set(a, finalA);
+    this.inventories.set(b, finalB);
+    // Ledger the transfer as paired entries (nets to zero; a trade audit trail).
+    const logPair = (fromId: string, toId: string, itemId: string, qty: number): void => {
+      void recordLedger({ account: fromId, itemId, delta: -qty, reason: "trade" });
+      void recordLedger({ account: toId, itemId, delta: qty, reason: "trade" });
+    };
+    for (const s of offA.items) logPair(pa.id, pb.id, s.itemId, s.qty);
+    if (offA.coins > 0) logPair(pa.id, pb.id, "coins", offA.coins);
+    for (const s of offB.items) logPair(pb.id, pa.id, s.itemId, s.qty);
+    if (offB.coins > 0) logPair(pb.id, pa.id, "coins", offB.coins);
+
+    this.trades.delete(a);
+    this.trades.delete(b);
+    for (const sid of [a, b]) {
+      const c = this.clientFor(sid);
+      if (c) {
+        this.sendInventory(c);
+        this.systemTo(c, "Trade complete.");
+        this.sendTrade(c);
+      }
+    }
+  }
+
   /** Push bank contents to the owner — only while they're standing at a bank. */
   private sendBankIfNear(client: Client): void {
     const player = this.state.players.get(client.sessionId);
@@ -1862,6 +2147,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       const exit = exitAt(this.map, player.x, player.y);
       if (!exit) return;
       this.transferring.add(sessionId);
+      this.endTradesFor(sessionId); // leaving the zone ends any trade
       const payload: TransferPayload = { zone: exit.to, entry: exit.entry };
       // A dungeon gate mints a per-party instance ticket: the whole party (or a
       // solo) shares one instance, and the ticket authorizes their join.
@@ -2091,6 +2377,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.enemyAI.forEach((ai) => {
       if (ai.target === sessionId) ai.target = null;
     });
+    this.endTradesFor(sessionId); // a corpse can't trade
   }
 
   /**
