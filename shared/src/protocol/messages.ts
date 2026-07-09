@@ -47,6 +47,8 @@ export const ClientMessage = {
   Craft: "craft",
   /** Eat/consume an item from the bag to heal. */
   Consume: "consume",
+  /** Repair all worn equipped gear for coins (proximity-checked at a vendor). */
+  Repair: "repair",
   /** Accept an available quest. */
   QuestAccept: "questAccept",
   /** Turn in a quest whose objectives are met. */
@@ -350,4 +352,6 @@ export interface BankPayload {
  */
 export interface EquipmentPayload {
   equipment: Partial<Record<EquipSlot, string>>;
+  /** Remaining durability per owned gear item id (P8). Missing = undamaged. */
+  durability?: Record<string, number>;
 }

@@ -1,5 +1,6 @@
 import { INVENTORY_SLOTS, type ItemStack } from "@mmo/shared";
 import { ITEMS, EQUIP_SLOTS, type EquipSlot } from "@mmo/shared/data/items";
+import { hasDurability, currentDurability, isBroken } from "@mmo/shared/systems/durability";
 
 export interface InventoryPanelOptions {
   /** Equip an inventory item (server validates ownership + slot). */
@@ -23,6 +24,7 @@ export class InventoryPanel {
   private readonly gearRow: HTMLDivElement;
   private slots: ItemStack[] = [];
   private equipment: Partial<Record<EquipSlot, string>> = {};
+  private durability: Record<string, number> = {};
   private visible = false;
 
   constructor(private readonly opts: InventoryPanelOptions) {
@@ -65,8 +67,12 @@ export class InventoryPanel {
     if (this.visible) this.renderBag();
   }
 
-  setEquipment(equipment: Partial<Record<EquipSlot, string>>): void {
+  setEquipment(
+    equipment: Partial<Record<EquipSlot, string>>,
+    durability: Record<string, number> = {},
+  ): void {
     this.equipment = equipment;
+    this.durability = durability;
     if (this.visible) this.renderGear();
   }
 
@@ -110,6 +116,19 @@ export class InventoryPanel {
         cell.classList.add("filled");
         if (def && def.rarity !== "common") cell.classList.add(def.rarity);
         cell.title = `${this.tooltip(id)} (click to unequip)`;
+        // Durability readout (P8): "cur/max", reddened as it wears / breaks.
+        if (def && hasDurability(def)) {
+          const cur = currentDurability(def, this.durability);
+          const max = def.maxDurability!;
+          const dur = document.createElement("span");
+          dur.className = "gear-dur";
+          dur.textContent = isBroken(cur) ? "BROKEN" : `${cur}/${max}`;
+          if (isBroken(cur)) cell.classList.add("broken");
+          else if (cur / max <= 0.25) cell.classList.add("worn");
+          cell.appendChild(label);
+          cell.appendChild(dur);
+          continue;
+        }
       } else {
         label.textContent = slot;
         label.classList.add("empty");

@@ -7,6 +7,8 @@ import { countItem } from "@mmo/shared/systems/inventory";
 export interface ShopPanelOptions {
   onBuy: (vendorId: string, itemId: string, qty: number) => void;
   onSell: (vendorId: string, itemId: string, qty: number) => void;
+  /** Repair all worn gear for coins (the server computes + charges). */
+  onRepair: () => void;
 }
 
 /**
@@ -26,6 +28,14 @@ export class ShopPanel {
 
   constructor(private readonly opts: ShopPanelOptions) {
     document.getElementById("shop-close")?.addEventListener("click", () => this.close());
+    // A "Repair gear" action lives in the shop footer (built once).
+    const repair = document.createElement("button");
+    repair.type = "button";
+    repair.id = "shop-repair";
+    repair.className = "shop-repair";
+    repair.textContent = "Repair gear";
+    repair.addEventListener("click", () => this.opts.onRepair());
+    this.root.appendChild(repair);
   }
 
   setBag(bag: ItemStack[]): void {

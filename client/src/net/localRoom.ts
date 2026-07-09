@@ -45,6 +45,15 @@ import {
   type QuestLog,
 } from "@mmo/shared/systems/quests";
 import { equip, unequip, equipmentBonus, type Equipment } from "@mmo/shared/systems/equipment";
+import {
+  hasDurability,
+  wear,
+  isBroken,
+  repairCost,
+  currentDurability,
+  effectiveEquipment,
+  type Durability,
+} from "@mmo/shared/systems/durability";
 import { deposit, withdraw, type Bank } from "@mmo/shared/systems/bank";
 import { itemDef } from "@mmo/shared/data/items";
 import { nearBank } from "@mmo/shared/data/banks";
@@ -52,7 +61,7 @@ import { resourceNode } from "@mmo/shared/data/resources";
 import { recipeDef } from "@mmo/shared/data/recipes";
 import { questDef } from "@mmo/shared/data/quests";
 import { npcDef } from "@mmo/shared/data/npcs";
-import { vendorDef } from "@mmo/shared/data/vendors";
+import { vendorDef, vendorsInZone } from "@mmo/shared/data/vendors";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
 import { resolveAttack, type CombatStats } from "@mmo/shared/systems/combatmath";
@@ -96,6 +105,7 @@ export interface SoloSave {
   restedXp: number;
   inventory: Inventory;
   equipment: Equipment;
+  durability: Durability;
   bank: Bank;
   quests: QuestLog;
   lastSeen: number;
@@ -117,6 +127,7 @@ function defaultSave(): SoloSave {
     restedXp: 0,
     inventory: [],
     equipment: {},
+    durability: {},
     bank: [],
     quests: [],
     lastSeen: Date.now(),
@@ -168,6 +179,7 @@ export class SoloRoom {
 
   private inventory: Inventory;
   private equipment: Equipment;
+  private durability: Durability;
   private bank: Bank;
   private questLog: QuestLog;
 
@@ -180,6 +192,7 @@ export class SoloRoom {
     this.roomId = `solo-${this.map.id}`;
     this.inventory = save.inventory;
     this.equipment = save.equipment;
+    this.durability = save.durability;
     this.bank = save.bank;
     this.questLog = save.quests;
 
@@ -266,7 +279,7 @@ export class SoloRoom {
     p.cookingXp = this.save.cookingXp;
     p.restedXp = this.save.restedXp;
     p.level = levelForXp(this.save.meleeXp);
-    p.maxHp = maxHpForVitality(levelForXp(this.save.vitalityXp)) + equipmentBonus(this.equipment, itemDef).maxHp;
+    p.maxHp = maxHpForVitality(levelForXp(this.save.vitalityXp)) + equipmentBonus(this.effectiveGear(), itemDef).maxHp;
     p.hp = Math.min(this.save.hp > 0 ? this.save.hp : p.maxHp, p.maxHp);
     p.alive = p.hp > 0;
     this.state.players.set(SOLO_ID, p);
@@ -342,6 +355,9 @@ export class SoloRoom {
       case ClientMessage.Consume:
         this.doConsume(msg.itemId);
         break;
+      case ClientMessage.Repair:
+        this.doRepair();
+        break;
       case ClientMessage.Pickup:
         this.doPickup(msg.lootId);
         break;
@@ -395,10 +411,15 @@ export class SoloRoom {
 
   // --- combat + abilities ----------------------------------------------------
 
+  /** Equipment that currently grants bonuses (broken gear excluded). */
+  private effectiveGear(): Equipment {
+    return effectiveEquipment(this.equipment, this.durability, itemDef);
+  }
+
   private playerStats(): CombatStats {
     const p = this.player();
     const base = combatStatsFromLevel(p.level, p.hp, p.maxHp);
-    const bonus = equipmentBonus(this.equipment, itemDef);
+    const bonus = equipmentBonus(this.effectiveGear(), itemDef);
     base.attack += bonus.attack;
     base.strength += bonus.strength;
     base.defence += bonus.defence;
@@ -447,6 +468,7 @@ export class SoloRoom {
 
     if (result.hit) {
       enemy.hp = result.targetHpAfter;
+      this.wearGear(this.equipment.weapon); // a landing swing wears the weapon
       this.tagged.add(enemy.id);
       this.emit(ServerMessage.CombatEvent, { attackerId: SOLO_ID, targetId: enemy.id, damage: result.damage, targetDied: result.targetDied });
       if (result.targetDied) {
@@ -513,7 +535,7 @@ export class SoloRoom {
     const vitality = gainXp(p.vitalityXp, this.withRested(vitalityAmt));
     p.vitalityXp = vitality.xp;
     if (vitality.leveledUp) {
-      const newMax = maxHpForVitality(vitality.level) + equipmentBonus(this.equipment, itemDef).maxHp;
+      const newMax = maxHpForVitality(vitality.level) + equipmentBonus(this.effectiveGear(), itemDef).maxHp;
       const delta = newMax - p.maxHp;
       p.maxHp = newMax;
       if (delta > 0) p.hp = Math.min(newMax, p.hp + delta);
@@ -550,7 +572,7 @@ export class SoloRoom {
 
   private applyMaxHp(): void {
     const p = this.player();
-    const newMax = maxHpForVitality(levelForXp(p.vitalityXp)) + equipmentBonus(this.equipment, itemDef).maxHp;
+    const newMax = maxHpForVitality(levelForXp(p.vitalityXp)) + equipmentBonus(this.effectiveGear(), itemDef).maxHp;
     if (newMax === p.maxHp) return;
     p.maxHp = newMax;
     if (p.hp > newMax) p.hp = newMax;
@@ -562,7 +584,58 @@ export class SoloRoom {
     this.emit(ServerMessage.Inventory, { slots: this.inventory });
   }
   private pushEquipment(): void {
-    this.emit(ServerMessage.Equipment, { equipment: this.equipment });
+    this.emit(ServerMessage.Equipment, { equipment: this.equipment, durability: this.durability });
+  }
+
+  /** Wear an equipped item; recompute maxHp if it breaks; push the update. */
+  private wearGear(itemId: string | undefined, amount = 1): void {
+    if (!itemId) return;
+    const def = itemDef(itemId);
+    if (!def || !hasDurability(def)) return;
+    const before = currentDurability(def, this.durability);
+    if (before <= 0) return;
+    const after = wear(before, amount);
+    this.durability[itemId] = after;
+    if (isBroken(after)) this.applyMaxHp();
+    this.pushEquipment();
+  }
+
+  /** Wear a random equipped armor piece when the player takes a hit. */
+  private wearRandomArmor(): void {
+    const armor = (Object.entries(this.equipment) as [string, string][]).filter(
+      ([slot]) => slot !== "weapon",
+    );
+    if (armor.length === 0) return;
+    this.wearGear(armor[Math.floor(Math.random() * armor.length)]![1]);
+  }
+
+  /** Repair all worn equipped gear for coins — only at a vendor. */
+  private doRepair(): void {
+    const p = this.player();
+    if (!p.alive) return;
+    const atVendor = vendorsInZone(this.map.id).some(
+      (v) => distSq(p.x, p.y, v.x, v.y) <= TALK_RANGE * TALK_RANGE,
+    );
+    if (!atVendor) return this.system("Find a vendor to repair your gear.");
+    let cost = 0;
+    const toMend: { itemId: string; max: number }[] = [];
+    for (const itemId of Object.values(this.equipment)) {
+      const def = itemDef(itemId);
+      if (!def || !hasDurability(def)) continue;
+      const c = repairCost(def, currentDurability(def, this.durability));
+      if (c > 0) {
+        cost += c;
+        toMend.push({ itemId, max: def.maxDurability! });
+      }
+    }
+    if (toMend.length === 0) return this.system("Your gear is in good repair.");
+    if (countItem(this.inventory, "coins") < cost) return this.system(`Repairs cost ${cost} coins.`);
+    this.inventory = removeItem(this.inventory, "coins", cost).inventory;
+    for (const { itemId, max } of toMend) this.durability[itemId] = max;
+    this.applyMaxHp();
+    this.pushInventory();
+    this.pushEquipment();
+    this.system(`Repaired your gear for ${cost} coins.`);
   }
   private pushBank(): void {
     this.emit(ServerMessage.Bank, { slots: this.bank });
@@ -955,6 +1028,7 @@ export class SoloRoom {
         const result = resolveAttack(this.mobStats(e), this.playerStats());
         if (result.hit) {
           target.hp = result.targetHpAfter;
+          this.wearRandomArmor(); // taking a hit wears armor
           this.emit(ServerMessage.CombatEvent, { attackerId: e.id, targetId: ai.target, damage: result.damage, targetDied: result.targetDied });
           if (result.targetDied) this.killPlayer(now);
         }
@@ -968,6 +1042,7 @@ export class SoloRoom {
     const p = this.player();
     if (p.alive && distSq(p.x, p.y, e.teleX, e.teleY) <= tele.radius * tele.radius) {
       p.hp = Math.max(0, p.hp - tele.damage);
+      this.wearRandomArmor(); // caught by the slam
       this.emit(ServerMessage.CombatEvent, { attackerId: e.id, targetId: SOLO_ID, damage: tele.damage, targetDied: p.hp <= 0 });
       if (p.hp <= 0) this.killPlayer(now);
     }
@@ -1012,6 +1087,7 @@ export class SoloRoom {
       restedXp: p.restedXp,
       inventory: this.inventory,
       equipment: this.equipment,
+      durability: this.durability,
       bank: this.bank,
       quests: this.questLog,
       lastSeen: Date.now(),

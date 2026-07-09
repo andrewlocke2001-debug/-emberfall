@@ -57,6 +57,8 @@ model Player {
   quests     Json     @default("[]")
   // Friends as JSON: array of friend display names.
   friends    Json     @default("[]")
+  // Gear durability as JSON: { itemId: remaining } (P8; missing = undamaged).
+  durability Json     @default("{}")
   // Guild membership (loose reference, consistent with the id conventions).
   guildId    String?
   guildRank  String?

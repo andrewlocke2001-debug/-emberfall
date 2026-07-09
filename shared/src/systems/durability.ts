@@ -1,5 +1,6 @@
 import { REPAIR_COST_RATE } from "../types";
 import type { ItemDef } from "../data/items";
+import type { Equipment } from "./equipment";
 
 /**
  * Gear durability (pure). Equippable items with a `maxDurability` wear down as
@@ -36,4 +37,31 @@ export function repairCost(def: ItemDef, current: number): number {
   if (max <= 0 || current >= max) return 0;
   const missing = (max - current) / max;
   return Math.max(1, Math.round(def.value * REPAIR_COST_RATE * missing));
+}
+
+/** Durability per owned gear item, keyed by item id. Missing = full/undamaged. */
+export type Durability = Record<string, number>;
+
+/** Remaining durability of an item id (defaults to its max when untracked). */
+export function currentDurability(def: ItemDef, durability: Durability): number {
+  return durability[def.id] ?? def.maxDurability ?? 0;
+}
+
+/**
+ * The equipment that actually grants bonuses: broken pieces (durability 0) are
+ * dropped so they contribute nothing until repaired. Non-durability gear always
+ * counts. Used by the server + solo engine when computing combat stats/maxHp.
+ */
+export function effectiveEquipment(
+  equipment: Equipment,
+  durability: Durability,
+  lookup: (id: string) => ItemDef | undefined,
+): Equipment {
+  const out: Equipment = {};
+  for (const [slot, itemId] of Object.entries(equipment) as [keyof Equipment, string][]) {
+    const def = lookup(itemId);
+    if (def && hasDurability(def) && currentDurability(def, durability) <= 0) continue;
+    out[slot] = itemId;
+  }
+  return out;
 }

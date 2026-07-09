@@ -7,8 +7,9 @@ import type { Prisma } from "../generated/prisma/client";
 
 // why: Prisma's InputJsonValue rejects interface arrays / typed records (no
 // index signature). The stored shapes are plain JSON, so these casts are sound.
-const asJson = (v: ItemStack[] | Equipment | QuestLog | string[]): Prisma.InputJsonValue =>
-  v as unknown as Prisma.InputJsonValue;
+const asJson = (
+  v: ItemStack[] | Equipment | QuestLog | string[] | Record<string, number>,
+): Prisma.InputJsonValue => v as unknown as Prisma.InputJsonValue;
 
 // Bank uses the same defensive parse as the bag (pg adapter can hand JSONB
 // back as a string).
@@ -42,6 +43,8 @@ export interface SavedCharacter {
   quests: QuestLog;
   /** Friend display names (JSON column). Server is the sole writer. */
   friends: string[];
+  /** Gear durability per item id (JSON column). Server is the sole writer. */
+  durability: Record<string, number>;
   /** Guild membership at load time (written ONLY by persistence/guilds.ts —
    *  save() never touches it, so snapshots can't clobber a kick/promotion;
    *  optional because room snapshots don't carry it). */
@@ -119,6 +122,24 @@ function parseQuests(raw: unknown): QuestLog {
   });
 }
 
+/** Coerce the JSON `durability` column into a clean { itemId: number } map. */
+function parseDurability(raw: unknown): Record<string, number> {
+  let value: unknown = raw;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return {};
+    }
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out: Record<string, number> = {};
+  for (const [id, n] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof n === "number" && Number.isFinite(n) && n >= 0) out[id] = n;
+  }
+  return out;
+}
+
 /** Coerce a JSON string-array column (e.g. friends) defensively. */
 function parseNames(raw: unknown): string[] {
   let value: unknown = raw;
@@ -174,6 +195,7 @@ class CharacterStore {
         bank: asJson([]),
         quests: asJson([]),
         friends: asJson([]),
+        durability: asJson({}),
       },
     });
     return toSavedCharacter(row);
@@ -207,6 +229,7 @@ class CharacterStore {
       bank: asJson(c.bank),
       quests: asJson(c.quests),
       friends: asJson(c.friends),
+      durability: asJson(c.durability),
     };
     await prisma.player.upsert({
       where: { id: c.playerId },
@@ -237,6 +260,7 @@ function toSavedCharacter(row: {
   bank: unknown;
   quests: unknown;
   friends: unknown;
+  durability: unknown;
   guildId: string | null;
   guildRank: string | null;
 }): SavedCharacter {
@@ -261,6 +285,7 @@ function toSavedCharacter(row: {
     bank: parseInventory(row.bank),
     quests: parseQuests(row.quests),
     friends: parseNames(row.friends),
+    durability: parseDurability(row.durability),
     guildId: row.guildId,
     guildRank: row.guildRank,
   };

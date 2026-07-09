@@ -81,13 +81,22 @@ import {
   type Equipment,
 } from "@mmo/shared/systems/equipment";
 import { deposit, withdraw, type Bank } from "@mmo/shared/systems/bank";
+import {
+  hasDurability,
+  wear,
+  isBroken,
+  repairCost,
+  currentDurability,
+  effectiveEquipment,
+  type Durability,
+} from "@mmo/shared/systems/durability";
 import { itemDef, ITEM_IDS } from "@mmo/shared/data/items";
 import { nearBank } from "@mmo/shared/data/banks";
 import { resourceNode } from "@mmo/shared/data/resources";
 import { recipeDef } from "@mmo/shared/data/recipes";
 import { questDef } from "@mmo/shared/data/quests";
 import { npcDef } from "@mmo/shared/data/npcs";
-import { vendorDef } from "@mmo/shared/data/vendors";
+import { vendorDef, vendorsInZone } from "@mmo/shared/data/vendors";
 import { EnemySchema, PlayerSchema, ZoneState, GroundLootSchema } from "@mmo/shared/schema/state";
 import {
   MoveSchema,
@@ -236,6 +245,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   /** Authoritative per-session equipped gear (slot → itemId), off synced state
    *  like inventory. Drives combat-stat bonuses; persisted with the character. */
   private readonly equipment = new Map<string, Equipment>();
+  /** Authoritative per-session gear durability (itemId → remaining). Broken
+   *  gear grants no bonus; repaired for coins. Off synced state; persisted. */
+  private readonly durability = new Map<string, Durability>();
   /** Authoritative per-session bank storage (off synced state, persisted). */
   private readonly banks = new Map<string, Bank>();
   /** Authoritative per-session quest log (off synced state, persisted). */
@@ -327,6 +339,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.onMessage(ClientMessage.Consume, ConsumeSchema, (client, msg: ConsumePayload) => {
       this.handleConsume(client, msg);
     });
+
+    this.onMessage(ClientMessage.Repair, (client) => this.handleRepair(client));
 
     this.onMessage(ClientMessage.QuestAccept, QuestActionSchema, (client, msg: QuestActionPayload) => {
       this.handleQuestAccept(client, msg);
@@ -497,6 +511,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.inputs.set(client.sessionId, { dx: 0, dy: 0, playerId });
     this.inventories.set(client.sessionId, saved.inventory);
     this.equipment.set(client.sessionId, saved.equipment);
+    this.durability.set(client.sessionId, saved.durability);
     this.banks.set(client.sessionId, saved.bank);
     this.questLogs.set(client.sessionId, saved.quests);
     this.friendLists.set(client.sessionId, saved.friends);
@@ -537,11 +552,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.mobContributors.forEach((set) => set.delete(client.sessionId));
     const inventory = this.inventories.get(client.sessionId) ?? [];
     const equipment = this.equipment.get(client.sessionId) ?? {};
+    const durability = this.durability.get(client.sessionId) ?? {};
     const bank = this.banks.get(client.sessionId) ?? [];
     const quests = this.questLogs.get(client.sessionId) ?? [];
     const friends = this.friendLists.get(client.sessionId) ?? [];
     this.inventories.delete(client.sessionId);
     this.equipment.delete(client.sessionId);
+    this.durability.delete(client.sessionId);
     this.banks.delete(client.sessionId);
     this.questLogs.delete(client.sessionId);
     this.friendLists.delete(client.sessionId);
@@ -553,7 +570,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     if (presence.get(player.name)?.zone === this.map.id) presence.unregister(player.name);
 
     const snapshot = this.finalizeSnapshot(
-      toSaved(player, this.map.id, inventory, equipment, bank, quests, friends),
+      toSaved(player, this.map.id, inventory, equipment, durability, bank, quests, friends),
     );
     this.state.players.delete(client.sessionId);
     try {
@@ -648,6 +665,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
     if (result.hit) {
       enemy.hp = result.targetHpAfter;
+      // A landing swing wears the weapon (P8 durability).
+      this.wearGear(client, this.equipment.get(sessionId)?.weapon);
       // Tag this player as a contributor — landing a hit earns kill credit.
       this.mobContributors.get(enemy.id)?.add(sessionId);
       const evt: CombatEventPayload = {
@@ -1307,10 +1326,94 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     client.send(ServerMessage.Inventory, payload);
   }
 
-  /** Push the owner their current equipped gear (private — never broadcast). */
+  /** Push the owner their current equipped gear + durability (private). */
   private sendEquipment(client: Client): void {
-    const payload: EquipmentPayload = { equipment: this.equipment.get(client.sessionId) ?? {} };
+    const payload: EquipmentPayload = {
+      equipment: this.equipment.get(client.sessionId) ?? {},
+      durability: this.durability.get(client.sessionId) ?? {},
+    };
     client.send(ServerMessage.Equipment, payload);
+  }
+
+  /**
+   * Wear an equipped item by `amount`. If it crosses into broken, recompute
+   * maxHp (armor loss) and tell the client. Sends the updated durability.
+   */
+  private wearGear(client: Client, itemId: string | undefined, amount = 1): void {
+    if (!itemId) return;
+    const def = itemDef(itemId);
+    if (!def || !hasDurability(def)) return;
+    const dur = this.durability.get(client.sessionId) ?? {};
+    const before = currentDurability(def, dur);
+    if (before <= 0) return; // already broken — nothing to wear
+    const after = wear(before, amount);
+    dur[itemId] = after;
+    this.durability.set(client.sessionId, dur);
+    if (isBroken(after)) {
+      const player = this.state.players.get(client.sessionId);
+      if (player) this.applyMaxHp(client.sessionId, player);
+    }
+    this.sendEquipment(client);
+  }
+
+  /** Wear a random equipped armor piece when the player takes a hit. */
+  private wearRandomArmor(sessionId: string): void {
+    const client = this.clients.find((c) => c.sessionId === sessionId);
+    if (!client) return;
+    const equip = this.equipment.get(sessionId) ?? {};
+    const armor = (Object.entries(equip) as [string, string][]).filter(
+      ([slot]) => slot !== "weapon",
+    );
+    if (armor.length === 0) return;
+    const pick = armor[Math.floor(Math.random() * armor.length)]!;
+    this.wearGear(client, pick[1]);
+  }
+
+  /** Repair all worn equipped gear for coins (a gold sink) — only at a vendor. */
+  private handleRepair(client: Client): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive) return;
+    // Must be standing at a vendor (the town shop offers repairs).
+    const atVendor = vendorsInZone(this.map.id).some(
+      (v) => distSq(player.x, player.y, v.x, v.y) <= TALK_RANGE * TALK_RANGE,
+    );
+    if (!atVendor) {
+      this.systemTo(client, "Find a vendor to repair your gear.");
+      return;
+    }
+    const equip = this.equipment.get(sessionId) ?? {};
+    const dur = this.durability.get(sessionId) ?? {};
+    let cost = 0;
+    const toMend: { itemId: string; max: number }[] = [];
+    for (const itemId of Object.values(equip)) {
+      const def = itemDef(itemId);
+      if (!def || !hasDurability(def)) continue;
+      const current = currentDurability(def, dur);
+      const c = repairCost(def, current);
+      if (c > 0) {
+        cost += c;
+        toMend.push({ itemId, max: def.maxDurability! });
+      }
+    }
+    if (toMend.length === 0) {
+      this.systemTo(client, "Your gear is in good repair.");
+      return;
+    }
+    const inv = this.inventories.get(sessionId) ?? [];
+    if (countItem(inv, "coins") < cost) {
+      this.systemTo(client, `Repairs cost ${cost} coins.`);
+      return;
+    }
+    this.inventories.set(sessionId, removeItem(inv, "coins", cost).inventory);
+    for (const { itemId, max } of toMend) dur[itemId] = max;
+    this.durability.set(sessionId, dur);
+    // The maxHp may have been reduced by broken armor; restore it.
+    this.applyMaxHp(sessionId, player);
+    void recordLedger({ account: player.id, itemId: "coins", delta: -cost, reason: "repair" });
+    this.sendInventory(client);
+    this.sendEquipment(client);
+    this.systemTo(client, `Repaired your gear for ${cost} coins.`);
   }
 
   /** Push bank contents to the owner — only while they're standing at a bank. */
@@ -1682,9 +1785,18 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
   /** A player's combat stats: level-derived base + equipped-gear bonuses. The
    *  gear maxHp bonus is already baked into player.maxHp (see applyMaxHp). */
+  /** Equipment that currently grants bonuses (broken gear excluded). */
+  private effectiveGear(sessionId: string): Equipment {
+    return effectiveEquipment(
+      this.equipment.get(sessionId) ?? {},
+      this.durability.get(sessionId) ?? {},
+      itemDef,
+    );
+  }
+
   private playerStats(sessionId: string, player: PlayerSchema): CombatStats {
     const base = combatStatsFromLevel(player.level, player.hp, player.maxHp);
-    const bonus = equipmentBonus(this.equipment.get(sessionId) ?? {}, itemDef);
+    const bonus = equipmentBonus(this.effectiveGear(sessionId), itemDef);
     base.attack += bonus.attack;
     base.strength += bonus.strength;
     base.defence += bonus.defence;
@@ -1695,7 +1807,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private maxHpFor(sessionId: string, player: PlayerSchema): number {
     return (
       maxHpForVitality(levelForXp(player.vitalityXp)) +
-      equipmentBonus(this.equipment.get(sessionId) ?? {}, itemDef).maxHp
+      equipmentBonus(this.effectiveGear(sessionId), itemDef).maxHp
     );
   }
 
@@ -1916,6 +2028,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         const result = resolveAttack(mobCombatStats(enemy), this.playerStats(ai.target, target));
         if (result.hit) {
           target.hp = result.targetHpAfter;
+          this.wearRandomArmor(ai.target); // taking a hit wears armor (P8)
           const evt: CombatEventPayload = {
             attackerId: enemy.id,
             targetId: ai.target,
@@ -1938,6 +2051,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (!p.alive) return;
       if (distSq(p.x, p.y, enemy.teleX, enemy.teleY) > r2) return; // dodged out
       p.hp = Math.max(0, p.hp - tele.damage);
+      this.wearRandomArmor(sid); // caught by the slam — wears armor (P8)
       const evt: CombatEventPayload = {
         attackerId: enemy.id,
         targetId: sid,
@@ -2001,6 +2115,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
             this.map.id,
             this.inventories.get(sessionId) ?? [],
             this.equipment.get(sessionId) ?? {},
+            this.durability.get(sessionId) ?? {},
             this.banks.get(sessionId) ?? [],
             this.questLogs.get(sessionId) ?? [],
             this.friendLists.get(sessionId) ?? [],
@@ -2037,6 +2152,7 @@ function toSaved(
   zone: string,
   inventory: Inventory,
   equipment: Equipment,
+  durability: Durability,
   bank: Bank,
   quests: QuestLog,
   friends: string[],
@@ -2059,6 +2175,7 @@ function toSaved(
     restedXp: p.restedXp,
     inventory,
     equipment,
+    durability,
     bank,
     quests,
     friends,

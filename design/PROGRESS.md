@@ -325,6 +325,22 @@ yet on real devices because we're not deployed.
   GameMaster fixture's 28-slot bag can be reset (it had filled over the session,
   flaking the add-an-item tests).
 
+## P8 — the economy (in progress, local)
+- **P8.1 done**: **durability + repair** (a gold sink). Gear has `maxDurability`
+  (`shared/systems/durability.ts`: hasDurability/wear/isBroken/repairCost/
+  currentDurability/effectiveEquipment, 7 unit tests). Per-item durability
+  (`{itemId: remaining}`) is tracked off synced state, persisted (JSONB column,
+  migration `add_durability`). A landing swing wears the weapon; taking a hit
+  wears a random armor piece; **broken gear (0) grants no bonus** (via
+  effectiveEquipment in playerStats/maxHpFor). Repair all worn gear for coins at
+  a vendor (`Repair` msg, ledgered sink) — button in the shop panel. Durability
+  shown per gear slot in the equipment panel (worn/BROKEN styling). Fully
+  mirrored in the solo engine. 143 unit + 28 e2e (new durability.spec: wear in
+  combat → repair at vendor). Also fixed a stuck-dead GameMaster e2e fixture
+  (enterWorldAsGm now `/heal`s on entry) — cleared 7 cascading failures.
+- Next: **P8.2** secure player-to-player trade, **P8.3** the Exchange (order
+  book + tax sink), **P8.4** faucet/sink dashboard + close-out.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.

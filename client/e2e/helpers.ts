@@ -15,6 +15,8 @@ export interface MmoTestApi {
   enemyCount(): number;
   inventory(): TestItemStack[];
   equipment(): Record<string, string>;
+  durability(): Record<string, number>;
+  repair(): void;
   equip(itemId: string): void;
   unequip(slot: string): void;
   groundLoot(): { id: string; itemId: string; qty: number; ownerId: string }[];
@@ -60,6 +62,7 @@ export interface MmoTestApi {
   requestGuild(): void;
   buy(vendorId: string, itemId: string, qty: number): void;
   sell(vendorId: string, itemId: string, qty: number): void;
+  enemyIds(): string[];
   enemyHp(id: string): number | null;
   me(): {
     x: number;
@@ -131,6 +134,12 @@ export async function enterWorldAsGm(page: Page, name = "GameMaster"): Promise<v
     await page.waitForFunction(() => window.__mmo?.ready === true, undefined, { timeout: 20_000 });
   }
   await page.waitForFunction(() => window.__mmo!.me() !== null, undefined, { timeout: 20_000 });
+  // The GameMaster fixture persists across runs — a prior combat test can leave
+  // it dead (hp 0), which blocks alive-gated actions (buy/craft/gather/aggro).
+  // Revive + top up every entry so GM tests always start from a clean state.
+  await page.fill("#chat-input", "/heal");
+  await page.press("#chat-input", "Enter");
+  await expect.poll(() => page.evaluate(() => window.__mmo!.me()?.hp ?? 0)).toBeGreaterThan(0);
 }
 
 /**

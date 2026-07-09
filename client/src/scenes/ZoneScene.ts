@@ -99,6 +99,7 @@ export class ZoneScene extends Phaser.Scene {
   private inventorySlots: ItemStack[] = [];
   /** Last equipment the server sent us (also surfaced to the test API). */
   private equipmentSlots: Partial<Record<EquipSlot, string>> = {};
+  private equipmentDurability: Record<string, number> = {};
   /** Bank panel + its last-known contents; only usable at a town bank. */
   private bankPanel?: BankPanel;
   private bankSlots: ItemStack[] = [];
@@ -206,7 +207,7 @@ export class ZoneScene extends Phaser.Scene {
       onConsume: (itemId) => this.connection.room.send(ClientMessage.Consume, { itemId }),
     });
     this.inventory.setInventory(this.inventorySlots);
-    this.inventory.setEquipment(this.equipmentSlots);
+    this.inventory.setEquipment(this.equipmentSlots, this.equipmentDurability);
     this.events.once("shutdown", () => this.inventory?.destroy());
 
     this.craftPanel = new CraftPanel({
@@ -229,6 +230,7 @@ export class ZoneScene extends Phaser.Scene {
     this.shop = new ShopPanel({
       onBuy: (vendorId, itemId, qty) => this.connection.room.send(ClientMessage.Buy, { vendorId, itemId, qty }),
       onSell: (vendorId, itemId, qty) => this.connection.room.send(ClientMessage.Sell, { vendorId, itemId, qty }),
+      onRepair: () => this.connection.room.send(ClientMessage.Repair),
     });
     this.events.once("shutdown", () => this.shop?.destroy());
 
@@ -597,7 +599,8 @@ export class ZoneScene extends Phaser.Scene {
     });
     this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
       this.equipmentSlots = p.equipment;
-      this.inventory?.setEquipment(p.equipment);
+      this.equipmentDurability = p.durability ?? {};
+      this.inventory?.setEquipment(p.equipment, this.equipmentDurability);
     });
     this.connection.room.onMessage(ServerMessage.Bank, (p: BankPayload) => {
       this.bankSlots = p.slots;
@@ -826,6 +829,7 @@ export class ZoneScene extends Phaser.Scene {
       zone: () => room.state?.zoneId ?? null,
       playerCount: () => room.state?.players?.size ?? 0,
       enemyCount: () => room.state?.enemies?.size ?? 0,
+      enemyIds: () => (room.state?.enemies ? [...room.state.enemies.keys()] : []),
       enemyHp: (id: string) => room.state?.enemies?.get(id)?.hp ?? null,
       telegraphActive: () => {
         let active = false;
@@ -865,6 +869,8 @@ export class ZoneScene extends Phaser.Scene {
       energy: () => room.state?.players?.get(room.sessionId)?.energy ?? 0,
       inventory: () => this.inventorySlots,
       equipment: () => this.equipmentSlots,
+      durability: () => this.equipmentDurability,
+      repair: () => room.send(ClientMessage.Repair),
       equip: (itemId: string) => room.send(ClientMessage.Equip, { itemId }),
       unequip: (slot: string) => room.send(ClientMessage.Unequip, { slot }),
       groundLoot: () => {

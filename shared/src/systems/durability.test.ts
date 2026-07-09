@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { hasDurability, wear, isBroken, repairCost } from "./durability";
+import {
+  hasDurability,
+  wear,
+  isBroken,
+  repairCost,
+  currentDurability,
+  effectiveEquipment,
+} from "./durability";
 import { REPAIR_COST_RATE } from "../types";
+import { itemDef } from "../data/items";
 import type { ItemDef } from "../data/items";
 
 const gear = (value: number, maxDurability?: number): ItemDef =>
@@ -43,5 +51,24 @@ describe("repairCost", () => {
   it("charges at least 1 coin for any wear, and 0 for non-gear", () => {
     expect(repairCost(gear(1, 100), 99)).toBe(1); // tiny missing fraction rounds up to 1
     expect(repairCost(gear(100), 0)).toBe(0); // no maxDurability → not repairable
+  });
+});
+
+describe("currentDurability", () => {
+  it("defaults to the item's max when the id is untracked", () => {
+    const def = itemDef("bronze_sword")!;
+    expect(currentDurability(def, {})).toBe(def.maxDurability);
+    expect(currentDurability(def, { bronze_sword: 40 })).toBe(40);
+  });
+});
+
+describe("effectiveEquipment", () => {
+  it("drops broken gear (durability 0) but keeps worn/undamaged gear", () => {
+    const equipment = { weapon: "bronze_sword", body: "leather_body" };
+    // Sword broken, body fine → only the body still grants a bonus.
+    const eff = effectiveEquipment(equipment, { bronze_sword: 0, leather_body: 90 }, itemDef);
+    expect(eff).toEqual({ body: "leather_body" });
+    // Untracked (undamaged) gear is all effective.
+    expect(effectiveEquipment(equipment, {}, itemDef)).toEqual(equipment);
   });
 });
