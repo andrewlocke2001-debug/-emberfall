@@ -63,6 +63,11 @@ export const VENDOR_BUYBACK_RATE = 0.4;
  *  is a gold sink; a full-value item costs this fraction of its value to mend. */
 export const REPAIR_COST_RATE = 0.35;
 
+/** Exchange (order-book market) tax on the seller's proceeds — a coin sink. */
+export const EXCHANGE_TAX_RATE = 0.02;
+/** Max open exchange orders per player. */
+export const EXCHANGE_MAX_ORDERS = 8;
+
 /** Maximum entries in a player's friends list. */
 export const FRIENDS_MAX = 50;
 
