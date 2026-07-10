@@ -10,3 +10,6 @@ client/playwright-report/
 client/.playwright/
 
 /test-results/
+
+# single-file solo build output
+/emberfall-solo.html

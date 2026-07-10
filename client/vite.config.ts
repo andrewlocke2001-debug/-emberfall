@@ -1,5 +1,10 @@
 import { defineConfig } from "vite";
 
+// SINGLEFILE=1 produces ONE js bundle (no chunks, no sourcemap) so
+// tools/singlefile.mjs can inline it into a self-contained offline HTML —
+// the "send a friend one file" build of single-player.
+const singleFile = process.env["SINGLEFILE"] === "1";
+
 export default defineConfig({
   base: "./",
   server: { host: true, port: 5173 },
@@ -9,13 +14,15 @@ export default defineConfig({
   optimizeDeps: { exclude: ["@mmo/shared"] },
   build: {
     target: "es2020",
-    sourcemap: true,
+    sourcemap: !singleFile,
     rollupOptions: {
-      output: {
-        // Split Phaser into its own chunk — large and slow-changing, so game
-        // code can redeploy without busting the framework cache.
-        manualChunks: (id) => (id.includes("node_modules/phaser") ? "phaser" : undefined),
-      },
+      output: singleFile
+        ? { inlineDynamicImports: true }
+        : {
+            // Split Phaser into its own chunk — large and slow-changing, so game
+            // code can redeploy without busting the framework cache.
+            manualChunks: (id) => (id.includes("node_modules/phaser") ? "phaser" : undefined),
+          },
     },
     chunkSizeWarningLimit: 1600,
   },
