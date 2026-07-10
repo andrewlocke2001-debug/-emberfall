@@ -365,7 +365,13 @@ yet on real devices because we're not deployed.
   Solo: friendly multiplayer-only message. 153 unit + 30 e2e (new
   exchange.spec: post→escrow→match→collect with 2% tax→price history→cancel
   refund).
-- Next: **P8.4** faucet/sink admin dashboard + P8 close-out.
+- **P8.4 done**: **economy dashboard**. `/economy` (HTML) + `/api/economy`
+  (JSON) aggregate the ledger: coin faucets vs sinks by reason (created −
+  destroyed = circulation) and per-item supply (the dupe canary). Optional
+  `ECONOMY_KEY` gate for prod; open in dev. 153 unit + 31 e2e (economy.spec).
+- **P8 COMPLETE (local)** — durability+repair, secure trade, the Exchange
+  (order book + 2% tax), economy dashboard. Exit criterion (a player gets
+  rich trading; flat gold supply) needs real players — deferred with deploy.
 
 ## Play-test build note (2026-07-09)
 - The repo is still private, so the GitHub Pages link can't serve. Delivered

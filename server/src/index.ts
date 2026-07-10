@@ -8,6 +8,7 @@ import { ZONE_IDS, DUNGEON_IDS } from "@mmo/shared/data/zones";
 import { ZoneRoom } from "./rooms/ZoneRoom";
 import { AuthError, registerAccount, loginAccount, guestAccount, type AuthResult } from "./auth";
 import { getHiscores, isHiscoreBoard, renderHiscoresHtml } from "./hiscores";
+import { getEconomyReport, renderEconomyHtml } from "./economy";
 
 const PORT = Number(process.env["PORT"] ?? 2567);
 
@@ -72,6 +73,35 @@ const gameServer = new Server({
       } catch (err) {
         console.error("[hiscores] failed:", err);
         res.status(500).json({ error: "Hiscores are unavailable right now." });
+      }
+    });
+
+    // Faucet/sink economy dashboard (P8.4). Read-only ledger aggregates.
+    // Gate with ECONOMY_KEY when set (prod); open in dev where it's unset.
+    const economyGate = (req: express.Request, res: express.Response): boolean => {
+      const key = process.env["ECONOMY_KEY"];
+      if (key && req.query["key"] !== key) {
+        res.status(403).send("Forbidden");
+        return false;
+      }
+      return true;
+    };
+    app.get("/economy", async (req, res) => {
+      if (!economyGate(req, res)) return;
+      try {
+        res.type("html").send(renderEconomyHtml(await getEconomyReport()));
+      } catch (err) {
+        console.error("[economy] failed:", err);
+        res.status(500).send("Economy report unavailable.");
+      }
+    });
+    app.get("/api/economy", async (req, res) => {
+      if (!economyGate(req, res)) return;
+      try {
+        res.json(await getEconomyReport());
+      } catch (err) {
+        console.error("[economy] failed:", err);
+        res.status(500).json({ error: "Economy report unavailable." });
       }
     });
 
