@@ -59,6 +59,14 @@ export const ClientMessage = {
   TradeConfirm: "tradeConfirm",
   /** Cancel/close the active trade or pending request. */
   TradeCancel: "tradeCancel",
+  /** Post a buy/sell order to the Exchange (escrows items/coins). */
+  ExchangePost: "exchangePost",
+  /** Cancel one of my open orders (returns escrow + pending collection). */
+  ExchangeCancel: "exchangeCancel",
+  /** Collect a filled order's proceeds/bought items into my bag. */
+  ExchangeCollect: "exchangeCollect",
+  /** Ask for my orders + the price feed for an item. */
+  RequestExchange: "requestExchange",
   /** Accept an available quest. */
   QuestAccept: "questAccept",
   /** Turn in a quest whose objectives are met. */
@@ -115,6 +123,8 @@ export const ServerMessage = {
   Guild: "guild",
   /** The owner's live trade state (offers + confirmations, or a pending request). */
   Trade: "trade",
+  /** The owner's Exchange orders + a price feed for the viewed item. */
+  Exchange: "exchange",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -332,6 +342,48 @@ export interface TradeStatePayload {
   them?: TradeParticipant;
   /** A pending incoming request from this player (no active trade yet). */
   requestFrom?: string;
+}
+
+/** Client → server: post an Exchange order. */
+export interface ExchangePostPayload {
+  side: "buy" | "sell";
+  itemId: string;
+  qty: number;
+  price: number;
+}
+
+/** Client → server: cancel/collect an order, or request the book for an item. */
+export interface ExchangeActionPayload {
+  orderId: string;
+}
+export interface RequestExchangePayload {
+  /** Item to fetch the price feed for (omitted = just my orders). */
+  itemId?: string | undefined;
+}
+
+/** One of the owner's Exchange orders (with pending collection). */
+export interface ExchangeOrderEntry {
+  id: string;
+  side: "buy" | "sell";
+  itemId: string;
+  qty: number;
+  remaining: number;
+  price: number;
+  coinsToCollect: number;
+  itemsToCollect: number;
+}
+
+export interface ExchangePricePoint {
+  price: number;
+  qty: number;
+  at: number;
+}
+
+/** Server → client: the owner's orders + optional price feed for a viewed item. */
+export interface ExchangePayload {
+  orders: ExchangeOrderEntry[];
+  item?: string;
+  prices?: ExchangePricePoint[];
 }
 
 /** Client → server: found a guild. */

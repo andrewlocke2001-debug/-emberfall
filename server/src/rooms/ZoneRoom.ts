@@ -55,9 +55,14 @@ import {
   type TradeStatePayload,
   type TradeParticipant,
   type ItemStack,
+  type ExchangePostPayload,
+  type ExchangeActionPayload,
+  type RequestExchangePayload,
+  type ExchangePayload,
   FRIENDS_MAX,
   PARTY_MAX,
   PARTY_LEVEL_RANGE,
+  EXCHANGE_MAX_ORDERS,
 } from "@mmo/shared";
 import {
   validGuildName,
@@ -134,6 +139,9 @@ import {
   TradeRequestSchema,
   TradeRespondSchema,
   TradeOfferSchema,
+  ExchangePostSchema,
+  ExchangeActionSchema,
+  RequestExchangeSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -164,6 +172,15 @@ import { presence } from "../services/presence";
 import { parties } from "../services/party";
 import { dungeons } from "../services/dungeons";
 import { guildInvites } from "../services/guildInvites";
+import {
+  postExchangeOrder,
+  listExchangeOrders,
+  getExchangeOrder,
+  setExchangeCollect,
+  deleteExchangeOrder,
+  countOpenOrders,
+  recentPrices,
+} from "../services/exchange";
 import {
   createGuild,
   getGuild,
@@ -380,6 +397,19 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     });
     this.onMessage(ClientMessage.TradeConfirm, (client) => this.handleTradeConfirm(client));
     this.onMessage(ClientMessage.TradeCancel, (client) => this.handleTradeCancel(client));
+
+    this.onMessage(ClientMessage.ExchangePost, ExchangePostSchema, (client, msg: ExchangePostPayload) => {
+      void this.handleExchangePost(client, msg);
+    });
+    this.onMessage(ClientMessage.ExchangeCancel, ExchangeActionSchema, (client, msg: ExchangeActionPayload) => {
+      void this.handleExchangeCancel(client, msg);
+    });
+    this.onMessage(ClientMessage.ExchangeCollect, ExchangeActionSchema, (client, msg: ExchangeActionPayload) => {
+      void this.handleExchangeCollect(client, msg);
+    });
+    this.onMessage(ClientMessage.RequestExchange, RequestExchangeSchema, (client, msg: RequestExchangePayload) => {
+      void this.sendExchange(client, msg.itemId);
+    });
 
     this.onMessage(ClientMessage.QuestAccept, QuestActionSchema, (client, msg: QuestActionPayload) => {
       this.handleQuestAccept(client, msg);
@@ -1699,6 +1729,149 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         this.sendTrade(c);
       }
     }
+  }
+
+  // --- the Exchange (async order-book market) ---------------------------------
+
+  /** Must stand at a vendor (the clerk) to use the Exchange. */
+  private atExchange(player: PlayerSchema): boolean {
+    return vendorsInZone(this.map.id).some(
+      (v) => distSq(player.x, player.y, v.x, v.y) <= TALK_RANGE * TALK_RANGE,
+    );
+  }
+
+  /** Push the owner their orders (+ a price feed for the viewed item). */
+  private async sendExchange(client: Client, itemId?: string): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const orders = await listExchangeOrders(player.id);
+    const payload: ExchangePayload = {
+      orders: orders.map((o) => ({
+        id: o.id,
+        side: o.side,
+        itemId: o.itemId,
+        qty: o.qty,
+        remaining: o.remaining,
+        price: o.price,
+        coinsToCollect: o.coinsToCollect,
+        itemsToCollect: o.itemsToCollect,
+      })),
+    };
+    if (itemId && itemDef(itemId)) {
+      payload.item = itemId;
+      payload.prices = await recentPrices(itemId);
+    }
+    client.send(ServerMessage.Exchange, payload);
+  }
+
+  /** Post an order: escrow items (sell) or coins (buy), then match + settle. */
+  private async handleExchangePost(client: Client, msg: ExchangePostPayload): Promise<void> {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive) return;
+    if (!this.atExchange(player)) {
+      this.systemTo(client, "Find the Exchange clerk (at a vendor) to post orders.");
+      return;
+    }
+    const def = itemDef(msg.itemId);
+    if (!def || msg.itemId === "coins") return;
+    // Keep totals inside the DB's int column (and sane).
+    if (msg.qty * msg.price > 2_147_483_647) {
+      this.systemTo(client, "That order is too large.");
+      return;
+    }
+    if ((await countOpenOrders(player.id)) >= EXCHANGE_MAX_ORDERS) {
+      this.systemTo(client, `You can have at most ${EXCHANGE_MAX_ORDERS} open orders.`);
+      return;
+    }
+
+    // Escrow up front — the order trades from the book, never from the bag.
+    const inv = this.inventories.get(sessionId) ?? [];
+    if (msg.side === "sell") {
+      const removed = removeItem(inv, msg.itemId, msg.qty);
+      if (removed.removed < msg.qty) {
+        this.systemTo(client, "You don't have that many.");
+        return;
+      }
+      this.inventories.set(sessionId, removed.inventory);
+    } else {
+      const cost = msg.qty * msg.price;
+      if (countItem(inv, "coins") < cost) {
+        this.systemTo(client, `You need ${cost} coins for that buy order.`);
+        return;
+      }
+      this.inventories.set(sessionId, removeItem(inv, "coins", cost).inventory);
+    }
+    this.sendInventory(client);
+
+    await postExchangeOrder(player.id, msg.side, msg.itemId, msg.qty, msg.price);
+    await this.sendExchange(client, msg.itemId);
+    this.systemTo(client, "Order posted.");
+  }
+
+  /** Cancel my order: refund unfilled escrow + anything already collectable. */
+  private async handleExchangeCancel(client: Client, msg: ExchangeActionPayload): Promise<void> {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+    const order = await getExchangeOrder(msg.orderId);
+    if (!order || order.accountId !== player.id) return; // not yours
+
+    // Everything owed back: unfilled escrow + pending collection buckets.
+    let coinsBack = order.coinsToCollect;
+    let itemsBack = order.itemsToCollect; // bought items awaiting pickup
+    if (order.side === "buy") coinsBack += order.remaining * order.price;
+    const itemQtyBack = (order.side === "sell" ? order.remaining : 0) + itemsBack;
+
+    let inv = this.inventories.get(sessionId) ?? [];
+    if (itemQtyBack > 0) {
+      const r = addItem(inv, order.itemId, itemQtyBack, itemDef(order.itemId)?.maxStack ?? 1);
+      if (r.added < itemQtyBack) {
+        this.systemTo(client, "Not enough bag space to cancel that order.");
+        return;
+      }
+      inv = r.inventory;
+    }
+    if (coinsBack > 0) inv = addItem(inv, "coins", coinsBack, itemDef("coins")?.maxStack ?? 1).inventory;
+    this.inventories.set(sessionId, inv);
+    await deleteExchangeOrder(order.id);
+    this.sendInventory(client);
+    await this.sendExchange(client);
+    this.systemTo(client, "Order cancelled.");
+  }
+
+  /** Collect a filled order's proceeds/items into the bag (what fits). */
+  private async handleExchangeCollect(client: Client, msg: ExchangeActionPayload): Promise<void> {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+    const order = await getExchangeOrder(msg.orderId);
+    if (!order || order.accountId !== player.id) return;
+    if (order.coinsToCollect <= 0 && order.itemsToCollect <= 0) return;
+
+    let inv = this.inventories.get(sessionId) ?? [];
+    let itemsLeft = order.itemsToCollect;
+    if (itemsLeft > 0) {
+      const r = addItem(inv, order.itemId, itemsLeft, itemDef(order.itemId)?.maxStack ?? 1);
+      inv = r.inventory;
+      itemsLeft -= r.added;
+    }
+    let coinsLeft = order.coinsToCollect;
+    if (coinsLeft > 0) {
+      const r = addItem(inv, "coins", coinsLeft, itemDef("coins")?.maxStack ?? 1).inventory;
+      inv = r;
+      coinsLeft = 0;
+    }
+    this.inventories.set(sessionId, inv);
+
+    // A fully-done order (nothing resting, nothing left to collect) disappears.
+    if (order.remaining <= 0 && itemsLeft <= 0 && coinsLeft <= 0) {
+      await deleteExchangeOrder(order.id);
+    } else {
+      await setExchangeCollect(order.id, coinsLeft, itemsLeft);
+    }
+    this.sendInventory(client);
+    await this.sendExchange(client);
   }
 
   /** Push bank contents to the owner — only while they're standing at a bank. */

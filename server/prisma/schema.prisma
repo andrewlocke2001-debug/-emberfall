@@ -78,6 +78,36 @@ model Guild {
   createdAt DateTime @default(now())
 }
 
+// An open order on the Exchange (async order-book market, P8.3). Items/coins are
+// escrowed off the player's bag when posted; fills accrue proceeds/bought items
+// as `*ToCollect` (the owner may be offline), claimed later into their bag.
+model ExchangeOrder {
+  id             String   @id @default(cuid())
+  accountId      String
+  side           String // "buy" | "sell"
+  itemId         String
+  qty            Int // original quantity
+  remaining      Int // unfilled quantity
+  price          Int // per-unit limit price (coins)
+  coinsToCollect Int      @default(0) // sale proceeds + buy refunds awaiting collection
+  itemsToCollect Int      @default(0) // bought items awaiting collection
+  createdAt      DateTime @default(now())
+
+  @@index([itemId, side])
+  @@index([accountId])
+}
+
+// A completed Exchange trade — the price history feed.
+model ExchangeTrade {
+  id     String   @id @default(cuid())
+  itemId String
+  price  Int
+  qty    Int
+  at     DateTime @default(now())
+
+  @@index([itemId, at])
+}
+
 // Economy audit ledger (kit rule #6): EVERY item creation (+delta) and
 // destruction (-delta) appends a row here, so total items in the world always
 // reconciles to created − destroyed. Append-only; never updated or deleted.

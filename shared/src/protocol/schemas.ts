@@ -24,6 +24,9 @@ import type {
   TradeRequestPayload,
   TradeRespondPayload,
   TradeOfferPayload,
+  ExchangePostPayload,
+  ExchangeActionPayload,
+  RequestExchangePayload,
 } from "./messages";
 
 /**
@@ -150,6 +153,21 @@ export const TradeOfferSchema = z.strictObject({
   coins: z.number().int().min(0).max(2_147_483_647),
 });
 
+export const ExchangePostSchema = z.strictObject({
+  side: z.enum(["buy", "sell"]),
+  itemId: z.string().min(1).max(64),
+  qty: z.number().int().min(1).max(2_147_483_647),
+  price: z.number().int().min(1).max(2_147_483_647),
+});
+
+export const ExchangeActionSchema = z.strictObject({
+  orderId: z.string().min(1).max(64),
+});
+
+export const RequestExchangeSchema = z.strictObject({
+  itemId: z.string().min(1).max(64).optional(),
+});
+
 // --- compile-time drift guards (no runtime cost) -----------------------------
 
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -177,9 +195,15 @@ const _guildRank: AssertEqual<z.output<typeof GuildSetRankSchema>, GuildSetRankP
 const _tradeReq: AssertEqual<z.output<typeof TradeRequestSchema>, TradeRequestPayload> = true;
 const _tradeResp: AssertEqual<z.output<typeof TradeRespondSchema>, TradeRespondPayload> = true;
 const _tradeOffer: AssertEqual<z.output<typeof TradeOfferSchema>, TradeOfferPayload> = true;
+const _exPost: AssertEqual<z.output<typeof ExchangePostSchema>, ExchangePostPayload> = true;
+const _exAction: AssertEqual<z.output<typeof ExchangeActionSchema>, ExchangeActionPayload> = true;
+const _exReq: AssertEqual<z.output<typeof RequestExchangeSchema>, RequestExchangePayload> = true;
 void _tradeReq;
 void _tradeResp;
 void _tradeOffer;
+void _exPost;
+void _exAction;
+void _exReq;
 void _friend;
 void _partyInvite;
 void _guildCreate;

@@ -362,6 +362,10 @@ export class SoloRoom {
         // Single-player: no other players to trade with.
         this.system("There's no one else here to trade with.");
         break;
+      case ClientMessage.ExchangePost:
+        // Single-player: no market without other players.
+        this.system("The Exchange only trades between real players — it opens with multiplayer.");
+        break;
       case ClientMessage.Pickup:
         this.doPickup(msg.lootId);
         break;

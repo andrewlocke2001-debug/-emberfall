@@ -71,6 +71,24 @@ export interface MmoTestApi {
   tradeOffer(items: TestItemStack[], coins: number): void;
   tradeConfirm(): void;
   tradeCancel(): void;
+  exchange(): {
+    orders: {
+      id: string;
+      side: "buy" | "sell";
+      itemId: string;
+      qty: number;
+      remaining: number;
+      price: number;
+      coinsToCollect: number;
+      itemsToCollect: number;
+    }[];
+    item?: string;
+    prices?: { price: number; qty: number; at: number }[];
+  };
+  exchangePost(side: "buy" | "sell", itemId: string, qty: number, price: number): void;
+  exchangeCancel(orderId: string): void;
+  exchangeCollect(orderId: string): void;
+  requestExchange(itemId?: string): void;
   buy(vendorId: string, itemId: string, qty: number): void;
   sell(vendorId: string, itemId: string, qty: number): void;
   enemyIds(): string[];

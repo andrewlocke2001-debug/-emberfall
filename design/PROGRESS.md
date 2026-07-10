@@ -349,8 +349,29 @@ yet on real devices because we're not deployed.
   your/their offers, add-from-bag + coins, confirm/cancel; auto-opens on a
   request. Solo: friendly "no one else here" message. 147 unit + 29 e2e (new
   trade.spec: GM trades a sword to a guest, confirm-twice, atomic swap).
-- Next: **P8.3** the Exchange (async order book + tax sink), **P8.4**
-  faucet/sink dashboard + close-out.
+- **P8.3 done**: **the Exchange** — an async order-book market. Pure matching
+  engine (`shared/systems/exchange.ts`, 6 tests): price-time priority,
+  executes at the RESTING order's price (takers get price improvement), plus
+  the 2% tax math (`EXCHANGE_TAX_RATE`). Durable book in Prisma
+  (`ExchangeOrder` escrowed orders with `*ToCollect` buckets for offline
+  fills; `ExchangeTrade` price history; migration `add_exchange`).
+  Post (at the vendor/clerk, proximity-gated): sell escrows items, buy escrows
+  qty×price coins (overflow-capped; max 8 open orders). Fills settle async:
+  seller accrues net-of-tax coins, buyer accrues items + any price-improvement
+  refund; the tax is ledgered (`exchange_tax`) as the sink. Collect moves
+  what fits into the bag; cancel refunds unfilled escrow + pending collection;
+  fully-settled orders vanish. Client Exchange panel (toggle **X**): post
+  form, my orders with fill state + Collect/Cancel, recent-prices lookup.
+  Solo: friendly multiplayer-only message. 153 unit + 30 e2e (new
+  exchange.spec: post→escrow→match→collect with 2% tax→price history→cancel
+  refund).
+- Next: **P8.4** faucet/sink admin dashboard + P8 close-out.
+
+## Play-test build note (2026-07-09)
+- The repo is still private, so the GitHub Pages link can't serve. Delivered
+  instead: `tools/singlefile.mjs` + `SINGLEFILE=1` build → `emberfall-solo.html`
+  (one ~1.4MB self-contained file, runs from file://, verified headless) —
+  sent directly to the user for sharing with friends.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
