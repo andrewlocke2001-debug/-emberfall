@@ -65,7 +65,10 @@ import {
   PARTY_MAX,
   PARTY_LEVEL_RANGE,
   EXCHANGE_MAX_ORDERS,
+  SKULL_MS,
+  SPAWN_PROTECT_MS,
 } from "@mmo/shared";
+import { canAttack, deathDrops } from "@mmo/shared/systems/pvp";
 import {
   validGuildName,
   validGuildTag,
@@ -163,6 +166,7 @@ import {
   isZoneId,
   isDungeonId,
   mapForId,
+  PVP_ZONES,
   type ZoneId,
 } from "@mmo/shared/data/zones";
 import { mobDef, MOBS, type TelegraphDef } from "@mmo/shared/data/mobs";
@@ -308,6 +312,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly duelRequests = new Map<string, string>();
   /** Active duels: each participant's sessionId → their opponent's. */
   private readonly duels = new Map<string, string>();
+  /** PvP-zone spawn protection expiry per session (broken by attacking). */
+  private readonly spawnProtect = new Map<string, number>();
   /** Unsubscribe handles for the guild buses (set in onCreate). */
   private unsubscribeGuildChat?: () => void;
   private unsubscribeGuildChanged?: () => void;
@@ -604,6 +610,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       saved.guildId ? { guildId: saved.guildId, rank: (saved.guildRank ?? "member") as GuildRank } : null,
     );
     presence.register(saved.name, this.map.id);
+    // Arriving in a PvP zone grants brief spawn protection (broken by attacking).
+    if (PVP_ZONES.has(this.map.id)) this.spawnProtect.set(client.sessionId, Date.now() + SPAWN_PROTECT_MS);
     this.sendInventory(client);
     this.sendEquipment(client);
     this.sendQuests(client);
@@ -632,6 +640,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.abilityCooldowns.delete(client.sessionId);
     this.gatherState.delete(client.sessionId);
     this.gmSessions.delete(client.sessionId);
+    this.spawnProtect.delete(client.sessionId);
     this.enemyAI.forEach((ai) => {
       if (ai.target === client.sessionId) ai.target = null;
     });
@@ -736,11 +745,29 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       return;
     }
 
-    // PvP: allowed only between the two participants of an active duel (P9.1).
+    // PvP: allowed inside an active duel, or freely (with anti-grief rules) in
+    // a PvP risk zone (the Ashreach, P9.2).
     const duelTarget = this.duels.get(sessionId);
-    if (duelTarget && duelTarget === msg.targetId) {
+    const inDuelWith = duelTarget === msg.targetId;
+    const pvpZone = PVP_ZONES.has(this.map.id) && this.state.players.has(msg.targetId) && msg.targetId !== sessionId;
+    if (inDuelWith || pvpZone) {
       const foe = this.state.players.get(msg.targetId);
       if (!foe || !foe.alive) return;
+      if (!inDuelWith) {
+        // Anti-grief: level band, and spawn protection on either side.
+        if (!canAttack(player.level, foe.level)) {
+          this.systemTo(client, `${foe.name} is outside your level range.`);
+          return;
+        }
+        // Attacking forfeits your own protection; a protected target is safe.
+        this.spawnProtect.delete(sessionId);
+        if (now < (this.spawnProtect.get(msg.targetId) ?? 0)) {
+          this.systemTo(client, `${foe.name} is under spawn protection.`);
+          return;
+        }
+        // Aggression skulls you — unless the target is already skulled.
+        if (foe.skullUntil < now) player.skullUntil = now + SKULL_MS;
+      }
       if (distSq(player.x, player.y, foe.x, foe.y) > ability.range * ability.range) return;
       const atk = this.playerStats(sessionId, player);
       atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
@@ -757,9 +784,15 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
           targetDied: result.targetDied,
         });
         if (result.targetDied) {
-          // A formal duel: no item loss — announce, end, then normal respawn.
-          this.endDuel(sessionId, msg.targetId, `${player.name} defeated ${foe.name} in a duel!`);
-          this.killPlayer(foe, msg.targetId, now);
+          if (inDuelWith) {
+            // A formal duel: no item loss — announce, end, then normal respawn.
+            this.endDuel(sessionId, msg.targetId, `${player.name} defeated ${foe.name} in a duel!`);
+            this.killPlayer(foe, msg.targetId, now);
+          } else {
+            // Risk-zone kill: the victim drops (handled in killPlayer).
+            this.endDuel(sessionId, msg.targetId, `${player.name} slew ${foe.name} in the Ashreach!`);
+            this.killPlayer(foe, msg.targetId, now, player.id);
+          }
         }
       }
       return;
@@ -2486,7 +2519,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         player.energy = player.maxEnergy;
         player.alive = true;
         this.deadUntil.delete(sessionId);
+        if (PVP_ZONES.has(this.map.id)) this.spawnProtect.set(sessionId, now + SPAWN_PROTECT_MS);
       }
+    });
+
+    // Expire skulls (synced field, so clients see the flag drop too).
+    this.state.players.forEach((player) => {
+      if (player.skullUntil > 0 && now >= player.skullUntil) player.skullUntil = 0;
     });
 
     // Respawn any dead enemy whose timer has elapsed (back at its home).
@@ -2672,11 +2711,28 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     enemy.y = next.y;
   }
 
-  /** Mark a player slain: stop them, schedule respawn, drop mob aggro on them. */
-  private killPlayer(player: PlayerSchema, sessionId: string, now: number): void {
+  /** Mark a player slain: stop them, schedule respawn, drop mob aggro on them.
+   *  In a PvP zone, death also drops the most valuable items + coins (P9.2). */
+  private killPlayer(player: PlayerSchema, sessionId: string, now: number, killerId = ""): void {
     player.alive = false;
     player.hp = 0;
     this.deadUntil.set(sessionId, now + PLAYER_RESPAWN_MS);
+    if (PVP_ZONES.has(this.map.id)) {
+      const { drops, remaining } = deathDrops(this.inventories.get(sessionId) ?? [], itemDef);
+      if (drops.length > 0) {
+        this.inventories.set(sessionId, remaining);
+        for (const stack of drops) {
+          // Leaves the victim's ownership here; re-enters the economy on pickup.
+          void recordLedger({ account: player.id, itemId: stack.itemId, delta: -stack.qty, reason: "pvp_death" });
+          this.spawnLoot(stack.itemId, stack.qty, player.x, player.y, killerId, now);
+        }
+        const c = this.clientFor(sessionId);
+        if (c) {
+          this.sendInventory(c);
+          this.systemTo(c, "You died in the Ashreach — your most valuable items dropped!");
+        }
+      }
+    }
     const input = this.inputs.get(sessionId);
     if (input) {
       input.dx = 0;

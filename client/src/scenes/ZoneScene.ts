@@ -981,6 +981,7 @@ export class ZoneScene extends Phaser.Scene {
       duelRequest: (name: string) => room.send(ClientMessage.DuelRequest, { name }),
       duelRespond: (accept: boolean) => room.send(ClientMessage.DuelRespond, { accept }),
       playerHp: (sessionId: string) => room.state?.players?.get(sessionId)?.hp ?? null,
+      playerSkull: (sessionId: string) => room.state?.players?.get(sessionId)?.skullUntil ?? 0,
       buy: (vendorId: string, itemId: string, qty: number) =>
         room.send(ClientMessage.Buy, { vendorId, itemId, qty }),
       sell: (vendorId: string, itemId: string, qty: number) =>

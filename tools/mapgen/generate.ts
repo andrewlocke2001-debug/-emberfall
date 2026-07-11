@@ -6,6 +6,7 @@ import { meadowbrook } from "./maps/meadowbrook";
 import { greenreach } from "./maps/greenreach";
 import { tanglewood } from "./maps/tanglewood";
 import { cinderDepths } from "./maps/cinder_depths";
+import { ashreach } from "./maps/ashreach";
 
 /**
  * ASCII → Tiled-format JSON compiler. Run from the repo root:
@@ -53,7 +54,7 @@ const ENEMY_CHARS: Record<string, string> = {
   W: "warden_of_ash",
 };
 
-const MAPS: MapSource[] = [meadowbrook, greenreach, tanglewood, cinderDepths];
+const MAPS: MapSource[] = [meadowbrook, greenreach, tanglewood, cinderDepths, ashreach];
 
 function compile(src: MapSource): object {
   const height = src.ascii.length;

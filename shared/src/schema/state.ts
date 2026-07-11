@@ -46,6 +46,8 @@ export class PlayerSchema extends Schema {
   declare alive: boolean;
   /** Server time (ms) of last ability use — drives cooldown enforcement. */
   declare lastAbilityAt: number;
+  /** Skulled-until server time (PvP aggressor flag; 0 = not skulled). */
+  declare skullUntil: number;
 
   constructor() {
     super();
@@ -67,6 +69,7 @@ export class PlayerSchema extends Schema {
     this.restedXp = 0;
     this.alive = true;
     this.lastAbilityAt = 0;
+    this.skullUntil = 0;
   }
 }
 defineTypes(PlayerSchema, {
@@ -88,6 +91,7 @@ defineTypes(PlayerSchema, {
   restedXp: "number",
   alive: "boolean",
   lastAbilityAt: "number",
+  skullUntil: "number",
 });
 
 /** A non-player combatant. M0 ships one stationary training dummy. */

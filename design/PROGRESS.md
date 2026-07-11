@@ -379,6 +379,22 @@ yet on real devices because we're not deployed.
   (one ~1.4MB self-contained file, runs from file://, verified headless) —
   sent directly to the user for sharing with friends.
 
+## P9 — opt-in danger (complete, local)
+- **P9.1 duels**: consensual PvP via DuelRequest/Respond (proximity, no item
+  loss); UseAbility accepts a player target only inside an active duel; death
+  announced + normal respawn; torn down on leave/death/travel; GM `/sethp`.
+- **P9.2 the Ashreach**: new 50×50 PvP risk zone north of Tanglewood (gate on
+  the north fork) with the game's densest resources (3 iron + trout) and
+  toughest overworld spawns. Open PvP with anti-grief (`shared/systems/pvp.ts`,
+  6 tests + PVP_ZONES): **level band** (±15), **spawn protection** (10s on
+  join/respawn, broken by attacking, blocked attacks don't skull), **skulls**
+  (aggressor flagged 5min, synced `skullUntil`; defending vs a skulled player
+  doesn't skull). **Death in the zone drops the 3 most valuable items + all
+  coins** (pure `deathDrops`, ledgered `pvp_death`, ground loot owned by the
+  killer). 161 unit + 33 e2e (duel.spec + ashreach.spec).
+- P9 exit (the risk-reward debate among players) needs real players — deferred
+  with deploy.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.

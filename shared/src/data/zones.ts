@@ -2,6 +2,7 @@ import meadowbrookJson from "./maps/meadowbrook.json";
 import greenreachJson from "./maps/greenreach.json";
 import tanglewoodJson from "./maps/tanglewood.json";
 import cinderDepthsJson from "./maps/cinder_depths.json";
+import ashreachJson from "./maps/ashreach.json";
 import { loadZoneMap, type TiledMap, type ZoneMap } from "../systems/zonemap";
 
 /**
@@ -13,8 +14,11 @@ import { loadZoneMap, type TiledMap, type ZoneMap } from "../systems/zonemap";
  * DUNGEON_IDS are instanced maps (one room PER RUN, matched by party) — they
  * deliberately stay out of ZONE_IDS so nothing treats them as overworld.
  */
-export const ZONE_IDS = ["meadowbrook", "greenreach", "tanglewood"] as const;
+export const ZONE_IDS = ["meadowbrook", "greenreach", "tanglewood", "ashreach"] as const;
 export type ZoneId = (typeof ZONE_IDS)[number];
+
+/** Zones where open PvP (with anti-grief rules) is enabled — the risk zones. */
+export const PVP_ZONES: ReadonlySet<string> = new Set(["ashreach"]);
 
 export const DUNGEON_IDS = ["cinder_depths"] as const;
 export type DungeonId = (typeof DUNGEON_IDS)[number];
@@ -23,6 +27,7 @@ export const ZONES: Record<ZoneId, ZoneMap> = {
   meadowbrook: loadZoneMap("meadowbrook", meadowbrookJson as unknown as TiledMap),
   greenreach: loadZoneMap("greenreach", greenreachJson as unknown as TiledMap),
   tanglewood: loadZoneMap("tanglewood", tanglewoodJson as unknown as TiledMap),
+  ashreach: loadZoneMap("ashreach", ashreachJson as unknown as TiledMap),
 };
 
 export const DUNGEONS: Record<DungeonId, ZoneMap> = {

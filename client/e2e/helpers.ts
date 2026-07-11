@@ -92,6 +92,7 @@ export interface MmoTestApi {
   duelRequest(name: string): void;
   duelRespond(accept: boolean): void;
   playerHp(sessionId: string): number | null;
+  playerSkull(sessionId: string): number;
   sessionId(): string;
   buy(vendorId: string, itemId: string, qty: number): void;
   sell(vendorId: string, itemId: string, qty: number): void;

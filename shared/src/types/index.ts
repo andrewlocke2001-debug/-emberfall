@@ -63,6 +63,15 @@ export const VENDOR_BUYBACK_RATE = 0.4;
  *  is a gold sink; a full-value item costs this fraction of its value to mend. */
 export const REPAIR_COST_RATE = 0.35;
 
+/** PvP (Ashreach): max melee-level gap allowed between attacker and target. */
+export const PVP_LEVEL_BAND = 15;
+/** How long a PvP aggressor stays skulled (shown to everyone). */
+export const SKULL_MS = 5 * 60_000;
+/** Spawn protection in a PvP zone (broken early by attacking). */
+export const SPAWN_PROTECT_MS = 10_000;
+/** Items dropped on death in a PvP zone (most valuable units) + all coins. */
+export const PVP_DEATH_DROPS = 3;
+
 /** Exchange (order-book market) tax on the seller's proceeds — a coin sink. */
 export const EXCHANGE_TAX_RATE = 0.02;
 /** Max open exchange orders per player. */

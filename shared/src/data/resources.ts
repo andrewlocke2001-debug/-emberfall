@@ -107,6 +107,14 @@ export const NODES: Partial<Record<ZoneId, ResourceNode[]>> = {
     { id: "iron-2", type: "iron_rock", x: 944, y: 400 },
     { id: "trout-1", type: "trout_spot", x: 1360, y: 1552 },
   ],
+  // The Ashreach (PvP risk zone): the densest resources in the game — the
+  // reward that justifies the risk. Caldera center + by the cinder pools.
+  ashreach: [
+    { id: "iron-1", type: "iron_rock", x: 832, y: 704 },
+    { id: "iron-2", type: "iron_rock", x: 880, y: 704 },
+    { id: "iron-3", type: "iron_rock", x: 928, y: 704 },
+    { id: "trout-1", type: "trout_spot", x: 768, y: 560 },
+  ],
 };
 
 /** Resolve a node id in a zone to its placement + definition. */

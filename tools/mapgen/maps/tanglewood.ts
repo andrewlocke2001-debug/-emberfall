@@ -88,6 +88,12 @@ function paint(): string[] {
   p.set(51, 28, "C");
   p.set(48, 28, "2");
 
+  // North gate to the Ashreach (P9 risk zone) + its return entry. The north
+  // fork road (x26-27) is extended to the border.
+  p.vline(26, 2, 12, ",").vline(27, 2, 12, ",");
+  p.fillRect(26, 0, 27, 1, "A");
+  p.set(26, 4, "3");
+
   // West entry (arrivals from Greenreach) + default spawn just inside.
   p.set(4, 29, "1");
   p.set(6, 31, "s");
@@ -101,7 +107,8 @@ export const tanglewood: MapSource = {
   exits: {
     X: { to: "greenreach", entry: "east" },
     C: { to: "cinder_depths", entry: "default" },
+    A: { to: "ashreach", entry: "south" },
   },
-  entries: { "1": "west", "2": "depths" },
+  entries: { "1": "west", "2": "depths", "3": "ash" },
   ascii: paint(),
 };
