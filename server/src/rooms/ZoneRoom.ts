@@ -59,6 +59,8 @@ import {
   type ExchangeActionPayload,
   type RequestExchangePayload,
   type ExchangePayload,
+  type DuelRequestPayload,
+  type DuelRespondPayload,
   FRIENDS_MAX,
   PARTY_MAX,
   PARTY_LEVEL_RANGE,
@@ -142,6 +144,8 @@ import {
   ExchangePostSchema,
   ExchangeActionSchema,
   RequestExchangeSchema,
+  DuelRequestSchema,
+  DuelRespondSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -300,6 +304,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly tradeRequests = new Map<string, string>();
   /** Active trades. Both participants' session ids key the SAME session object. */
   private readonly trades = new Map<string, TradeSession>();
+  /** Pending duel challenges: challenged sessionId → challenger sessionId. */
+  private readonly duelRequests = new Map<string, string>();
+  /** Active duels: each participant's sessionId → their opponent's. */
+  private readonly duels = new Map<string, string>();
   /** Unsubscribe handles for the guild buses (set in onCreate). */
   private unsubscribeGuildChat?: () => void;
   private unsubscribeGuildChanged?: () => void;
@@ -409,6 +417,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     });
     this.onMessage(ClientMessage.RequestExchange, RequestExchangeSchema, (client, msg: RequestExchangePayload) => {
       void this.sendExchange(client, msg.itemId);
+    });
+
+    this.onMessage(ClientMessage.DuelRequest, DuelRequestSchema, (client, msg: DuelRequestPayload) => {
+      this.handleDuelRequest(client, msg);
+    });
+    this.onMessage(ClientMessage.DuelRespond, DuelRespondSchema, (client, msg: DuelRespondPayload) => {
+      this.handleDuelRespond(client, msg);
     });
 
     this.onMessage(ClientMessage.QuestAccept, QuestActionSchema, (client, msg: QuestActionPayload) => {
@@ -608,6 +623,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   override async onLeave(client: Client): Promise<void> {
     const player = this.state.players.get(client.sessionId);
     this.endTradesFor(client.sessionId); // tear down any trade/request first
+    this.endDuelsFor(client.sessionId);
     this.inputs.delete(client.sessionId);
     this.transferring.delete(client.sessionId);
     this.chatLimiter.forget(client.sessionId);
@@ -720,7 +736,36 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       return;
     }
 
-    // Attack — enemies only (no open-world PvP in P2).
+    // PvP: allowed only between the two participants of an active duel (P9.1).
+    const duelTarget = this.duels.get(sessionId);
+    if (duelTarget && duelTarget === msg.targetId) {
+      const foe = this.state.players.get(msg.targetId);
+      if (!foe || !foe.alive) return;
+      if (distSq(player.x, player.y, foe.x, foe.y) > ability.range * ability.range) return;
+      const atk = this.playerStats(sessionId, player);
+      atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
+      const result = resolveAttack(atk, this.playerStats(msg.targetId, foe));
+      this.commitAbility(sessionId, ability, now);
+      player.energy -= cost;
+      if (result.hit) {
+        foe.hp = result.targetHpAfter;
+        this.wearGear(client, this.equipment.get(sessionId)?.weapon);
+        this.broadcast(ServerMessage.CombatEvent, {
+          attackerId: sessionId,
+          targetId: msg.targetId,
+          damage: result.damage,
+          targetDied: result.targetDied,
+        });
+        if (result.targetDied) {
+          // A formal duel: no item loss — announce, end, then normal respawn.
+          this.endDuel(sessionId, msg.targetId, `${player.name} defeated ${foe.name} in a duel!`);
+          this.killPlayer(foe, msg.targetId, now);
+        }
+      }
+      return;
+    }
+
+    // Attack — enemies (PvE) otherwise.
     const enemy = this.state.enemies.get(msg.targetId);
     if (!enemy || !enemy.alive) return;
     if (distSq(player.x, player.y, enemy.x, enemy.y) > ability.range * ability.range) return;
@@ -1234,6 +1279,76 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     globalBus.publishGuildChanged(members.map((m) => m.name));
   }
 
+  // --- duels (consensual PvP, no item loss) ------------------------------------
+
+  private handleDuelRequest(client: Client, msg: DuelRequestPayload): void {
+    const sid = client.sessionId;
+    const player = this.state.players.get(sid);
+    if (!player || !player.alive || this.duels.has(sid)) return;
+    const target = this.findPlayer(msg.name);
+    if (!target || target.sessionId === sid || this.duels.has(target.sessionId)) {
+      this.systemTo(client, `${msg.name} can't duel right now.`);
+      return;
+    }
+    if (distSq(player.x, player.y, target.player.x, target.player.y) > TALK_RANGE * TALK_RANGE) {
+      this.systemTo(client, `Get closer to ${target.player.name} to challenge them.`);
+      return;
+    }
+    this.duelRequests.set(target.sessionId, sid);
+    this.systemTo(client, `Challenged ${target.player.name} to a duel.`);
+    const tc = this.clientFor(target.sessionId);
+    if (tc) this.systemTo(tc, `${player.name} challenges you to a duel! (accept to fight)`);
+  }
+
+  private handleDuelRespond(client: Client, msg: DuelRespondPayload): void {
+    const sid = client.sessionId;
+    const challengerSid = this.duelRequests.get(sid);
+    if (!challengerSid) return;
+    this.duelRequests.delete(sid);
+    const rc = this.clientFor(challengerSid);
+    if (!msg.accept) {
+      if (rc) this.systemTo(rc, "Duel declined.");
+      return;
+    }
+    const a = this.state.players.get(sid);
+    const b = this.state.players.get(challengerSid);
+    if (!a || !b || !a.alive || !b.alive || this.duels.has(sid) || this.duels.has(challengerSid)) return;
+    this.duels.set(sid, challengerSid);
+    this.duels.set(challengerSid, sid);
+    const announce: ChatBroadcastPayload = {
+      channel: "zone",
+      from: "System",
+      zone: this.map.id,
+      text: `${b.name} and ${a.name} are dueling!`,
+      at: Date.now(),
+    };
+    this.broadcast(ServerMessage.Chat, announce);
+  }
+
+  /** End a duel (idempotent) and announce the outcome to the zone. */
+  private endDuel(aSid: string, bSid: string, message: string): void {
+    this.duels.delete(aSid);
+    this.duels.delete(bSid);
+    const announce: ChatBroadcastPayload = {
+      channel: "zone",
+      from: "System",
+      zone: this.map.id,
+      text: message,
+      at: Date.now(),
+    };
+    this.broadcast(ServerMessage.Chat, announce);
+  }
+
+  /** Tear down any duel/challenge involving this session (leave/death/travel). */
+  private endDuelsFor(sessionId: string): void {
+    const opp = this.duels.get(sessionId);
+    if (opp) this.endDuel(sessionId, opp, "The duel was interrupted.");
+    this.duelRequests.delete(sessionId);
+    this.duelRequests.forEach((from, to) => {
+      if (from === sessionId) this.duelRequests.delete(to);
+    });
+  }
+
   // --- GM commands (role-gated, audit-logged) --------------------------------
 
   /** Dispatch a parsed slash command if the sender is a GM. */
@@ -1262,6 +1377,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       case "clearbag":
         this.gmClearBag(client);
         break;
+      case "sethp":
+        this.gmSetHp(client, player, args);
+        break;
       case "kick":
         this.gmKick(client, args);
         break;
@@ -1271,6 +1389,22 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     }
     // Audit trail — every executed GM command (goes to server logs / fly logs).
     console.log(`[gm] ${player.name} ran /${cmd} ${args.join(" ")}`.trimEnd());
+  }
+
+  /** /sethp <hp> [name] — set a player's HP (test/debug; clamped to 1..max). */
+  private gmSetHp(client: Client, self: PlayerSchema, args: string[]): void {
+    const hp = Number(args[0]);
+    if (!Number.isFinite(hp)) {
+      this.systemTo(client, "Usage: /sethp <hp> [name]");
+      return;
+    }
+    const target = args[1] ? this.findPlayer(args[1]) : { sessionId: client.sessionId, player: self };
+    if (!target) {
+      this.systemTo(client, `No player named "${args[1]}".`);
+      return;
+    }
+    target.player.hp = Math.max(1, Math.min(target.player.maxHp, Math.floor(hp)));
+    this.systemTo(client, `${target.player.name} HP set to ${target.player.hp}.`);
   }
 
   /** /clearbag — empty the caller's inventory (test/debug hygiene). */
@@ -2321,6 +2455,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (!exit) return;
       this.transferring.add(sessionId);
       this.endTradesFor(sessionId); // leaving the zone ends any trade
+      this.endDuelsFor(sessionId); // and any duel
       const payload: TransferPayload = { zone: exit.to, entry: exit.entry };
       // A dungeon gate mints a per-party instance ticket: the whole party (or a
       // solo) shares one instance, and the ticket authorizes their join.
@@ -2551,6 +2686,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (ai.target === sessionId) ai.target = null;
     });
     this.endTradesFor(sessionId); // a corpse can't trade
+    this.endDuelsFor(sessionId); // nor duel
   }
 
   /**

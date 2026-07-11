@@ -89,6 +89,10 @@ export interface MmoTestApi {
   exchangeCancel(orderId: string): void;
   exchangeCollect(orderId: string): void;
   requestExchange(itemId?: string): void;
+  duelRequest(name: string): void;
+  duelRespond(accept: boolean): void;
+  playerHp(sessionId: string): number | null;
+  sessionId(): string;
   buy(vendorId: string, itemId: string, qty: number): void;
   sell(vendorId: string, itemId: string, qty: number): void;
   enemyIds(): string[];

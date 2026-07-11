@@ -67,6 +67,10 @@ export const ClientMessage = {
   ExchangeCollect: "exchangeCollect",
   /** Ask for my orders + the price feed for an item. */
   RequestExchange: "requestExchange",
+  /** Challenge a nearby player to a duel (consensual PvP, no item loss). */
+  DuelRequest: "duelRequest",
+  /** Accept or decline a pending duel challenge. */
+  DuelRespond: "duelRespond",
   /** Accept an available quest. */
   QuestAccept: "questAccept",
   /** Turn in a quest whose objectives are met. */
@@ -359,6 +363,16 @@ export interface ExchangeActionPayload {
 export interface RequestExchangePayload {
   /** Item to fetch the price feed for (omitted = just my orders). */
   itemId?: string | undefined;
+}
+
+/** Client → server: challenge a player (by display name) to a duel. */
+export interface DuelRequestPayload {
+  name: string;
+}
+
+/** Client → server: accept/decline the pending duel challenge. */
+export interface DuelRespondPayload {
+  accept: boolean;
 }
 
 /** One of the owner's Exchange orders (with pending collection). */
