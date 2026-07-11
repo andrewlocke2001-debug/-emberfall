@@ -49,6 +49,7 @@ import type {
   TradeStatePayload,
   ExchangePayload,
   HuntPayload,
+  AchievementsPayload,
 } from "@mmo/shared";
 import type { QuestLog } from "@mmo/shared/systems/quests";
 import { npcsInZone, type NpcDef } from "@mmo/shared/data/npcs";
@@ -136,6 +137,8 @@ export class ZoneScene extends Phaser.Scene {
   private exchangeState: ExchangePayload = { orders: [] };
   /** Last-known hunt state (task + points). */
   private huntState: HuntPayload = { task: null, points: 0 };
+  /** Last-known achievements state. */
+  private achievementsState: AchievementsPayload = { list: [], title: "" };
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map?: ZoneMap;
@@ -657,6 +660,9 @@ export class ZoneScene extends Phaser.Scene {
     this.connection.room.onMessage(ServerMessage.Hunt, (p: HuntPayload) => {
       this.huntState = p;
     });
+    this.connection.room.onMessage(ServerMessage.Achievements, (p: AchievementsPayload) => {
+      this.achievementsState = p;
+    });
     this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
       this.equipmentSlots = p.equipment;
       this.equipmentDurability = p.durability ?? {};
@@ -984,6 +990,10 @@ export class ZoneScene extends Phaser.Scene {
       exchangeCollect: (orderId: string) => room.send(ClientMessage.ExchangeCollect, { orderId }),
       requestExchange: (itemId?: string) =>
         room.send(ClientMessage.RequestExchange, itemId ? { itemId } : {}),
+      achievements: () => this.achievementsState,
+      requestAchievements: () => room.send(ClientMessage.RequestAchievements),
+      setTitle: (id: string) => room.send(ClientMessage.SetTitle, { id }),
+      playerTitle: (sessionId: string) => room.state?.players?.get(sessionId)?.title ?? "",
       hunt: () => this.huntState,
       huntAssign: () => room.send(ClientMessage.HuntAssign),
       huntBuy: (itemId: string) => room.send(ClientMessage.HuntBuy, { itemId }),

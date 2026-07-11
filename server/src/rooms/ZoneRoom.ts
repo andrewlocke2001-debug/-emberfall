@@ -63,6 +63,8 @@ import {
   type DuelRespondPayload,
   type HuntBuyPayload,
   type HuntPayload,
+  type SetTitlePayload,
+  type AchievementsPayload,
   FRIENDS_MAX,
   PARTY_MAX,
   PARTY_LEVEL_RANGE,
@@ -73,6 +75,8 @@ import {
 import { canAttack, deathDrops } from "@mmo/shared/systems/pvp";
 import { rollHunt, recordHuntKill, type HuntTask } from "@mmo/shared/systems/hunts";
 import { huntReward } from "@mmo/shared/data/hunts";
+import { unlockedAchievements, type AchievementSnapshot } from "@mmo/shared/systems/achievements";
+import { ACHIEVEMENTS, achievementDef } from "@mmo/shared/data/achievements";
 import {
   validGuildName,
   validGuildTag,
@@ -154,6 +158,7 @@ import {
   DuelRequestSchema,
   DuelRespondSchema,
   HuntBuySchema,
+  SetTitleSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -449,6 +454,11 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     });
     this.onMessage(ClientMessage.RequestHunt, (client) => this.sendHunt(client));
 
+    this.onMessage(ClientMessage.RequestAchievements, (client) => this.sendAchievements(client));
+    this.onMessage(ClientMessage.SetTitle, SetTitleSchema, (client, msg: SetTitlePayload) => {
+      this.handleSetTitle(client, msg);
+    });
+
     this.onMessage(ClientMessage.QuestAccept, QuestActionSchema, (client, msg: QuestActionPayload) => {
       this.handleQuestAccept(client, msg);
     });
@@ -614,6 +624,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     // Saved hp can exceed maxHp only if the curve/gear changed; clamp defensively.
     player.hp = Math.min(saved.hp, player.maxHp);
     player.alive = saved.hp > 0;
+    player.title = saved.title ?? "";
     this.state.players.set(client.sessionId, player);
     this.inputs.set(client.sessionId, { dx: 0, dy: 0, playerId });
     this.inventories.set(client.sessionId, saved.inventory);
@@ -1408,6 +1419,65 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     void recordLedger({ account: player.id, itemId: def.id, delta: 1, reason: "hunt_shop" });
     this.sendInventory(client);
     this.sendHunt(client);
+  }
+
+  // --- achievements + titles ----------------------------------------------------
+
+  /** Snapshot the persisted facts achievements are computed from. */
+  private achievementSnapshot(sessionId: string, player: PlayerSchema): AchievementSnapshot {
+    return {
+      levels: {
+        melee: levelForXp(player.meleeXp),
+        vitality: levelForXp(player.vitalityXp),
+        mining: levelForXp(player.miningXp),
+        fishing: levelForXp(player.fishingXp),
+        smithing: levelForXp(player.smithingXp),
+        cooking: levelForXp(player.cookingXp),
+      },
+      questsCompleted: (this.questLogs.get(sessionId) ?? [])
+        .filter((q) => q.status === "complete")
+        .map((q) => q.questId),
+    };
+  }
+
+  private sendAchievements(client: Client): void {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const unlocked = new Set(unlockedAchievements(this.achievementSnapshot(client.sessionId, player)));
+    const payload: AchievementsPayload = {
+      list: ACHIEVEMENTS.map((a) => ({
+        id: a.id,
+        name: a.name,
+        desc: a.desc,
+        ...(a.title ? { title: a.title } : {}),
+        unlocked: unlocked.has(a.id),
+      })),
+      title: player.title,
+    };
+    client.send(ServerMessage.Achievements, payload);
+  }
+
+  /** Wear an unlocked achievement's title ("" clears). Server-validated. */
+  private handleSetTitle(client: Client, msg: SetTitlePayload): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+    if (msg.id === "") {
+      player.title = "";
+      this.titles.set(sessionId, null);
+      this.sendAchievements(client);
+      return;
+    }
+    const def = achievementDef(msg.id);
+    if (!def?.title) return;
+    const unlocked = unlockedAchievements(this.achievementSnapshot(sessionId, player));
+    if (!unlocked.includes(def.id)) {
+      this.systemTo(client, "You haven't earned that title yet.");
+      return;
+    }
+    player.title = def.title;
+    this.titles.set(sessionId, def.title);
+    this.sendAchievements(client);
   }
 
   // --- duels (consensual PvP, no item loss) ------------------------------------

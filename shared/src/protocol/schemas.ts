@@ -30,6 +30,7 @@ import type {
   DuelRequestPayload,
   DuelRespondPayload,
   HuntBuyPayload,
+  SetTitlePayload,
 } from "./messages";
 
 /**
@@ -183,6 +184,11 @@ export const HuntBuySchema = z.strictObject({
   itemId: z.string().min(1).max(64),
 });
 
+/** SetTitle: an achievement id, or "" to clear the title. */
+export const SetTitleSchema = z.strictObject({
+  id: z.string().max(64),
+});
+
 // --- compile-time drift guards (no runtime cost) -----------------------------
 
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -222,9 +228,11 @@ void _exPost;
 void _exAction;
 void _exReq;
 const _huntBuy: AssertEqual<z.output<typeof HuntBuySchema>, HuntBuyPayload> = true;
+const _setTitle: AssertEqual<z.output<typeof SetTitleSchema>, SetTitlePayload> = true;
 void _duelReq;
 void _duelResp;
 void _huntBuy;
+void _setTitle;
 void _friend;
 void _partyInvite;
 void _guildCreate;

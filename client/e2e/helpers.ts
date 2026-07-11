@@ -89,6 +89,13 @@ export interface MmoTestApi {
   exchangeCancel(orderId: string): void;
   exchangeCollect(orderId: string): void;
   requestExchange(itemId?: string): void;
+  achievements(): {
+    list: { id: string; name: string; desc: string; title?: string; unlocked: boolean }[];
+    title: string;
+  };
+  requestAchievements(): void;
+  setTitle(id: string): void;
+  playerTitle(sessionId: string): string;
   hunt(): { task: { mob: string; remaining: number; points: number } | null; points: number };
   huntAssign(): void;
   huntBuy(itemId: string): void;

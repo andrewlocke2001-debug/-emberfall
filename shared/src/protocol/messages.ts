@@ -77,6 +77,10 @@ export const ClientMessage = {
   HuntBuy: "huntBuy",
   /** Ask for my current hunt task + points. */
   RequestHunt: "requestHunt",
+  /** Ask for my achievements (with unlock state) + current title. */
+  RequestAchievements: "requestAchievements",
+  /** Wear the title of an unlocked achievement ("" clears). */
+  SetTitle: "setTitle",
   /** Accept an available quest. */
   QuestAccept: "questAccept",
   /** Turn in a quest whose objectives are met. */
@@ -137,6 +141,8 @@ export const ServerMessage = {
   Exchange: "exchange",
   /** The owner's hunt task + points. */
   Hunt: "hunt",
+  /** The owner's achievements + current title. */
+  Achievements: "achievements",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -382,6 +388,17 @@ export interface HuntBuyPayload {
 export interface HuntPayload {
   task: { mob: string; remaining: number; points: number } | null;
   points: number;
+}
+
+/** Client → server: wear an unlocked achievement's title ("" clears). */
+export interface SetTitlePayload {
+  id: string;
+}
+
+/** Server → client: achievements with unlock state + the current title. */
+export interface AchievementsPayload {
+  list: { id: string; name: string; desc: string; title?: string; unlocked: boolean }[];
+  title: string;
 }
 
 /** Client → server: challenge a player (by display name) to a duel. */

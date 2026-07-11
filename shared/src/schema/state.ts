@@ -48,6 +48,8 @@ export class PlayerSchema extends Schema {
   declare lastAbilityAt: number;
   /** Skulled-until server time (PvP aggressor flag; 0 = not skulled). */
   declare skullUntil: number;
+  /** Worn achievement title ("" = none), shown to everyone. */
+  declare title: string;
 
   constructor() {
     super();
@@ -70,6 +72,7 @@ export class PlayerSchema extends Schema {
     this.alive = true;
     this.lastAbilityAt = 0;
     this.skullUntil = 0;
+    this.title = "";
   }
 }
 defineTypes(PlayerSchema, {
@@ -92,6 +95,7 @@ defineTypes(PlayerSchema, {
   alive: "boolean",
   lastAbilityAt: "number",
   skullUntil: "number",
+  title: "string",
 });
 
 /** A non-player combatant. M0 ships one stationary training dummy. */
