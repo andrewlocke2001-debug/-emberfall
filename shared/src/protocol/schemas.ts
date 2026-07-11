@@ -29,6 +29,7 @@ import type {
   RequestExchangePayload,
   DuelRequestPayload,
   DuelRespondPayload,
+  HuntBuyPayload,
 } from "./messages";
 
 /**
@@ -178,6 +179,10 @@ export const DuelRespondSchema = z.strictObject({
   accept: z.boolean(),
 });
 
+export const HuntBuySchema = z.strictObject({
+  itemId: z.string().min(1).max(64),
+});
+
 // --- compile-time drift guards (no runtime cost) -----------------------------
 
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -216,8 +221,10 @@ const _duelResp: AssertEqual<z.output<typeof DuelRespondSchema>, DuelRespondPayl
 void _exPost;
 void _exAction;
 void _exReq;
+const _huntBuy: AssertEqual<z.output<typeof HuntBuySchema>, HuntBuyPayload> = true;
 void _duelReq;
 void _duelResp;
+void _huntBuy;
 void _friend;
 void _partyInvite;
 void _guildCreate;

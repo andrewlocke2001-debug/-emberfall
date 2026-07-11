@@ -61,6 +61,8 @@ import {
   type ExchangePayload,
   type DuelRequestPayload,
   type DuelRespondPayload,
+  type HuntBuyPayload,
+  type HuntPayload,
   FRIENDS_MAX,
   PARTY_MAX,
   PARTY_LEVEL_RANGE,
@@ -69,6 +71,8 @@ import {
   SPAWN_PROTECT_MS,
 } from "@mmo/shared";
 import { canAttack, deathDrops } from "@mmo/shared/systems/pvp";
+import { rollHunt, recordHuntKill, type HuntTask } from "@mmo/shared/systems/hunts";
+import { huntReward } from "@mmo/shared/data/hunts";
 import {
   validGuildName,
   validGuildTag,
@@ -149,6 +153,7 @@ import {
   RequestExchangeSchema,
   DuelRequestSchema,
   DuelRespondSchema,
+  HuntBuySchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -314,6 +319,11 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly duels = new Map<string, string>();
   /** PvP-zone spawn protection expiry per session (broken by attacking). */
   private readonly spawnProtect = new Map<string, number>();
+  /** Authoritative per-session hunt task + points (persisted). */
+  private readonly hunts = new Map<string, HuntTask | null>();
+  private readonly huntPoints = new Map<string, number>();
+  /** Per-session chosen title (persisted; P10.2 wires selection). */
+  private readonly titles = new Map<string, string | null>();
   /** Unsubscribe handles for the guild buses (set in onCreate). */
   private unsubscribeGuildChat?: () => void;
   private unsubscribeGuildChanged?: () => void;
@@ -364,6 +374,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.sendInventory(client);
       this.sendEquipment(client);
       this.sendQuests(client);
+      this.sendHunt(client); // the onJoin push can lose the handler race too
     });
 
     this.onMessage(ClientMessage.Equip, EquipSchema, (client, msg: EquipPayload) => {
@@ -431,6 +442,12 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.onMessage(ClientMessage.DuelRespond, DuelRespondSchema, (client, msg: DuelRespondPayload) => {
       this.handleDuelRespond(client, msg);
     });
+
+    this.onMessage(ClientMessage.HuntAssign, (client) => this.handleHuntAssign(client));
+    this.onMessage(ClientMessage.HuntBuy, HuntBuySchema, (client, msg: HuntBuyPayload) => {
+      this.handleHuntBuy(client, msg);
+    });
+    this.onMessage(ClientMessage.RequestHunt, (client) => this.sendHunt(client));
 
     this.onMessage(ClientMessage.QuestAccept, QuestActionSchema, (client, msg: QuestActionPayload) => {
       this.handleQuestAccept(client, msg);
@@ -605,6 +622,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.banks.set(client.sessionId, saved.bank);
     this.questLogs.set(client.sessionId, saved.quests);
     this.friendLists.set(client.sessionId, saved.friends);
+    this.hunts.set(client.sessionId, saved.hunt);
+    this.huntPoints.set(client.sessionId, saved.huntPoints);
+    this.titles.set(client.sessionId, saved.title);
     this.guildCache.set(
       client.sessionId,
       saved.guildId ? { guildId: saved.guildId, rank: (saved.guildRank ?? "member") as GuildRank } : null,
@@ -616,6 +636,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.sendEquipment(client);
     this.sendQuests(client);
     this.sendParty(client);
+    this.sendHunt(client);
     void this.sendGuild(client);
 
     if (isGm(name, this.gmAllow)) {
@@ -651,12 +672,18 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const bank = this.banks.get(client.sessionId) ?? [];
     const quests = this.questLogs.get(client.sessionId) ?? [];
     const friends = this.friendLists.get(client.sessionId) ?? [];
+    const hunt = this.hunts.get(client.sessionId) ?? null;
+    const huntPts = this.huntPoints.get(client.sessionId) ?? 0;
+    const title = this.titles.get(client.sessionId) ?? null;
     this.inventories.delete(client.sessionId);
     this.equipment.delete(client.sessionId);
     this.durability.delete(client.sessionId);
     this.banks.delete(client.sessionId);
     this.questLogs.delete(client.sessionId);
     this.friendLists.delete(client.sessionId);
+    this.hunts.delete(client.sessionId);
+    this.huntPoints.delete(client.sessionId);
+    this.titles.delete(client.sessionId);
     this.guildCache.delete(client.sessionId);
     if (!player) return;
 
@@ -665,7 +692,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     if (presence.get(player.name)?.zone === this.map.id) presence.unregister(player.name);
 
     const snapshot = this.finalizeSnapshot(
-      toSaved(player, this.map.id, inventory, equipment, durability, bank, quests, friends),
+      toSaved(player, this.map.id, inventory, equipment, durability, bank, quests, friends, hunt, huntPts, title),
     );
     this.state.players.delete(client.sessionId);
     try {
@@ -883,6 +910,19 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
           this.questLogs.set(sessionId, next);
           const client = this.clients.find((c) => c.sessionId === sessionId);
           if (client) this.sendQuests(client);
+        }
+      }
+      // Hunts count only taggers' own kills (no party leech).
+      if (contributors.has(sessionId)) {
+        const hunt = recordHuntKill(this.hunts.get(sessionId) ?? null, enemy.kind);
+        if (hunt.task !== (this.hunts.get(sessionId) ?? null) || hunt.earned > 0) {
+          this.hunts.set(sessionId, hunt.task);
+          const client = this.clientFor(sessionId);
+          if (hunt.earned > 0) {
+            this.huntPoints.set(sessionId, (this.huntPoints.get(sessionId) ?? 0) + hunt.earned);
+            if (client) this.systemTo(client, `Hunt complete! +${hunt.earned} Hunt points.`);
+          }
+          if (client) this.sendHunt(client);
         }
       }
     });
@@ -1312,6 +1352,64 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     globalBus.publishGuildChanged(members.map((m) => m.name));
   }
 
+  // --- hunts (Slayer tasks + point shop) ---------------------------------------
+
+  /** Near the Huntmaster? (assign/buy are gated to her presence). */
+  private atHuntmaster(player: PlayerSchema): boolean {
+    const npc = npcDef("huntmaster_veyra");
+    if (!npc || npc.zone !== this.map.id) return false;
+    return distSq(player.x, player.y, npc.x, npc.y) <= TALK_RANGE * TALK_RANGE;
+  }
+
+  private sendHunt(client: Client): void {
+    const payload: HuntPayload = {
+      task: this.hunts.get(client.sessionId) ?? null,
+      points: this.huntPoints.get(client.sessionId) ?? 0,
+    };
+    client.send(ServerMessage.Hunt, payload);
+  }
+
+  private handleHuntAssign(client: Client): void {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !player.alive) return;
+    if (!this.atHuntmaster(player)) {
+      this.systemTo(client, "Find Huntmaster Veyra in Meadowbrook for a task.");
+      return;
+    }
+    if (this.hunts.get(client.sessionId)) {
+      this.systemTo(client, "Finish your current hunt first.");
+      return;
+    }
+    const task = rollHunt(Math.random);
+    this.hunts.set(client.sessionId, task);
+    this.systemTo(client, `Hunt assigned: slay ${task.remaining} ${mobDef(task.mob).name}(s).`);
+    this.sendHunt(client);
+  }
+
+  private handleHuntBuy(client: Client, msg: HuntBuyPayload): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive || !this.atHuntmaster(player)) return;
+    const reward = huntReward(msg.itemId);
+    const def = itemDef(msg.itemId);
+    if (!reward || !def) return;
+    const points = this.huntPoints.get(sessionId) ?? 0;
+    if (points < reward.points) {
+      this.systemTo(client, `That costs ${reward.points} Hunt points.`);
+      return;
+    }
+    const res = addItem(this.inventories.get(sessionId) ?? [], def.id, 1, def.maxStack);
+    if (res.added <= 0) {
+      this.systemTo(client, "Your bag is full.");
+      return;
+    }
+    this.inventories.set(sessionId, res.inventory);
+    this.huntPoints.set(sessionId, points - reward.points);
+    void recordLedger({ account: player.id, itemId: def.id, delta: 1, reason: "hunt_shop" });
+    this.sendInventory(client);
+    this.sendHunt(client);
+  }
+
   // --- duels (consensual PvP, no item loss) ------------------------------------
 
   private handleDuelRequest(client: Client, msg: DuelRequestPayload): void {
@@ -1413,6 +1511,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       case "sethp":
         this.gmSetHp(client, player, args);
         break;
+      case "weaken":
+        this.gmWeaken(client, player, args);
+        break;
       case "kick":
         this.gmKick(client, args);
         break;
@@ -1438,6 +1539,31 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     }
     target.player.hp = Math.max(1, Math.min(target.player.maxHp, Math.floor(hp)));
     this.systemTo(client, `${target.player.name} HP set to ${target.player.hp}.`);
+  }
+
+  /** /weaken [enemyId] — set an enemy (default: nearest living) to 1 HP. */
+  private gmWeaken(client: Client, self: PlayerSchema, args: string[]): void {
+    let best: EnemySchema | null = null;
+    if (args[0]) {
+      const e = this.state.enemies.get(args[0]);
+      if (e?.alive) best = e;
+    } else {
+      let bestD = Infinity;
+      this.state.enemies.forEach((e) => {
+        if (!e.alive) return;
+        const d = distSq(self.x, self.y, e.x, e.y);
+        if (d < bestD) {
+          bestD = d;
+          best = e;
+        }
+      });
+    }
+    if (!best) {
+      this.systemTo(client, "No living enemy nearby.");
+      return;
+    }
+    (best as EnemySchema).hp = 1;
+    this.systemTo(client, `${(best as EnemySchema).name} weakened to 1 HP.`);
   }
 
   /** /clearbag — empty the caller's inventory (test/debug hygiene). */
@@ -2771,6 +2897,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
             this.banks.get(sessionId) ?? [],
             this.questLogs.get(sessionId) ?? [],
             this.friendLists.get(sessionId) ?? [],
+            this.hunts.get(sessionId) ?? null,
+            this.huntPoints.get(sessionId) ?? 0,
+            this.titles.get(sessionId) ?? null,
           ),
         ),
       ),
@@ -2808,6 +2937,9 @@ function toSaved(
   bank: Bank,
   quests: QuestLog,
   friends: string[],
+  hunt: HuntTask | null,
+  huntPoints: number,
+  title: string | null,
 ): SavedCharacter {
   return {
     playerId: p.id,
@@ -2831,5 +2963,8 @@ function toSaved(
     bank,
     quests,
     friends,
+    hunt,
+    huntPoints,
+    title,
   };
 }

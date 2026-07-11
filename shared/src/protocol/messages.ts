@@ -71,6 +71,12 @@ export const ClientMessage = {
   DuelRequest: "duelRequest",
   /** Accept or decline a pending duel challenge. */
   DuelRespond: "duelRespond",
+  /** Take a new Hunt task from the Huntmaster (proximity-gated). */
+  HuntAssign: "huntAssign",
+  /** Buy a Hunt-point-shop reward (proximity-gated). */
+  HuntBuy: "huntBuy",
+  /** Ask for my current hunt task + points. */
+  RequestHunt: "requestHunt",
   /** Accept an available quest. */
   QuestAccept: "questAccept",
   /** Turn in a quest whose objectives are met. */
@@ -129,6 +135,8 @@ export const ServerMessage = {
   Trade: "trade",
   /** The owner's Exchange orders + a price feed for the viewed item. */
   Exchange: "exchange",
+  /** The owner's hunt task + points. */
+  Hunt: "hunt",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -363,6 +371,17 @@ export interface ExchangeActionPayload {
 export interface RequestExchangePayload {
   /** Item to fetch the price feed for (omitted = just my orders). */
   itemId?: string | undefined;
+}
+
+/** Client → server: buy a Hunt-shop reward by item id. */
+export interface HuntBuyPayload {
+  itemId: string;
+}
+
+/** Server → client: the owner's hunt state. */
+export interface HuntPayload {
+  task: { mob: string; remaining: number; points: number } | null;
+  points: number;
 }
 
 /** Client → server: challenge a player (by display name) to a duel. */

@@ -48,6 +48,7 @@ import type {
   GuildPayload,
   TradeStatePayload,
   ExchangePayload,
+  HuntPayload,
 } from "@mmo/shared";
 import type { QuestLog } from "@mmo/shared/systems/quests";
 import { npcsInZone, type NpcDef } from "@mmo/shared/data/npcs";
@@ -133,6 +134,8 @@ export class ZoneScene extends Phaser.Scene {
   /** Exchange panel (toggle X) + last-known state. */
   private exchangePanel?: ExchangePanel;
   private exchangeState: ExchangePayload = { orders: [] };
+  /** Last-known hunt state (task + points). */
+  private huntState: HuntPayload = { task: null, points: 0 };
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map?: ZoneMap;
@@ -651,6 +654,9 @@ export class ZoneScene extends Phaser.Scene {
       this.exchangeState = p;
       this.exchangePanel?.setExchange(p);
     });
+    this.connection.room.onMessage(ServerMessage.Hunt, (p: HuntPayload) => {
+      this.huntState = p;
+    });
     this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
       this.equipmentSlots = p.equipment;
       this.equipmentDurability = p.durability ?? {};
@@ -978,6 +984,10 @@ export class ZoneScene extends Phaser.Scene {
       exchangeCollect: (orderId: string) => room.send(ClientMessage.ExchangeCollect, { orderId }),
       requestExchange: (itemId?: string) =>
         room.send(ClientMessage.RequestExchange, itemId ? { itemId } : {}),
+      hunt: () => this.huntState,
+      huntAssign: () => room.send(ClientMessage.HuntAssign),
+      huntBuy: (itemId: string) => room.send(ClientMessage.HuntBuy, { itemId }),
+      requestHunt: () => room.send(ClientMessage.RequestHunt),
       duelRequest: (name: string) => room.send(ClientMessage.DuelRequest, { name }),
       duelRespond: (accept: boolean) => room.send(ClientMessage.DuelRespond, { accept }),
       playerHp: (sessionId: string) => room.state?.players?.get(sessionId)?.hp ?? null,

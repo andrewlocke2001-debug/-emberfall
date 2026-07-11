@@ -3,12 +3,12 @@ import type { Equipment } from "@mmo/shared/systems/equipment";
 import type { QuestLog } from "@mmo/shared/systems/quests";
 import { restedAccrual } from "@mmo/shared/systems/progression";
 import { prisma } from "./db";
-import type { Prisma } from "../generated/prisma/client";
+import { Prisma } from "../generated/prisma/client";
 
 // why: Prisma's InputJsonValue rejects interface arrays / typed records (no
 // index signature). The stored shapes are plain JSON, so these casts are sound.
 const asJson = (
-  v: ItemStack[] | Equipment | QuestLog | string[] | Record<string, number>,
+  v: ItemStack[] | Equipment | QuestLog | string[] | Record<string, number> | object,
 ): Prisma.InputJsonValue => v as unknown as Prisma.InputJsonValue;
 
 // Bank uses the same defensive parse as the bag (pg adapter can hand JSONB
@@ -45,6 +45,12 @@ export interface SavedCharacter {
   friends: string[];
   /** Gear durability per item id (JSON column). Server is the sole writer. */
   durability: Record<string, number>;
+  /** Active hunt task (JSON column), or null. */
+  hunt: { mob: string; remaining: number; points: number } | null;
+  /** Hunt point balance. */
+  huntPoints: number;
+  /** Chosen achievement title, or null. */
+  title: string | null;
   /** Guild membership at load time (written ONLY by persistence/guilds.ts —
    *  save() never touches it, so snapshots can't clobber a kick/promotion;
    *  optional because room snapshots don't carry it). */
@@ -140,6 +146,24 @@ function parseDurability(raw: unknown): Record<string, number> {
   return out;
 }
 
+/** Coerce the JSON `hunt` column into a clean task or null (defensive). */
+function parseHunt(raw: unknown): { mob: string; remaining: number; points: number } | null {
+  let value: unknown = raw;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const { mob, remaining, points } = value as Record<string, unknown>;
+  if (typeof mob === "string" && typeof remaining === "number" && typeof points === "number" && remaining > 0) {
+    return { mob, remaining, points };
+  }
+  return null;
+}
+
 /** Coerce a JSON string-array column (e.g. friends) defensively. */
 function parseNames(raw: unknown): string[] {
   let value: unknown = raw;
@@ -230,6 +254,9 @@ class CharacterStore {
       quests: asJson(c.quests),
       friends: asJson(c.friends),
       durability: asJson(c.durability),
+      hunt: c.hunt ? asJson(c.hunt) : Prisma.JsonNull,
+      huntPoints: c.huntPoints,
+      title: c.title,
     };
     await prisma.player.upsert({
       where: { id: c.playerId },
@@ -261,6 +288,9 @@ function toSavedCharacter(row: {
   quests: unknown;
   friends: unknown;
   durability: unknown;
+  hunt: unknown;
+  huntPoints: number;
+  title: string | null;
   guildId: string | null;
   guildRank: string | null;
 }): SavedCharacter {
@@ -286,6 +316,9 @@ function toSavedCharacter(row: {
     quests: parseQuests(row.quests),
     friends: parseNames(row.friends),
     durability: parseDurability(row.durability),
+    hunt: parseHunt(row.hunt),
+    huntPoints: row.huntPoints,
+    title: row.title,
     guildId: row.guildId,
     guildRank: row.guildRank,
   };

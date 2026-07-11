@@ -23,6 +23,9 @@ model Account {
   username     String   @unique
   passwordHash String
   isGuest      Boolean  @default(false)
+  // Ironman mode (P10): self-sufficient — no trading or Exchange; marked on
+  // hiscores. Chosen at registration, permanent.
+  ironman      Boolean  @default(false)
   createdAt    DateTime @default(now())
 }
 
@@ -59,6 +62,12 @@ model Player {
   friends    Json     @default("[]")
   // Gear durability as JSON: { itemId: remaining } (P8; missing = undamaged).
   durability Json     @default("{}")
+  // Active hunt task as JSON: { mob, remaining, points } or null (P10).
+  hunt       Json?
+  // Hunt point balance (P10 point shop).
+  huntPoints Int      @default(0)
+  // Chosen achievement title (P10), shown to others.
+  title      String?
   // Guild membership (loose reference, consistent with the id conventions).
   guildId    String?
   guildRank  String?

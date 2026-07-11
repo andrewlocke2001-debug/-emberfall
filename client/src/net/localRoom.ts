@@ -77,6 +77,8 @@ import { mapForId, DEFAULT_ZONE } from "@mmo/shared/data/zones";
 import { mobDef, type TelegraphDef } from "@mmo/shared/data/mobs";
 import { exitAt, type ZoneMap } from "@mmo/shared/systems/zonemap";
 import { parseCommand } from "@mmo/shared/systems/gm";
+import { rollHunt, recordHuntKill, type HuntTask } from "@mmo/shared/systems/hunts";
+import { huntReward } from "@mmo/shared/data/hunts";
 
 // Mirrors of ZoneRoom's local tuning constants.
 const PLAYER_HALF = 12;
@@ -108,6 +110,8 @@ export interface SoloSave {
   durability: Durability;
   bank: Bank;
   quests: QuestLog;
+  hunt: HuntTask | null;
+  huntPoints: number;
   lastSeen: number;
 }
 
@@ -130,6 +134,8 @@ function defaultSave(): SoloSave {
     durability: {},
     bank: [],
     quests: [],
+    hunt: null,
+    huntPoints: 0,
     lastSeen: Date.now(),
   };
 }
@@ -182,6 +188,8 @@ export class SoloRoom {
   private durability: Durability;
   private bank: Bank;
   private questLog: QuestLog;
+  private hunt: HuntTask | null;
+  private huntPts: number;
 
   constructor(
     zoneId: string,
@@ -195,6 +203,8 @@ export class SoloRoom {
     this.durability = save.durability;
     this.bank = save.bank;
     this.questLog = save.quests;
+    this.hunt = save.hunt;
+    this.huntPts = save.huntPoints;
 
     // Offline rested-XP accrual (mirrors the server's load path).
     save.restedXp = restedAccrual(Date.now() - save.lastSeen, save.restedXp);
@@ -365,6 +375,15 @@ export class SoloRoom {
       case ClientMessage.DuelRequest:
         this.system("There's no one else here to duel.");
         break;
+      case ClientMessage.HuntAssign:
+        this.doHuntAssign();
+        break;
+      case ClientMessage.HuntBuy:
+        this.doHuntBuy(msg.itemId);
+        break;
+      case ClientMessage.RequestHunt:
+        this.pushHunt();
+        break;
       case ClientMessage.ExchangePost:
         // Single-player: no market without other players.
         this.system("The Exchange only trades between real players — it opens with multiplayer.");
@@ -510,6 +529,15 @@ export class SoloRoom {
     if (next !== this.questLog) {
       this.questLog = next;
       this.pushQuests();
+    }
+    const hunt = recordHuntKill(this.hunt, enemy.kind);
+    if (hunt.task !== this.hunt || hunt.earned > 0) {
+      this.hunt = hunt.task;
+      if (hunt.earned > 0) {
+        this.huntPts += hunt.earned;
+        this.system(`Hunt complete! +${hunt.earned} Hunt points.`);
+      }
+      this.pushHunt();
     }
   }
 
@@ -803,6 +831,40 @@ export class SoloRoom {
     this.pushInventory();
     this.pushQuests();
     this.system(`Quest complete: ${def.name}!`);
+  }
+
+  // --- hunts (mirrors the server; the play-test build's retention loop) -------
+
+  private pushHunt(): void {
+    this.emit(ServerMessage.Hunt, { task: this.hunt, points: this.huntPts });
+  }
+
+  private atHuntmaster(): boolean {
+    const npc = npcDef("huntmaster_veyra");
+    const p = this.player();
+    return !!npc && npc.zone === this.map.id && distSq(p.x, p.y, npc.x, npc.y) <= TALK_RANGE * TALK_RANGE;
+  }
+
+  private doHuntAssign(): void {
+    if (!this.atHuntmaster()) return this.system("Find Huntmaster Veyra in Meadowbrook for a task.");
+    if (this.hunt) return this.system("Finish your current hunt first.");
+    this.hunt = rollHunt(Math.random);
+    this.system(`Hunt assigned: slay ${this.hunt.remaining} ${mobDef(this.hunt.mob).name}(s).`);
+    this.pushHunt();
+  }
+
+  private doHuntBuy(itemId: string): void {
+    if (!this.atHuntmaster()) return;
+    const reward = huntReward(itemId);
+    const def = itemDef(itemId);
+    if (!reward || !def) return;
+    if (this.huntPts < reward.points) return this.system(`That costs ${reward.points} Hunt points.`);
+    const res = addItem(this.inventory, def.id, 1, def.maxStack);
+    if (res.added <= 0) return this.system("Your bag is full.");
+    this.inventory = res.inventory;
+    this.huntPts -= reward.points;
+    this.pushInventory();
+    this.pushHunt();
   }
 
   private doTalk(npcId: string): void {
@@ -1101,6 +1163,8 @@ export class SoloRoom {
       durability: this.durability,
       bank: this.bank,
       quests: this.questLog,
+      hunt: this.hunt,
+      huntPoints: this.huntPts,
       lastSeen: Date.now(),
     };
     // A dungeon is not a safe resume point — store the overworld the gate

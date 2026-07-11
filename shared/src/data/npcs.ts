@@ -33,6 +33,16 @@ export const NPCS: Record<string, NpcDef> = {
     quests: ["greet_mira", "miners_welcome", "supper_for_the_inn", "thin_the_pack", "the_ember_scar"],
     color: 0x6fae8f,
   },
+  huntmaster_veyra: {
+    id: "huntmaster_veyra",
+    name: "Huntmaster Veyra",
+    zone: "meadowbrook",
+    x: 592,
+    y: 464,
+    greeting: "The wilds are overrun. Take a hunt, cull the worst of them, and I'll pay in kind.",
+    quests: [],
+    color: 0xb8624e,
+  },
   smith_dorin: {
     id: "smith_dorin",
     name: "Dorin the Smith",
