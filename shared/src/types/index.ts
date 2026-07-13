@@ -89,6 +89,9 @@ export const FRIENDS_MAX = 50;
 
 /** Maximum players in a party. */
 export const PARTY_MAX = 5;
+
+/** Raid (P12): the Molten Throne admits up to 8 (two parties can share). */
+export const RAID_MAX_PLAYERS = 8;
 /** Max melee-level gap for a party member to share kill XP. */
 export const PARTY_LEVEL_RANGE = 10;
 

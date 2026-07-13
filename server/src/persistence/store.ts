@@ -53,6 +53,8 @@ export interface SavedCharacter {
   title: string | null;
   /** Owns a mount (P11). */
   hasMount: boolean;
+  /** Raid weekly lockout (P12): ms epoch until which the relic is claimed. */
+  raidLockUntil: number;
   /** Guild membership at load time (written ONLY by persistence/guilds.ts —
    *  save() never touches it, so snapshots can't clobber a kick/promotion;
    *  optional because room snapshots don't carry it). */
@@ -260,6 +262,7 @@ class CharacterStore {
       huntPoints: c.huntPoints,
       title: c.title,
       hasMount: c.hasMount,
+      raidLockUntil: c.raidLockUntil,
     };
     await prisma.player.upsert({
       where: { id: c.playerId },
@@ -295,6 +298,7 @@ function toSavedCharacter(row: {
   huntPoints: number;
   title: string | null;
   hasMount: boolean;
+  raidLockUntil: number;
   guildId: string | null;
   guildRank: string | null;
 }): SavedCharacter {
@@ -324,6 +328,7 @@ function toSavedCharacter(row: {
     huntPoints: row.huntPoints,
     title: row.title,
     hasMount: row.hasMount,
+    raidLockUntil: row.raidLockUntil,
     guildId: row.guildId,
     guildRank: row.guildRank,
   };

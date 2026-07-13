@@ -72,6 +72,7 @@ import {
   type FastTravelPayload,
   FRIENDS_MAX,
   PARTY_MAX,
+  RAID_MAX_PLAYERS,
   PARTY_LEVEL_RANGE,
   EXCHANGE_MAX_ORDERS,
   SKULL_MS,
@@ -134,6 +135,8 @@ import { questDef } from "@mmo/shared/data/quests";
 import { npcDef } from "@mmo/shared/data/npcs";
 import { vendorDef, vendorsInZone } from "@mmo/shared/data/vendors";
 import { waystoneById, waystonesInZone } from "@mmo/shared/data/waystones";
+import { RAID_ZONE, RAID_BOSSES, RAID_RELIC } from "@mmo/shared/data/raid";
+import { nextRaidBoss, isFinalRaidBoss, raidLocked, nextRaidLock } from "@mmo/shared/systems/raid";
 import { EnemySchema, PlayerSchema, ZoneState, GroundLootSchema } from "@mmo/shared/schema/state";
 import {
   MoveSchema,
@@ -298,6 +301,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly ironmen = new Set<string>();
   /** Sessions that own a mount (P11); riding state is on PlayerSchema.mounted. */
   private readonly mounts = new Set<string>();
+  /** Raid weekly lockout per session (ms epoch; persisted). */
+  private readonly raidLocks = new Map<string, number>();
   /** Monotonic counter for unique GM-spawned mob ids. */
   private gmSpawnCount = 0;
   /** Monotonic counter for unique ground-loot ids. */
@@ -354,7 +359,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     // A dungeon is an instanced room: cap it at a party and remember where its
     // players return to, so persistence never strands them in a dead instance.
     if (isDungeonId(this.map.id)) {
-      this.maxClients = PARTY_MAX;
+      // The raid admits up to 8 (two parties can share a ticket window).
+      this.maxClients = this.map.id === RAID_ZONE ? RAID_MAX_PLAYERS : PARTY_MAX;
       const back = this.map.exits[0]?.to;
       this.returnZone = back && isZoneId(back) ? back : DEFAULT_ZONE;
     }
@@ -657,6 +663,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.huntPoints.set(client.sessionId, saved.huntPoints);
     this.titles.set(client.sessionId, saved.title);
     if (saved.hasMount) this.mounts.add(client.sessionId);
+    this.raidLocks.set(client.sessionId, saved.raidLockUntil);
     this.guildCache.set(
       client.sessionId,
       saved.guildId ? { guildId: saved.guildId, rank: (saved.guildRank ?? "member") as GuildRank } : null,
@@ -699,6 +706,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.spawnProtect.delete(client.sessionId);
     const hasMount = this.mounts.has(client.sessionId);
     this.mounts.delete(client.sessionId);
+    const raidLock = this.raidLocks.get(client.sessionId) ?? 0;
+    this.raidLocks.delete(client.sessionId);
     this.enemyAI.forEach((ai) => {
       if (ai.target === client.sessionId) ai.target = null;
     });
@@ -729,7 +738,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     if (presence.get(player.name)?.zone === this.map.id) presence.unregister(player.name);
 
     const snapshot = this.finalizeSnapshot(
-      toSaved(player, this.map.id, inventory, equipment, durability, bank, quests, friends, hunt, huntPts, title, hasMount),
+      toSaved(player, this.map.id, inventory, equipment, durability, bank, quests, friends, hunt, huntPts, title, hasMount, raidLock),
     );
     this.state.players.delete(client.sessionId);
     try {
@@ -755,6 +764,11 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.map.enemies.forEach((marker, i) => {
       this.addEnemy(marker.kind, marker.x, marker.y, `${mobDef(marker.kind).kind}-${i + 1}`);
     });
+    // The raid has NO markers: it chain-spawns — only the first boss waits.
+    if (this.map.id === RAID_ZONE) {
+      const first = RAID_BOSSES[0]!;
+      this.addEnemy(first.kind, first.x, first.y, `raid-${first.kind}`);
+    }
   }
 
   /** Create a mob of `kind` at (x,y) with id, wiring its AI + credit tracking. */
@@ -966,7 +980,61 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         }
       }
     });
+
+    // The raid gauntlet: a boss death spawns the next boss; the final death
+    // awards the lockout-gated relic to every contributor (P12.1).
+    if (this.map.id === RAID_ZONE) this.advanceRaid(enemy.kind, contributors);
     contributors.clear();
+  }
+
+  /** Raid chain + relic settlement (only ever called inside molten_throne). */
+  private advanceRaid(killedKind: string, contributors: Set<string>): void {
+    const next = nextRaidBoss(killedKind);
+    if (next) {
+      this.addEnemy(next.kind, next.x, next.y, `raid-${next.kind}`);
+      const announce: ChatBroadcastPayload = {
+        channel: "zone",
+        from: "System",
+        zone: this.map.id,
+        text: `${mobDef(next.kind).name} stirs deeper in the Throne…`,
+        at: Date.now(),
+      };
+      this.broadcast(ServerMessage.Chat, announce);
+      return;
+    }
+    if (!isFinalRaidBoss(killedKind)) return;
+
+    // The Molten King has fallen: relics for the unlocked, lockouts all round.
+    const now = Date.now();
+    const def = itemDef(RAID_RELIC)!;
+    contributors.forEach((sessionId) => {
+      const player = this.state.players.get(sessionId);
+      const client = this.clientFor(sessionId);
+      if (!player) return;
+      if (raidLocked(this.raidLocks.get(sessionId) ?? 0, now)) {
+        if (client) this.systemTo(client, "You already claimed your relic this week (weekly lockout).");
+        return;
+      }
+      const res = addItem(this.inventories.get(sessionId) ?? [], def.id, 1, def.maxStack);
+      if (res.added <= 0) {
+        // Full bag: drop it at their feet instead of eating the reward.
+        this.spawnLoot(def.id, 1, player.x, player.y, player.id, now);
+      } else {
+        this.inventories.set(sessionId, res.inventory);
+        if (client) this.sendInventory(client);
+      }
+      this.raidLocks.set(sessionId, nextRaidLock(now));
+      void recordLedger({ account: player.id, itemId: def.id, delta: 1, reason: "raid_relic" });
+      if (client) this.systemTo(client, `The ${def.name} is yours! (Locked out for a week.)`);
+    });
+    const fin: ChatBroadcastPayload = {
+      channel: "zone",
+      from: "System",
+      zone: this.map.id,
+      text: "The Molten Throne is broken. Long live the throne-breakers!",
+      at: Date.now(),
+    };
+    this.broadcast(ServerMessage.Chat, fin);
   }
 
   /** Drop a pile of ground loot near (x,y), reserved to `ownerId` for a while. */
@@ -1706,6 +1774,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         if (player) player.mounted = false;
         this.sendMount(client);
         this.systemTo(client, "Mount ownership reset.");
+        break;
+      case "raidreset":
+        this.raidLocks.set(client.sessionId, 0);
+        this.systemTo(client, "Raid lockout cleared.");
         break;
       case "sethp":
         this.gmSetHp(client, player, args);
@@ -3131,6 +3203,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         this.huntPoints.get(sessionId) ?? 0,
         this.titles.get(sessionId) ?? null,
         this.mounts.has(sessionId),
+        this.raidLocks.get(sessionId) ?? 0,
       ),
     );
   }
@@ -3175,6 +3248,7 @@ function toSaved(
   huntPoints: number,
   title: string | null,
   hasMount: boolean,
+  raidLockUntil: number,
 ): SavedCharacter {
   return {
     playerId: p.id,
@@ -3202,5 +3276,6 @@ function toSaved(
     huntPoints,
     title,
     hasMount,
+    raidLockUntil,
   };
 }

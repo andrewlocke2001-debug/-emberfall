@@ -70,6 +70,9 @@ model Player {
   title      String?
   // Owns a mount (P11): a one-time purchase, then rideable for good.
   hasMount   Boolean  @default(false)
+  // Raid weekly lockout (P12): ms epoch until which the relic is claimed.
+  // Float holds ms exactly (< 2^53) without BigInt friction.
+  raidLockUntil Float @default(0)
   // Guild membership (loose reference, consistent with the id conventions).
   guildId    String?
   guildRank  String?

@@ -231,6 +231,19 @@ export const ITEMS: Record<string, ItemDef> = {
     desc: "The still-burning core of the Warden of Ash. It beats when you fight.",
   },
 
+  // --- Molten Throne raid relic (P12.1): the best weapon in the game ---
+  molten_relic: {
+    id: "molten_relic",
+    name: "Blade of the Molten King",
+    rarity: "relic",
+    maxStack: 1,
+    value: 2500,
+    equipSlot: "weapon",
+    bonus: { attack: 14, strength: 16 },
+    maxDurability: 400,
+    desc: "Forged in the Molten Throne. One per throne-breaker, per week.",
+  },
+
   // --- materials (mob drops; feed Smithing/Cooking later) ---
   ash_pelt: {
     id: "ash_pelt",

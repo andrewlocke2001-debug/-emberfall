@@ -65,6 +65,8 @@ import { recipeDef } from "@mmo/shared/data/recipes";
 import { questDef } from "@mmo/shared/data/quests";
 import { npcDef } from "@mmo/shared/data/npcs";
 import { waystoneById, waystonesInZone } from "@mmo/shared/data/waystones";
+import { RAID_ZONE, RAID_BOSSES, RAID_RELIC } from "@mmo/shared/data/raid";
+import { nextRaidBoss, isFinalRaidBoss, raidLocked, nextRaidLock } from "@mmo/shared/systems/raid";
 import { vendorDef, vendorsInZone } from "@mmo/shared/data/vendors";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -117,6 +119,7 @@ export interface SoloSave {
   hunt: HuntTask | null;
   huntPoints: number;
   hasMount: boolean;
+  raidLockUntil: number;
   lastSeen: number;
 }
 
@@ -142,6 +145,7 @@ function defaultSave(): SoloSave {
     hunt: null,
     huntPoints: 0,
     hasMount: false,
+    raidLockUntil: 0,
     lastSeen: Date.now(),
   };
 }
@@ -197,6 +201,7 @@ export class SoloRoom {
   private hunt: HuntTask | null;
   private huntPts: number;
   private hasMount: boolean;
+  private raidLock: number;
 
   constructor(
     zoneId: string,
@@ -213,6 +218,7 @@ export class SoloRoom {
     this.hunt = save.hunt;
     this.huntPts = save.huntPoints;
     this.hasMount = save.hasMount ?? false;
+    this.raidLock = save.raidLockUntil ?? 0;
 
     // Offline rested-XP accrual (mirrors the server's load path).
     save.restedXp = restedAccrual(Date.now() - save.lastSeen, save.restedXp);
@@ -307,6 +313,11 @@ export class SoloRoom {
     this.map.enemies.forEach((marker, i) => {
       this.addEnemy(marker.kind, marker.x, marker.y, `${mobDef(marker.kind).kind}-${i + 1}`);
     });
+    // The raid chain-spawns (mirrors the server): only the first boss waits.
+    if (this.map.id === RAID_ZONE) {
+      const first = RAID_BOSSES[0]!;
+      this.addEnemy(first.kind, first.x, first.y, `raid-${first.kind}`);
+    }
   }
 
   private addEnemy(kind: string, x: number, y: number, id: string): EnemySchema {
@@ -562,6 +573,31 @@ export class SoloRoom {
         this.system(`Hunt complete! +${hunt.earned} Hunt points.`);
       }
       this.pushHunt();
+    }
+
+    // The raid gauntlet (mirrors the server's advanceRaid).
+    if (this.map.id === RAID_ZONE) {
+      const next = nextRaidBoss(enemy.kind);
+      if (next) {
+        this.addEnemy(next.kind, next.x, next.y, `raid-${next.kind}`);
+        this.system(`${mobDef(next.kind).name} stirs deeper in the Throne…`);
+      } else if (isFinalRaidBoss(enemy.kind)) {
+        if (raidLocked(this.raidLock, now)) {
+          this.system("You already claimed your relic this week (weekly lockout).");
+        } else {
+          const relic = itemDef(RAID_RELIC)!;
+          const res = addItem(this.inventory, relic.id, 1, relic.maxStack);
+          if (res.added <= 0) {
+            this.spawnLoot(relic.id, 1, enemy.x, enemy.y, now);
+          } else {
+            this.inventory = res.inventory;
+            this.pushInventory();
+          }
+          this.raidLock = nextRaidLock(now);
+          this.system(`The ${relic.name} is yours! (Locked out for a week.)`);
+        }
+        this.system("The Molten Throne is broken. Long live the throne-breaker!");
+      }
     }
   }
 
@@ -1241,12 +1277,13 @@ export class SoloRoom {
       hunt: this.hunt,
       huntPoints: this.huntPts,
       hasMount: this.hasMount,
+      raidLockUntil: this.raidLock,
       lastSeen: Date.now(),
     };
-    // A dungeon is not a safe resume point — store the overworld the gate
-    // returns to (mirrors the server's finalizeSnapshot).
+    // A dungeon/raid is not a safe resume point — store the overworld the
+    // gate returns to (mirrors the server's finalizeSnapshot).
     const back = mapForId(this.map.id)?.exits[0]?.to;
-    if (this.map.id === "cinder_depths" && back) save.zone = back;
+    if ((this.map.id === "cinder_depths" || this.map.id === RAID_ZONE) && back) save.zone = back;
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(save));
       localStorage.setItem("mmo:zone", save.zone);

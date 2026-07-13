@@ -45,13 +45,20 @@ function paint(): string[] {
   p.set(24, 46, "1");
   p.set(26, 46, "s");
 
+  // North gate up to the Molten Throne raid (P12.1) + its return entry.
+  p.fillRect(24, 0, 25, 1, "R");
+  p.set(24, 3, "2");
+
   return p.rows();
 }
 
 export const ashreach: MapSource = {
   id: "ashreach",
   displayName: "The Ashreach",
-  exits: { X: { to: "tanglewood", entry: "ash" } },
-  entries: { "1": "south" },
+  exits: {
+    X: { to: "tanglewood", entry: "ash" },
+    R: { to: "molten_throne", entry: "default" },
+  },
+  entries: { "1": "south", "2": "throne" },
   ascii: paint(),
 };
