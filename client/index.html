@@ -7,6 +7,13 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0d1018" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icon.svg" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
     <title>Emberfall</title>
     <style>
       html, body { margin: 0; height: 100%; background: #0d1018; color: #e6e6e6;
@@ -319,6 +326,12 @@
       .exchange-title { margin: 4px 0 0; font-size: 12px; color: #8893a7; font-weight: 600; }
       .exchange-order { display: flex; align-items: center; gap: 8px; border: 1px solid #2a3142;
         background: #1a2030; border-radius: 6px; padding: 5px 8px; font-size: 12px; }
+
+      /* Fast-travel (waystone) menu — shares the trade panel styling */
+      #fasttravel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        z-index: 9; display: none; flex-direction: column; gap: 8px; padding: 12px; width: 300px;
+        background: rgba(13,16,24,0.98); border: 1px solid #2a3142; border-radius: 10px; }
+      #fasttravel-body { display: flex; flex-direction: column; gap: 8px; }
     </style>
   </head>
   <body>
@@ -412,6 +425,10 @@
     <div id="exchange">
       <div class="trade-header"><span>Exchange (X)</span><button id="exchange-close" type="button">✕</button></div>
       <div id="exchange-body"></div>
+    </div>
+    <div id="fasttravel">
+      <div class="trade-header"><span>Waystone</span><button id="fasttravel-close" type="button">✕</button></div>
+      <div id="fasttravel-body"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -22,6 +22,11 @@ let html = readFileSync(join(dist, "index.html"), "utf8");
 // Drop preload hints (everything will be inline).
 html = html.replace(/^\s*<link rel="modulepreload"[^>]*>\s*$/gm, "");
 
+// Drop PWA links (manifest/icons): they'd 404 from file:// and the single-file
+// build is already a self-contained offline document, so a service worker adds
+// nothing here.
+html = html.replace(/^\s*<link rel="(?:manifest|apple-touch-icon|icon)"[^>]*>\s*$/gm, "");
+
 // Inline each script src (the singlefile build emits exactly one).
 html = html.replace(
   /<script type="module"[^>]*src="\.\/(assets\/[^"]+)"[^>]*><\/script>/g,

@@ -55,6 +55,8 @@ import type {
 import type { QuestLog } from "@mmo/shared/systems/quests";
 import { npcsInZone, type NpcDef } from "@mmo/shared/data/npcs";
 import { vendorsInZone, type VendorDef } from "@mmo/shared/data/vendors";
+import { waystonesInZone, type WaystoneDef } from "@mmo/shared/data/waystones";
+import { FastTravelPanel } from "../ui/FastTravelPanel";
 
 const RECONCILE_SNAP = 64; // px of drift beyond which we hard-snap the local player
 const REMOTE_LERP = 0.25; // interpolation factor for remote entities
@@ -136,6 +138,8 @@ export class ZoneScene extends Phaser.Scene {
   /** Exchange panel (toggle X) + last-known state. */
   private exchangePanel?: ExchangePanel;
   private exchangeState: ExchangePayload = { orders: [] };
+  /** Fast-travel (waystone) panel. */
+  private fastTravelPanel?: FastTravelPanel;
   /** Last-known hunt state (task + points). */
   private huntState: HuntPayload = { task: null, points: 0 };
   /** Last-known achievements state. */
@@ -336,6 +340,11 @@ export class ZoneScene extends Phaser.Scene {
       if (this.input.keyboard) this.input.keyboard.enabled = true;
     });
     this.events.once("shutdown", () => this.exchangePanel?.destroy());
+
+    this.fastTravelPanel = new FastTravelPanel({
+      onTravel: (destId) => this.connection.room.send(ClientMessage.FastTravel, { to: destId }),
+    });
+    this.events.once("shutdown", () => this.fastTravelPanel?.destroy());
 
     this.bankPanel = new BankPanel({
       onDeposit: (itemId, qty) => this.connection.room.send(ClientMessage.Deposit, { itemId, qty }),
@@ -725,6 +734,7 @@ export class ZoneScene extends Phaser.Scene {
     for (const n of NODES[zoneId] ?? []) this.drawNodeMarker(n.id, n.type, n.x, n.y);
     for (const npc of npcsInZone(zoneId)) this.drawNpcMarker(npc);
     for (const v of vendorsInZone(zoneId)) this.drawVendorMarker(v);
+    for (const w of waystonesInZone(zoneId)) this.drawWaystoneMarker(w);
     this.cameras.main.setBounds(0, 0, this.map.pixelWidth, this.map.pixelHeight);
   }
 
@@ -807,6 +817,24 @@ export class ZoneScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setStroke("#000", 3);
     this.add.container(x, y, [dot, label]).setDepth(1);
+  }
+
+  /** A clickable waystone (click to open the fast-travel menu). */
+  private drawWaystoneMarker(w: WaystoneDef): void {
+    const dot = this.add
+      .star(0, 0, 4, 6, 13, 0x7dd3fc)
+      .setStrokeStyle(2, 0xffffff)
+      .setInteractive({ useHandCursor: true });
+    dot.on("pointerdown", () => this.fastTravelPanel?.open(w.id));
+    const label = this.add
+      .text(0, -20, "Waystone", {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "12px",
+        color: "#7dd3fc",
+      })
+      .setOrigin(0.5)
+      .setStroke("#000", 3);
+    this.add.container(w.x, w.y, [dot, label]).setDepth(3);
   }
 
   /** A static "Bank" marker so players can find the town bank. */
@@ -1020,6 +1048,7 @@ export class ZoneScene extends Phaser.Scene {
       buyMount: () => room.send(ClientMessage.BuyMount),
       toggleMount: () => room.send(ClientMessage.ToggleMount),
       requestMount: () => room.send(ClientMessage.RequestMount),
+      fastTravel: (to: string) => room.send(ClientMessage.FastTravel, { to }),
       buy: (vendorId: string, itemId: string, qty: number) =>
         room.send(ClientMessage.Buy, { vendorId, itemId, qty }),
       sell: (vendorId: string, itemId: string, qty: number) =>

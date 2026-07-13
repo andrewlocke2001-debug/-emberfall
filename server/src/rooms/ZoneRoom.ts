@@ -5,6 +5,7 @@ import {
   MOVE_SPEED,
   MOUNT_SPEED_MULT,
   MOUNT_COST,
+  FAST_TRAVEL_COST,
   ServerMessage,
   TICK_MS,
   GCD_MS,
@@ -68,6 +69,7 @@ import {
   type SetTitlePayload,
   type AchievementsPayload,
   type MountPayload,
+  type FastTravelPayload,
   FRIENDS_MAX,
   PARTY_MAX,
   PARTY_LEVEL_RANGE,
@@ -131,6 +133,7 @@ import { recipeDef } from "@mmo/shared/data/recipes";
 import { questDef } from "@mmo/shared/data/quests";
 import { npcDef } from "@mmo/shared/data/npcs";
 import { vendorDef, vendorsInZone } from "@mmo/shared/data/vendors";
+import { waystoneById, waystonesInZone } from "@mmo/shared/data/waystones";
 import { EnemySchema, PlayerSchema, ZoneState, GroundLootSchema } from "@mmo/shared/schema/state";
 import {
   MoveSchema,
@@ -162,6 +165,7 @@ import {
   DuelRespondSchema,
   HuntBuySchema,
   SetTitleSchema,
+  FastTravelSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -471,6 +475,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.onMessage(ClientMessage.BuyMount, (client) => this.handleBuyMount(client));
     this.onMessage(ClientMessage.ToggleMount, (client) => this.handleToggleMount(client));
     this.onMessage(ClientMessage.RequestMount, (client) => this.sendMount(client));
+    this.onMessage(ClientMessage.FastTravel, FastTravelSchema, (client, msg: FastTravelPayload) => {
+      void this.handleFastTravel(client, msg);
+    });
 
     this.onMessage(ClientMessage.QuestAccept, QuestActionSchema, (client, msg: QuestActionPayload) => {
       this.handleQuestAccept(client, msg);
@@ -1551,6 +1558,49 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       return;
     }
     player.mounted = !player.mounted;
+  }
+
+  /** Fast-travel: pay a coin fee to warp between waystones (P11.2). */
+  private async handleFastTravel(client: Client, msg: FastTravelPayload): Promise<void> {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive || this.transferring.has(sessionId)) return;
+
+    // Must be standing on a waystone in THIS zone.
+    const here = waystonesInZone(this.map.id).find(
+      (w) => distSq(player.x, player.y, w.x, w.y) <= TALK_RANGE * TALK_RANGE,
+    );
+    if (!here) {
+      this.systemTo(client, "Stand on a waystone to fast-travel.");
+      return;
+    }
+    const dest = waystoneById(msg.to);
+    if (!dest || dest.id === here.id) return;
+
+    const inv = this.inventories.get(sessionId) ?? [];
+    if (countItem(inv, "coins") < FAST_TRAVEL_COST) {
+      this.systemTo(client, `Fast travel costs ${FAST_TRAVEL_COST} coins.`);
+      return;
+    }
+    // Fee leaves the economy — a coin sink (ledgered).
+    this.inventories.set(sessionId, removeItem(inv, "coins", FAST_TRAVEL_COST).inventory);
+    void recordLedger({ account: player.id, itemId: "coins", delta: -FAST_TRAVEL_COST, reason: "fast_travel" });
+    this.sendInventory(client);
+
+    // Persist the charged bag BEFORE the handoff, so the destination room can't
+    // load a pre-charge snapshot (which would refund the fee on arrival).
+    this.transferring.add(sessionId);
+    this.endTradesFor(sessionId);
+    this.endDuelsFor(sessionId);
+    try {
+      await characterStore.save(this.snapshotFor(player, sessionId));
+    } catch (err) {
+      console.error("[fasttravel] pre-transfer save failed:", err);
+    }
+    // Reuse the zone-transfer handoff: land on the destination waystone (its
+    // zone's `default` entry, where the stone stands).
+    const payload: TransferPayload = { zone: dest.zone, entry: "default" };
+    client.send(ServerMessage.Transfer, payload);
   }
 
   // --- duels (consensual PvP, no item loss) ------------------------------------
@@ -3065,28 +3115,29 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     return { ...snap, zone: this.returnZone, x: entry.x, y: entry.y };
   }
 
-  private async snapshotAll(): Promise<void> {
-    const snapshots: SavedCharacter[] = [];
-    this.state.players.forEach((player, sessionId) =>
-      snapshots.push(
-        this.finalizeSnapshot(
-          toSaved(
-            player,
-            this.map.id,
-            this.inventories.get(sessionId) ?? [],
-            this.equipment.get(sessionId) ?? {},
-            this.durability.get(sessionId) ?? {},
-            this.banks.get(sessionId) ?? [],
-            this.questLogs.get(sessionId) ?? [],
-            this.friendLists.get(sessionId) ?? [],
-            this.hunts.get(sessionId) ?? null,
-            this.huntPoints.get(sessionId) ?? 0,
-            this.titles.get(sessionId) ?? null,
-            this.mounts.has(sessionId),
-          ),
-        ),
+  /** Build the persisted snapshot for one live player (return-zone adjusted). */
+  private snapshotFor(player: PlayerSchema, sessionId: string): SavedCharacter {
+    return this.finalizeSnapshot(
+      toSaved(
+        player,
+        this.map.id,
+        this.inventories.get(sessionId) ?? [],
+        this.equipment.get(sessionId) ?? {},
+        this.durability.get(sessionId) ?? {},
+        this.banks.get(sessionId) ?? [],
+        this.questLogs.get(sessionId) ?? [],
+        this.friendLists.get(sessionId) ?? [],
+        this.hunts.get(sessionId) ?? null,
+        this.huntPoints.get(sessionId) ?? 0,
+        this.titles.get(sessionId) ?? null,
+        this.mounts.has(sessionId),
       ),
     );
+  }
+
+  private async snapshotAll(): Promise<void> {
+    const snapshots: SavedCharacter[] = [];
+    this.state.players.forEach((player, sessionId) => snapshots.push(this.snapshotFor(player, sessionId)));
     const results = await Promise.allSettled(snapshots.map((s) => characterStore.save(s)));
     for (let i = 0; i < results.length; i++) {
       const r = results[i];

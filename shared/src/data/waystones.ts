@@ -1,0 +1,31 @@
+import type { ZoneId } from "./zones";
+
+/**
+ * Waystones (P11.2) — the fast-travel network. One per safe hub zone, placed
+ * at that zone's `default` entry so a jump lands the traveller on the stone.
+ * Interacting with a waystone lets you pay a small coin fee (a sink) to warp to
+ * any other waystone. The dangerous Ashreach is deliberately excluded — you
+ * walk into danger.
+ */
+export interface WaystoneDef {
+  id: string;
+  zone: ZoneId;
+  /** Placed at the zone's `default` entry. */
+  x: number;
+  y: number;
+  name: string;
+}
+
+export const WAYSTONES: Record<string, WaystoneDef> = {
+  ws_meadowbrook: { id: "ws_meadowbrook", zone: "meadowbrook", x: 592, y: 464, name: "Meadowbrook" },
+  ws_greenreach: { id: "ws_greenreach", zone: "greenreach", x: 208, y: 1008, name: "Greenreach" },
+  ws_tanglewood: { id: "ws_tanglewood", zone: "tanglewood", x: 208, y: 1008, name: "Tanglewood" },
+};
+
+export function waystoneById(id: string): WaystoneDef | undefined {
+  return WAYSTONES[id];
+}
+
+export function waystonesInZone(zoneId: string): WaystoneDef[] {
+  return Object.values(WAYSTONES).filter((w) => w.zone === zoneId);
+}

@@ -119,3 +119,18 @@ nameInput.addEventListener("keydown", (e) => {
 passwordInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") loginBtn.click();
 });
+
+// PWA: register the offline service worker on real (http/https) hosted builds.
+// Skipped in dev, in tests, and in the file:// single-file build (no /sw.js to
+// serve there — it's already fully offline as one document).
+if (
+  import.meta.env.PROD &&
+  location.protocol.startsWith("http") &&
+  "serviceWorker" in navigator
+) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {
+      /* offline install is a nice-to-have; ignore registration failures */
+    });
+  });
+}

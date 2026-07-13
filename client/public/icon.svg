@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#0d1018"/>
+  <!-- ember flame -->
+  <path d="M256 92c34 58 96 96 96 168a96 96 0 0 1-192 0c0-30 14-54 32-74 6 20 20 34 38 40-20-40-8-92 26-134z"
+        fill="#f97316"/>
+  <path d="M256 196c18 30 48 50 48 90a48 48 0 0 1-96 0c0-24 18-46 30-62 2 14 10 24 22 28-14-24-8-40-4-56z"
+        fill="#fde047"/>
+  <text x="256" y="452" text-anchor="middle" font-family="system-ui, sans-serif" font-size="64"
+        font-weight="700" fill="#e6e6e6">Emberfall</text>
+</svg>

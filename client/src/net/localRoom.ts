@@ -19,6 +19,7 @@ import {
   MOVE_SPEED,
   MOUNT_SPEED_MULT,
   MOUNT_COST,
+  FAST_TRAVEL_COST,
   TICK_MS,
   GCD_MS,
   ENERGY_REGEN_PER_SEC,
@@ -63,6 +64,7 @@ import { resourceNode } from "@mmo/shared/data/resources";
 import { recipeDef } from "@mmo/shared/data/recipes";
 import { questDef } from "@mmo/shared/data/quests";
 import { npcDef } from "@mmo/shared/data/npcs";
+import { waystoneById, waystonesInZone } from "@mmo/shared/data/waystones";
 import { vendorDef, vendorsInZone } from "@mmo/shared/data/vendors";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -400,6 +402,9 @@ export class SoloRoom {
         break;
       case ClientMessage.RequestMount:
         this.pushMount();
+        break;
+      case ClientMessage.FastTravel:
+        this.doFastTravel(msg.to);
         break;
       case ClientMessage.ExchangePost:
         // Single-player: no market without other players.
@@ -914,6 +919,25 @@ export class SoloRoom {
   private doToggleMount(): void {
     if (!this.hasMount) return this.system("You don't own a mount. Visit the Stabler in Meadowbrook.");
     this.player().mounted = !this.player().mounted;
+  }
+
+  private doFastTravel(to: string): void {
+    if (this.transferring) return;
+    const p = this.player();
+    const here = waystonesInZone(this.map.id).find(
+      (w) => distSq(p.x, p.y, w.x, w.y) <= TALK_RANGE * TALK_RANGE,
+    );
+    if (!here) return this.system("Stand on a waystone to fast-travel.");
+    const dest = waystoneById(to);
+    if (!dest || dest.id === here.id) return;
+    if (countItem(this.inventory, "coins") < FAST_TRAVEL_COST) {
+      return this.system(`Fast travel costs ${FAST_TRAVEL_COST} coins.`);
+    }
+    this.inventory = removeItem(this.inventory, "coins", FAST_TRAVEL_COST).inventory;
+    this.pushInventory();
+    this.transferring = true;
+    this.persist();
+    this.emit(ServerMessage.Transfer, { zone: dest.zone, entry: "default" });
   }
 
   private doTalk(npcId: string): void {

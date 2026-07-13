@@ -34,6 +34,9 @@ export const MOVE_SPEED = 220;
 export const MOUNT_SPEED_MULT = 1.6;
 export const MOUNT_COST = 500;
 
+/** Fast-travel (P11): flat coin fee per waystone jump (a sink). */
+export const FAST_TRAVEL_COST = 30;
+
 /** Default tab-target ability range, in world units. */
 export const ABILITY_RANGE = 150;
 

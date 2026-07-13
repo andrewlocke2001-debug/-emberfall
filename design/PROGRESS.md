@@ -413,6 +413,29 @@ yet on real devices because we're not deployed.
 - 165 unit + 36 e2e (hunt/achievements/ironman specs). P10 exit ("weekly
   actives return") needs real players — deferred with deploy.
 
+## P11 — comfort & reach (complete, local)
+- **P11.1 mounts**: buy once at Bran the Stabler (500c sink, migration
+  add_mount + persisted flag), ride at 1.6× (M key / dialogue), auto-dismount
+  on attack/death, synced + rendered, full solo parity. GM /resetmount,
+  /setlevel.
+- **P11.2 fast travel**: waystone network (shared/data/waystones.ts, one per
+  safe hub at each zone's `default` entry). Click a waystone → menu → 30c fee
+  sink (ledger fast_travel) → zone transfer to the destination stone. Reuses
+  the gate-transfer handoff; **the fee is now persisted before the handoff**
+  (new snapshotFor helper) so the destination room can't load a pre-charge
+  snapshot and refund it — a real fix for any charge-then-transfer. Solo
+  parity. Ashreach excluded (walk into danger).
+- **P11.3 PWA**: web manifest + SVG icon + minimal offline service worker
+  (public/, registered PROD+http only; stripped from the single-file build).
+  Verified: manifest valid/served/linked, SW registers, no errors.
+- **P11.4 load test**: 20 concurrent bots × 25s on the grown schema — 20/20
+  connected, 20 joins, zero server errors. (Left ~20 guest rows in the dev DB;
+  documented cost of the harness.)
+- Capacitor native wrapper + true AOI/interest-management are **deferred**:
+  the PWA covers "installable on a phone" without a native toolchain, and AOI
+  only matters at populations a single Fly machine won't see pre-scale.
+- 165 unit + 38 e2e. P11 exit (mobile session; instant hub hops) met locally.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.

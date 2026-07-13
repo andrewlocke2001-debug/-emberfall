@@ -87,6 +87,8 @@ export const ClientMessage = {
   ToggleMount: "toggleMount",
   /** Ask whether I own a mount. */
   RequestMount: "requestMount",
+  /** Fast-travel from the waystone you're standing on to another (coin fee). */
+  FastTravel: "fastTravel",
   /** Accept an available quest. */
   QuestAccept: "questAccept",
   /** Turn in a quest whose objectives are met. */
@@ -412,6 +414,11 @@ export interface AchievementsPayload {
 /** Server → client: mount ownership (riding state is synced on the schema). */
 export interface MountPayload {
   owned: boolean;
+}
+
+/** Client → server: fast-travel to the waystone with this id. */
+export interface FastTravelPayload {
+  to: string;
 }
 
 /** Client → server: challenge a player (by display name) to a duel. */
