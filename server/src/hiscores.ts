@@ -28,6 +28,18 @@ export interface HiscoreRow {
   level: number;
   /** XP in the skill (skill boards) or summed XP (total board). */
   xp: number;
+  /** Ironman account (marked ⚒ on the board). */
+  ironman: boolean;
+}
+
+/** Ironman flags for a set of player ids (player id = account id). */
+async function ironmanFlags(ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const rows = await prisma.account.findMany({
+    where: { id: { in: ids }, ironman: true },
+    select: { id: true },
+  });
+  return new Set(rows.map((r) => r.id));
 }
 
 export function isHiscoreBoard(s: string): s is HiscoreBoard {
@@ -38,16 +50,18 @@ export async function getHiscores(board: HiscoreBoard): Promise<HiscoreRow[]> {
   if (board === "total") {
     // Order by summed XP (a monotone proxy for total level at equal curves).
     const rows = await prisma.$queryRaw<
-      { name: string; meleeXp: number; vitalityXp: number; miningXp: number; fishingXp: number; smithingXp: number; cookingXp: number }[]
-    >`SELECT "name","meleeXp","vitalityXp","miningXp","fishingXp","smithingXp","cookingXp"
+      { id: string; name: string; meleeXp: number; vitalityXp: number; miningXp: number; fishingXp: number; smithingXp: number; cookingXp: number }[]
+    >`SELECT "id","name","meleeXp","vitalityXp","miningXp","fishingXp","smithingXp","cookingXp"
       FROM "Player"
       ORDER BY ("meleeXp"+"vitalityXp"+"miningXp"+"fishingXp"+"smithingXp"+"cookingXp") DESC
       LIMIT ${PAGE_SIZE}`;
+    const irons = await ironmanFlags(rows.map((r) => r.id));
     return rows.map((r, i) => ({
       rank: i + 1,
       name: r.name,
       level: SKILL_IDS.reduce((sum, s) => sum + levelForXp(r[XP_COLUMNS[s]]), 0),
       xp: SKILL_IDS.reduce((sum, s) => sum + r[XP_COLUMNS[s]], 0),
+      ironman: irons.has(r.id),
     }));
   }
   const col = XP_COLUMNS[board];
@@ -55,6 +69,7 @@ export async function getHiscores(board: HiscoreBoard): Promise<HiscoreRow[]> {
     orderBy: { [col]: "desc" },
     take: PAGE_SIZE,
     select: {
+      id: true,
       name: true,
       meleeXp: true,
       vitalityXp: true,
@@ -64,7 +79,14 @@ export async function getHiscores(board: HiscoreBoard): Promise<HiscoreRow[]> {
       cookingXp: true,
     },
   });
-  return rows.map((r, i) => ({ rank: i + 1, name: r.name, level: levelForXp(r[col]), xp: r[col] }));
+  const irons = await ironmanFlags(rows.map((r) => r.id));
+  return rows.map((r, i) => ({
+    rank: i + 1,
+    name: r.name,
+    level: levelForXp(r[col]),
+    xp: r[col],
+    ironman: irons.has(r.id),
+  }));
 }
 
 const escapeHtml = (s: string): string =>
@@ -83,7 +105,7 @@ export function renderHiscoresHtml(board: HiscoreBoard, rows: HiscoreRow[]): str
   const body = rows
     .map(
       (r) =>
-        `<tr><td>${r.rank}</td><td>${escapeHtml(r.name)}</td><td>${r.level}</td><td>${r.xp}</td></tr>`,
+        `<tr><td>${r.rank}</td><td>${r.ironman ? "⚒ " : ""}${escapeHtml(r.name)}</td><td>${r.level}</td><td>${r.xp}</td></tr>`,
     )
     .join("");
   return `<!DOCTYPE html>

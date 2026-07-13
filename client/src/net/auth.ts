@@ -23,7 +23,10 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-async function post(path: string, body: Record<string, string | undefined>): Promise<AuthResult> {
+async function post(
+  path: string,
+  body: Record<string, string | boolean | undefined>,
+): Promise<AuthResult> {
   const res = await fetch(`${HTTP_BASE}${path}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -36,8 +39,11 @@ async function post(path: string, body: Record<string, string | undefined>): Pro
   return { token: data.token, username: data.username ?? "" };
 }
 
-export const registerAccount = (username: string, password: string): Promise<AuthResult> =>
-  post("/auth/register", { username, password });
+export const registerAccount = (
+  username: string,
+  password: string,
+  ironman = false,
+): Promise<AuthResult> => post("/auth/register", { username, password, ironman });
 
 export const loginAccount = (username: string, password: string): Promise<AuthResult> =>
   post("/auth/login", { username, password });

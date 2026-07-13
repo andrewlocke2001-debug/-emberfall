@@ -28,6 +28,8 @@ if (SOLO) {
   passwordInput.style.display = "none";
   loginBtn.style.display = "none";
   registerBtn.style.display = "none";
+  const ironRow = document.getElementById("ironman-row");
+  if (ironRow) ironRow.style.display = "none";
   enterBtn.textContent = "Play";
 }
 
@@ -106,7 +108,8 @@ loginBtn.addEventListener("click", () =>
 registerBtn.addEventListener("click", () =>
   void authenticate(async () => {
     const { username, password } = requireCredentials();
-    return (await registerAccount(username, password)).token;
+    const ironman = (document.getElementById("ironman") as HTMLInputElement | null)?.checked ?? false;
+    return (await registerAccount(username, password, ironman)).token;
   }),
 );
 

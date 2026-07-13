@@ -50,7 +50,10 @@ const gameServer = new Server({
           }
         }
       };
-    app.post("/auth/register", route((b) => registerAccount(b["username"]!, b["password"]!)));
+    app.post(
+      "/auth/register",
+      route((b) => registerAccount(b["username"]!, b["password"]!, (b["ironman"] as unknown) === true)),
+    );
     app.post("/auth/login", route((b) => loginAccount(b["username"]!, b["password"]!)));
     app.post("/auth/guest", route((b) => guestAccount(b["name"])));
 

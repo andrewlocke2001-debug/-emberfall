@@ -27,14 +27,16 @@ export class AuthError extends Error {}
 export interface AuthClaims {
   accountId: string;
   username: string;
+  /** Ironman mode (P10): permanent, chosen at registration; gates trading. */
+  ironman: boolean;
 }
 export interface AuthResult {
   token: string;
   username: string;
 }
 
-async function issueToken(accountId: string, username: string): Promise<string> {
-  return new SignJWT({ username })
+async function issueToken(accountId: string, username: string, ironman = false): Promise<string> {
+  return new SignJWT({ username, ironman })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(accountId)
     .setIssuedAt()
@@ -49,13 +51,17 @@ export async function verifyToken(token: string): Promise<AuthClaims | null> {
     const { payload } = await jwtVerify(token, SECRET);
     const username = payload["username"];
     if (typeof payload.sub !== "string" || typeof username !== "string") return null;
-    return { accountId: payload.sub, username };
+    return { accountId: payload.sub, username, ironman: payload["ironman"] === true };
   } catch {
     return null;
   }
 }
 
-export async function registerAccount(username: string, password: string): Promise<AuthResult> {
+export async function registerAccount(
+  username: string,
+  password: string,
+  ironman = false,
+): Promise<AuthResult> {
   const name = (username ?? "").trim();
   if (!USERNAME_RE.test(name)) {
     throw new AuthError("Username must be 1–24 letters, numbers, spaces, _ or -.");
@@ -67,9 +73,12 @@ export async function registerAccount(username: string, password: string): Promi
     throw new AuthError("That username is taken.");
   }
   const account = await prisma.account.create({
-    data: { username: name, passwordHash: await argonHash(password), isGuest: false },
+    data: { username: name, passwordHash: await argonHash(password), isGuest: false, ironman: ironman === true },
   });
-  return { token: await issueToken(account.id, account.username), username: account.username };
+  return {
+    token: await issueToken(account.id, account.username, account.ironman),
+    username: account.username,
+  };
 }
 
 export async function loginAccount(username: string, password: string): Promise<AuthResult> {
@@ -78,7 +87,10 @@ export async function loginAccount(username: string, password: string): Promise<
   if (!account || account.isGuest || !(await argonVerify(account.passwordHash, password ?? ""))) {
     throw new AuthError("Wrong username or password.");
   }
-  return { token: await issueToken(account.id, account.username), username: account.username };
+  return {
+    token: await issueToken(account.id, account.username, account.ironman),
+    username: account.username,
+  };
 }
 
 export async function guestAccount(desiredName?: string): Promise<AuthResult> {

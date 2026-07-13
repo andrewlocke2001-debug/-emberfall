@@ -286,6 +286,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private gmAllow = new Set<string>();
   /** Sessions whose account is a GM (may run slash commands). */
   private readonly gmSessions = new Set<string>();
+  /** Sessions on ironman accounts (no trading/Exchange — self-sufficient). */
+  private readonly ironmen = new Set<string>();
   /** Monotonic counter for unique GM-spawned mob ids. */
   private gmSpawnCount = 0;
   /** Monotonic counter for unique ground-loot ids. */
@@ -654,6 +656,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.gmSessions.add(client.sessionId);
       console.log(`[gm] ${name} (${playerId}) joined as GM`);
     }
+    if (claims.ironman) this.ironmen.add(client.sessionId);
 
     const welcome: WelcomePayload = { sessionId: client.sessionId, playerId };
     client.send(ServerMessage.Welcome, welcome);
@@ -672,6 +675,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.abilityCooldowns.delete(client.sessionId);
     this.gatherState.delete(client.sessionId);
     this.gmSessions.delete(client.sessionId);
+    this.ironmen.delete(client.sessionId);
     this.spawnProtect.delete(client.sessionId);
     this.enemyAI.forEach((ai) => {
       if (ai.target === client.sessionId) ai.target = null;
@@ -1897,6 +1901,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const sid = client.sessionId;
     const player = this.state.players.get(sid);
     if (!player || !player.alive) return;
+    if (this.ironmen.has(sid)) {
+      this.systemTo(client, "Ironmen stand alone — no trading.");
+      return;
+    }
     if (this.trades.has(sid)) {
       this.systemTo(client, "Finish your current trade first.");
       return;
@@ -1904,6 +1912,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const target = this.findPlayer(msg.name);
     if (!target || target.sessionId === sid) {
       this.systemTo(client, `${msg.name} isn't here.`);
+      return;
+    }
+    if (this.ironmen.has(target.sessionId)) {
+      this.systemTo(client, `${target.player.name} is an ironman — they trade with no one.`);
       return;
     }
     if (distSq(player.x, player.y, target.player.x, target.player.y) > TALK_RANGE * TALK_RANGE) {
@@ -2132,6 +2144,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const sessionId = client.sessionId;
     const player = this.state.players.get(sessionId);
     if (!player || !player.alive) return;
+    if (this.ironmen.has(sessionId)) {
+      this.systemTo(client, "Ironmen stand alone — the Exchange is closed to you.");
+      return;
+    }
     if (!this.atExchange(player)) {
       this.systemTo(client, "Find the Exchange clerk (at a vendor) to post orders.");
       return;

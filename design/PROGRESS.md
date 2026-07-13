@@ -395,6 +395,24 @@ yet on real devices because we're not deployed.
 - P9 exit (the risk-reward debate among players) needs real players — deferred
   with deploy.
 
+## P10 — the retention layer (complete, local)
+- **P10.1 Hunts** (flagship): Huntmaster Veyra assigns data-driven kill tasks
+  (6 families, count ranges, point payouts); tagger-only kill credit;
+  completion pays Hunt points; point shop (potion/iron sword/relic/Cinderheart,
+  ledgered `hunt_shop`). Pure rollHunt/recordHuntKill (tests). Persisted
+  (migration `add_retention`); full solo parity. GM `/weaken [id]` test hook.
+- **P10.2 Achievements + titles**: data-driven checks (level/total/quest/any),
+  pure evaluation; SetTitle validated server-side against a fresh snapshot;
+  synced `PlayerSchema.title`; persisted.
+- **P10.3 Ironman**: registration checkbox → permanent Account flag carried in
+  the JWT; ironmen can't trade (either direction) or use the Exchange;
+  hiscores rows carry the flag (⚒ on the HTML board).
+- **P10.4 build share codes — deferred**: there is no build system yet
+  (abilities are fixed; no talents/loadouts), so a "build template" has
+  nothing to encode. Revisit when builds exist.
+- 165 unit + 36 e2e (hunt/achievements/ironman specs). P10 exit ("weekly
+  actives return") needs real players — deferred with deploy.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
