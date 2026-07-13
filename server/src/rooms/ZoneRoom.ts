@@ -3,6 +3,8 @@ import {
   ABILITIES,
   ClientMessage,
   MOVE_SPEED,
+  MOUNT_SPEED_MULT,
+  MOUNT_COST,
   ServerMessage,
   TICK_MS,
   GCD_MS,
@@ -65,6 +67,7 @@ import {
   type HuntPayload,
   type SetTitlePayload,
   type AchievementsPayload,
+  type MountPayload,
   FRIENDS_MAX,
   PARTY_MAX,
   PARTY_LEVEL_RANGE,
@@ -167,6 +170,7 @@ import {
   combatStatsFromLevel,
   gainXp,
   levelForXp,
+  xpForLevel,
   maxHpForVitality,
   restedBonus,
 } from "@mmo/shared/systems/progression";
@@ -288,6 +292,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly gmSessions = new Set<string>();
   /** Sessions on ironman accounts (no trading/Exchange — self-sufficient). */
   private readonly ironmen = new Set<string>();
+  /** Sessions that own a mount (P11); riding state is on PlayerSchema.mounted. */
+  private readonly mounts = new Set<string>();
   /** Monotonic counter for unique GM-spawned mob ids. */
   private gmSpawnCount = 0;
   /** Monotonic counter for unique ground-loot ids. */
@@ -382,6 +388,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.sendEquipment(client);
       this.sendQuests(client);
       this.sendHunt(client); // the onJoin push can lose the handler race too
+      this.sendMount(client);
     });
 
     this.onMessage(ClientMessage.Equip, EquipSchema, (client, msg: EquipPayload) => {
@@ -460,6 +467,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.onMessage(ClientMessage.SetTitle, SetTitleSchema, (client, msg: SetTitlePayload) => {
       this.handleSetTitle(client, msg);
     });
+
+    this.onMessage(ClientMessage.BuyMount, (client) => this.handleBuyMount(client));
+    this.onMessage(ClientMessage.ToggleMount, (client) => this.handleToggleMount(client));
+    this.onMessage(ClientMessage.RequestMount, (client) => this.sendMount(client));
 
     this.onMessage(ClientMessage.QuestAccept, QuestActionSchema, (client, msg: QuestActionPayload) => {
       this.handleQuestAccept(client, msg);
@@ -638,6 +649,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.hunts.set(client.sessionId, saved.hunt);
     this.huntPoints.set(client.sessionId, saved.huntPoints);
     this.titles.set(client.sessionId, saved.title);
+    if (saved.hasMount) this.mounts.add(client.sessionId);
     this.guildCache.set(
       client.sessionId,
       saved.guildId ? { guildId: saved.guildId, rank: (saved.guildRank ?? "member") as GuildRank } : null,
@@ -650,6 +662,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.sendQuests(client);
     this.sendParty(client);
     this.sendHunt(client);
+    this.sendMount(client);
     void this.sendGuild(client);
 
     if (isGm(name, this.gmAllow)) {
@@ -677,6 +690,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.gmSessions.delete(client.sessionId);
     this.ironmen.delete(client.sessionId);
     this.spawnProtect.delete(client.sessionId);
+    const hasMount = this.mounts.has(client.sessionId);
+    this.mounts.delete(client.sessionId);
     this.enemyAI.forEach((ai) => {
       if (ai.target === client.sessionId) ai.target = null;
     });
@@ -707,7 +722,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     if (presence.get(player.name)?.zone === this.map.id) presence.unregister(player.name);
 
     const snapshot = this.finalizeSnapshot(
-      toSaved(player, this.map.id, inventory, equipment, durability, bank, quests, friends, hunt, huntPts, title),
+      toSaved(player, this.map.id, inventory, equipment, durability, bank, quests, friends, hunt, huntPts, title, hasMount),
     );
     this.state.players.delete(client.sessionId);
     try {
@@ -760,6 +775,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
     const ability = ABILITIES[msg.abilityId];
     if (!ability) return;
+
+    // You fight on foot — acting dismounts you.
+    if (player.mounted) player.mounted = false;
 
     // Gate on the global cooldown, this ability's own cooldown, and energy.
     const now = Date.now();
@@ -1484,6 +1502,57 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.sendAchievements(client);
   }
 
+  // --- mounts (P11: faster travel; a coin sink) --------------------------------
+
+  private sendMount(client: Client): void {
+    const payload: MountPayload = { owned: this.mounts.has(client.sessionId) };
+    client.send(ServerMessage.Mount, payload);
+  }
+
+  /** Near the Stabler? (buying is gated to his presence). */
+  private atStabler(player: PlayerSchema): boolean {
+    const npc = npcDef("stabler_bran");
+    if (!npc || npc.zone !== this.map.id) return false;
+    return distSq(player.x, player.y, npc.x, npc.y) <= TALK_RANGE * TALK_RANGE;
+  }
+
+  private handleBuyMount(client: Client): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive) return;
+    if (this.mounts.has(sessionId)) {
+      this.systemTo(client, "You already own a mount.");
+      return;
+    }
+    if (!this.atStabler(player)) {
+      this.systemTo(client, "Find Bran the Stabler in Meadowbrook to buy a mount.");
+      return;
+    }
+    const inv = this.inventories.get(sessionId) ?? [];
+    if (countItem(inv, "coins") < MOUNT_COST) {
+      this.systemTo(client, `A mount costs ${MOUNT_COST} coins.`);
+      return;
+    }
+    // Coins leave the economy — a gold sink (ledgered).
+    this.inventories.set(sessionId, removeItem(inv, "coins", MOUNT_COST).inventory);
+    this.mounts.add(sessionId);
+    void recordLedger({ account: player.id, itemId: "coins", delta: -MOUNT_COST, reason: "mount_purchase" });
+    this.sendInventory(client);
+    this.sendMount(client);
+    this.systemTo(client, "The elk is yours! Press M to ride.");
+  }
+
+  private handleToggleMount(client: Client): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive) return;
+    if (!this.mounts.has(sessionId)) {
+      this.systemTo(client, "You don't own a mount. Visit the Stabler in Meadowbrook.");
+      return;
+    }
+    player.mounted = !player.mounted;
+  }
+
   // --- duels (consensual PvP, no item loss) ------------------------------------
 
   private handleDuelRequest(client: Client, msg: DuelRequestPayload): void {
@@ -1582,8 +1651,17 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       case "clearbag":
         this.gmClearBag(client);
         break;
+      case "resetmount":
+        this.mounts.delete(client.sessionId);
+        if (player) player.mounted = false;
+        this.sendMount(client);
+        this.systemTo(client, "Mount ownership reset.");
+        break;
       case "sethp":
         this.gmSetHp(client, player, args);
+        break;
+      case "setlevel":
+        this.gmSetLevel(client, player, args);
         break;
       case "weaken":
         this.gmWeaken(client, player, args);
@@ -1613,6 +1691,23 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     }
     target.player.hp = Math.max(1, Math.min(target.player.maxHp, Math.floor(hp)));
     this.systemTo(client, `${target.player.name} HP set to ${target.player.hp}.`);
+  }
+
+  /** /setlevel <n> [name] — set a player's Melee level (test/debug hook). */
+  private gmSetLevel(client: Client, self: PlayerSchema, args: string[]): void {
+    const level = Math.floor(Number(args[0]));
+    if (!Number.isFinite(level) || level < 1) {
+      this.systemTo(client, "Usage: /setlevel <n> [name]");
+      return;
+    }
+    const target = args[1] ? this.findPlayer(args[1]) : { sessionId: client.sessionId, player: self };
+    if (!target) {
+      this.systemTo(client, `No player named "${args[1]}".`);
+      return;
+    }
+    target.player.meleeXp = xpForLevel(level);
+    target.player.level = levelForXp(target.player.meleeXp);
+    this.systemTo(client, `${target.player.name} Melee level set to ${target.player.level}.`);
   }
 
   /** /weaken [enemyId] — set an enemy (default: nearest living) to 1 HP. */
@@ -2684,7 +2779,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         { x: player.x, y: player.y },
         { dx: input.dx, dy: input.dy },
         dt,
-        MOVE_SPEED,
+        player.mounted ? MOVE_SPEED * MOUNT_SPEED_MULT : MOVE_SPEED,
         this.map.collision,
         PLAYER_HALF,
       );
@@ -2928,6 +3023,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private killPlayer(player: PlayerSchema, sessionId: string, now: number, killerId = ""): void {
     player.alive = false;
     player.hp = 0;
+    player.mounted = false; // a corpse doesn't ride
     this.deadUntil.set(sessionId, now + PLAYER_RESPAWN_MS);
     if (PVP_ZONES.has(this.map.id)) {
       const { drops, remaining } = deathDrops(this.inventories.get(sessionId) ?? [], itemDef);
@@ -2986,6 +3082,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
             this.hunts.get(sessionId) ?? null,
             this.huntPoints.get(sessionId) ?? 0,
             this.titles.get(sessionId) ?? null,
+            this.mounts.has(sessionId),
           ),
         ),
       ),
@@ -3026,6 +3123,7 @@ function toSaved(
   hunt: HuntTask | null,
   huntPoints: number,
   title: string | null,
+  hasMount: boolean,
 ): SavedCharacter {
   return {
     playerId: p.id,
@@ -3052,5 +3150,6 @@ function toSaved(
     hunt,
     huntPoints,
     title,
+    hasMount,
   };
 }

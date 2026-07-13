@@ -81,6 +81,12 @@ export const ClientMessage = {
   RequestAchievements: "requestAchievements",
   /** Wear the title of an unlocked achievement ("" clears). */
   SetTitle: "setTitle",
+  /** Buy a mount from the Stabler (proximity-gated coin sink). */
+  BuyMount: "buyMount",
+  /** Mount up / dismount (only if owned). */
+  ToggleMount: "toggleMount",
+  /** Ask whether I own a mount. */
+  RequestMount: "requestMount",
   /** Accept an available quest. */
   QuestAccept: "questAccept",
   /** Turn in a quest whose objectives are met. */
@@ -143,6 +149,8 @@ export const ServerMessage = {
   Hunt: "hunt",
   /** The owner's achievements + current title. */
   Achievements: "achievements",
+  /** Whether the owner owns a mount. */
+  Mount: "mount",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -399,6 +407,11 @@ export interface SetTitlePayload {
 export interface AchievementsPayload {
   list: { id: string; name: string; desc: string; title?: string; unlocked: boolean }[];
   title: string;
+}
+
+/** Server → client: mount ownership (riding state is synced on the schema). */
+export interface MountPayload {
+  owned: boolean;
 }
 
 /** Client → server: challenge a player (by display name) to a duel. */

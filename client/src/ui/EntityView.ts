@@ -93,6 +93,12 @@ export class EntityView {
     this.container.setAlpha(alive ? 1 : 0.3);
   }
 
+  /** Show mounted state (P11): a larger body with a golden rim while riding. */
+  setMounted(mounted: boolean): void {
+    this.body.setScale(mounted ? 1.35 : 1);
+    this.body.setStrokeStyle(mounted ? 3 : 2, mounted ? 0xffd166 : 0x0b0e14);
+  }
+
   /** Snap to a world position (used on spawn and for the predicted local player). */
   setPosition(x: number, y: number): void {
     this.container.setPosition(x, y);

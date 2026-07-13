@@ -68,6 +68,8 @@ model Player {
   huntPoints Int      @default(0)
   // Chosen achievement title (P10), shown to others.
   title      String?
+  // Owns a mount (P11): a one-time purchase, then rideable for good.
+  hasMount   Boolean  @default(false)
   // Guild membership (loose reference, consistent with the id conventions).
   guildId    String?
   guildRank  String?

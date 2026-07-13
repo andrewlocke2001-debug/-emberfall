@@ -50,6 +50,8 @@ export class PlayerSchema extends Schema {
   declare skullUntil: number;
   /** Worn achievement title ("" = none), shown to everyone. */
   declare title: string;
+  /** Riding a mount (P11): faster movement, shown to everyone. */
+  declare mounted: boolean;
 
   constructor() {
     super();
@@ -73,6 +75,7 @@ export class PlayerSchema extends Schema {
     this.lastAbilityAt = 0;
     this.skullUntil = 0;
     this.title = "";
+    this.mounted = false;
   }
 }
 defineTypes(PlayerSchema, {
@@ -96,6 +99,7 @@ defineTypes(PlayerSchema, {
   lastAbilityAt: "number",
   skullUntil: "number",
   title: "string",
+  mounted: "boolean",
 });
 
 /** A non-player combatant. M0 ships one stationary training dummy. */

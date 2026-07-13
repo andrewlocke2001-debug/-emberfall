@@ -104,6 +104,11 @@ export interface MmoTestApi {
   duelRespond(accept: boolean): void;
   playerHp(sessionId: string): number | null;
   playerSkull(sessionId: string): number;
+  mountOwned(): boolean;
+  playerMounted(sessionId: string): boolean;
+  buyMount(): void;
+  toggleMount(): void;
+  requestMount(): void;
   sessionId(): string;
   buy(vendorId: string, itemId: string, qty: number): void;
   sell(vendorId: string, itemId: string, qty: number): void;

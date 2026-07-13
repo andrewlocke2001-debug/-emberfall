@@ -51,6 +51,8 @@ export interface SavedCharacter {
   huntPoints: number;
   /** Chosen achievement title, or null. */
   title: string | null;
+  /** Owns a mount (P11). */
+  hasMount: boolean;
   /** Guild membership at load time (written ONLY by persistence/guilds.ts —
    *  save() never touches it, so snapshots can't clobber a kick/promotion;
    *  optional because room snapshots don't carry it). */
@@ -257,6 +259,7 @@ class CharacterStore {
       hunt: c.hunt ? asJson(c.hunt) : Prisma.JsonNull,
       huntPoints: c.huntPoints,
       title: c.title,
+      hasMount: c.hasMount,
     };
     await prisma.player.upsert({
       where: { id: c.playerId },
@@ -291,6 +294,7 @@ function toSavedCharacter(row: {
   hunt: unknown;
   huntPoints: number;
   title: string | null;
+  hasMount: boolean;
   guildId: string | null;
   guildRank: string | null;
 }): SavedCharacter {
@@ -319,6 +323,7 @@ function toSavedCharacter(row: {
     hunt: parseHunt(row.hunt),
     huntPoints: row.huntPoints,
     title: row.title,
+    hasMount: row.hasMount,
     guildId: row.guildId,
     guildRank: row.guildRank,
   };

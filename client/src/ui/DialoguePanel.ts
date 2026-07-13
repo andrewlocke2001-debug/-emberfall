@@ -1,4 +1,4 @@
-import type { ItemStack } from "@mmo/shared";
+import { MOUNT_COST, type ItemStack } from "@mmo/shared";
 import type { NpcDef } from "@mmo/shared/data/npcs";
 import { QUESTS } from "@mmo/shared/data/quests";
 import { canAccept, findQuest, questReady, type QuestLog } from "@mmo/shared/systems/quests";
@@ -6,6 +6,7 @@ import { canAccept, findQuest, questReady, type QuestLog } from "@mmo/shared/sys
 export interface DialoguePanelOptions {
   onAccept: (questId: string) => void;
   onComplete: (questId: string) => void;
+  onBuyMount: () => void;
 }
 
 /**
@@ -22,6 +23,7 @@ export class DialoguePanel {
   private npc: NpcDef | undefined = undefined;
   private log: QuestLog = [];
   private bag: ItemStack[] = [];
+  private mountOwned = false;
 
   constructor(private readonly opts: DialoguePanelOptions) {
     document.getElementById("dialogue-close")?.addEventListener("click", () => this.close());
@@ -29,6 +31,11 @@ export class DialoguePanel {
 
   setQuests(log: QuestLog): void {
     this.log = log;
+    if (this.npc) this.render();
+  }
+
+  setMountOwned(owned: boolean): void {
+    this.mountOwned = owned;
     if (this.npc) this.render();
   }
 
@@ -68,6 +75,12 @@ export class DialoguePanel {
       } else {
         this.note(`… ${def.name} (in progress)`);
       }
+    }
+
+    // The Stabler sells mounts (a one-time coin sink).
+    if (this.npc.id === "stabler_bran") {
+      if (this.mountOwned) this.note("✓ You own a mount — press M to ride.");
+      else this.option(`Buy a mount (${MOUNT_COST}g)`, () => this.opts.onBuyMount());
     }
   }
 

@@ -30,6 +30,10 @@ export const ZONE_HEIGHT = 1200;
 /** Player movement speed, in world units per second. */
 export const MOVE_SPEED = 220;
 
+/** Mount (P11): speed multiplier while riding, and its one-time coin cost. */
+export const MOUNT_SPEED_MULT = 1.6;
+export const MOUNT_COST = 500;
+
 /** Default tab-target ability range, in world units. */
 export const ABILITY_RANGE = 150;
 

@@ -50,6 +50,7 @@ import type {
   ExchangePayload,
   HuntPayload,
   AchievementsPayload,
+  MountPayload,
 } from "@mmo/shared";
 import type { QuestLog } from "@mmo/shared/systems/quests";
 import { npcsInZone, type NpcDef } from "@mmo/shared/data/npcs";
@@ -139,6 +140,8 @@ export class ZoneScene extends Phaser.Scene {
   private huntState: HuntPayload = { task: null, points: 0 };
   /** Last-known achievements state. */
   private achievementsState: AchievementsPayload = { list: [], title: "" };
+  /** Whether the player owns a mount (P11). */
+  private mountOwned = false;
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map?: ZoneMap;
@@ -166,12 +169,12 @@ export class ZoneScene extends Phaser.Scene {
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
-    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,P,G,T,X") as Record<
+    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,P,G,T,X,M") as Record<
       string,
       Phaser.Input.Keyboard.Key
     >;
     this.escKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,P,G,T,X,UP,DOWN,LEFT,RIGHT");
+    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,P,G,T,X,M,UP,DOWN,LEFT,RIGHT");
 
     this.selectionRing = this.add
       .circle(0, 0, 28)
@@ -240,6 +243,7 @@ export class ZoneScene extends Phaser.Scene {
     this.dialogue = new DialoguePanel({
       onAccept: (questId) => this.connection.room.send(ClientMessage.QuestAccept, { questId }),
       onComplete: (questId) => this.connection.room.send(ClientMessage.QuestComplete, { questId }),
+      onBuyMount: () => this.connection.room.send(ClientMessage.BuyMount),
     });
     this.events.once("shutdown", () => this.dialogue?.destroy());
 
@@ -453,6 +457,7 @@ export class ZoneScene extends Phaser.Scene {
       }
       view.setHp(player.hp, player.maxHp);
       view.setAlive(player.alive);
+      view.setMounted(player.mounted);
     });
     room.state.enemies.forEach((enemy, id) => {
       const view = this.enemies.get(id);
@@ -492,6 +497,9 @@ export class ZoneScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys["G"]!)) this.guildPanel?.toggle();
     if (Phaser.Input.Keyboard.JustDown(this.keys["T"]!)) this.tradePanel?.toggle();
     if (Phaser.Input.Keyboard.JustDown(this.keys["X"]!)) this.exchangePanel?.toggle();
+    if (Phaser.Input.Keyboard.JustDown(this.keys["M"]!)) {
+      this.connection.room.send(ClientMessage.ToggleMount);
+    }
 
     // Crafting panel (C); refresh its skill gates from live XP while open.
     if (Phaser.Input.Keyboard.JustDown(this.keys["C"]!)) this.craftPanel?.toggle();
@@ -663,6 +671,10 @@ export class ZoneScene extends Phaser.Scene {
     this.connection.room.onMessage(ServerMessage.Achievements, (p: AchievementsPayload) => {
       this.achievementsState = p;
     });
+    this.connection.room.onMessage(ServerMessage.Mount, (p: MountPayload) => {
+      this.mountOwned = p.owned;
+      this.dialogue?.setMountOwned(p.owned);
+    });
     this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
       this.equipmentSlots = p.equipment;
       this.equipmentDurability = p.durability ?? {};
@@ -675,6 +687,7 @@ export class ZoneScene extends Phaser.Scene {
     // Now that the handlers exist, pull our inventory + equipment (the server's
     // onJoin push can arrive before these handlers are registered and be dropped).
     this.connection.room.send(ClientMessage.RequestInventory);
+    this.connection.room.send(ClientMessage.RequestMount);
 
     // Zone travel: the server says we stepped on a gate → leave this room and
     // re-boot into the target zone at the named entry. Re-booting cleanly
@@ -1002,6 +1015,11 @@ export class ZoneScene extends Phaser.Scene {
       duelRespond: (accept: boolean) => room.send(ClientMessage.DuelRespond, { accept }),
       playerHp: (sessionId: string) => room.state?.players?.get(sessionId)?.hp ?? null,
       playerSkull: (sessionId: string) => room.state?.players?.get(sessionId)?.skullUntil ?? 0,
+      mountOwned: () => this.mountOwned,
+      playerMounted: (sessionId: string) => room.state?.players?.get(sessionId)?.mounted ?? false,
+      buyMount: () => room.send(ClientMessage.BuyMount),
+      toggleMount: () => room.send(ClientMessage.ToggleMount),
+      requestMount: () => room.send(ClientMessage.RequestMount),
       buy: (vendorId: string, itemId: string, qty: number) =>
         room.send(ClientMessage.Buy, { vendorId, itemId, qty }),
       sell: (vendorId: string, itemId: string, qty: number) =>

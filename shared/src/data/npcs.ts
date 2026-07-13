@@ -54,6 +54,17 @@ export const NPCS: Record<string, NpcDef> = {
     quests: ["forge_proven"],
     color: 0xc28b4e,
   },
+  stabler_bran: {
+    id: "stabler_bran",
+    name: "Bran the Stabler",
+    zone: "meadowbrook",
+    x: 624,
+    y: 528,
+    greeting:
+      "Tired of walking the frontier? A good elk'll carry you twice as fast. Buy one once and it's yours for good.",
+    quests: [],
+    color: 0x8a6d3b,
+  },
 };
 
 export function npcDef(id: string): NpcDef | undefined {

@@ -17,6 +17,8 @@ import {
   ClientMessage,
   ServerMessage,
   MOVE_SPEED,
+  MOUNT_SPEED_MULT,
+  MOUNT_COST,
   TICK_MS,
   GCD_MS,
   ENERGY_REGEN_PER_SEC,
@@ -112,6 +114,7 @@ export interface SoloSave {
   quests: QuestLog;
   hunt: HuntTask | null;
   huntPoints: number;
+  hasMount: boolean;
   lastSeen: number;
 }
 
@@ -136,6 +139,7 @@ function defaultSave(): SoloSave {
     quests: [],
     hunt: null,
     huntPoints: 0,
+    hasMount: false,
     lastSeen: Date.now(),
   };
 }
@@ -190,6 +194,7 @@ export class SoloRoom {
   private questLog: QuestLog;
   private hunt: HuntTask | null;
   private huntPts: number;
+  private hasMount: boolean;
 
   constructor(
     zoneId: string,
@@ -205,6 +210,7 @@ export class SoloRoom {
     this.questLog = save.quests;
     this.hunt = save.hunt;
     this.huntPts = save.huntPoints;
+    this.hasMount = save.hasMount ?? false;
 
     // Offline rested-XP accrual (mirrors the server's load path).
     save.restedXp = restedAccrual(Date.now() - save.lastSeen, save.restedXp);
@@ -354,6 +360,8 @@ export class SoloRoom {
         this.pushInventory();
         this.pushEquipment();
         this.pushQuests();
+        this.pushHunt();
+        this.pushMount();
         this.pushEmptySocial();
         break;
       case ClientMessage.Equip:
@@ -383,6 +391,15 @@ export class SoloRoom {
         break;
       case ClientMessage.RequestHunt:
         this.pushHunt();
+        break;
+      case ClientMessage.BuyMount:
+        this.doBuyMount();
+        break;
+      case ClientMessage.ToggleMount:
+        this.doToggleMount();
+        break;
+      case ClientMessage.RequestMount:
+        this.pushMount();
         break;
       case ClientMessage.ExchangePost:
         // Single-player: no market without other players.
@@ -466,6 +483,8 @@ export class SoloRoom {
     if (!p.alive) return;
     const ability = ABILITIES[msg.abilityId as keyof typeof ABILITIES];
     if (!ability) return;
+
+    if (p.mounted) p.mounted = false; // you fight on foot
 
     const now = Date.now();
     const onGcd = ability.onGcd ?? true;
@@ -867,6 +886,36 @@ export class SoloRoom {
     this.pushHunt();
   }
 
+  // --- mounts (P11) ----------------------------------------------------------
+
+  private pushMount(): void {
+    this.emit(ServerMessage.Mount, { owned: this.hasMount });
+  }
+
+  private atStabler(): boolean {
+    const npc = npcDef("stabler_bran");
+    const p = this.player();
+    return !!npc && npc.zone === this.map.id && distSq(p.x, p.y, npc.x, npc.y) <= TALK_RANGE * TALK_RANGE;
+  }
+
+  private doBuyMount(): void {
+    if (this.hasMount) return this.system("You already own a mount.");
+    if (!this.atStabler()) return this.system("Find Bran the Stabler in Meadowbrook to buy a mount.");
+    if (countItem(this.inventory, "coins") < MOUNT_COST) {
+      return this.system(`A mount costs ${MOUNT_COST} coins.`);
+    }
+    this.inventory = removeItem(this.inventory, "coins", MOUNT_COST).inventory;
+    this.hasMount = true;
+    this.pushInventory();
+    this.pushMount();
+    this.system("The elk is yours! Press M to ride.");
+  }
+
+  private doToggleMount(): void {
+    if (!this.hasMount) return this.system("You don't own a mount. Visit the Stabler in Meadowbrook.");
+    this.player().mounted = !this.player().mounted;
+  }
+
   private doTalk(npcId: string): void {
     const p = this.player();
     const npc = npcDef(npcId);
@@ -974,7 +1023,8 @@ export class SoloRoom {
 
     // Move + regen energy.
     if (p.alive && (this.input.dx !== 0 || this.input.dy !== 0)) {
-      const next = stepWithCollision({ x: p.x, y: p.y }, { dx: this.input.dx, dy: this.input.dy }, dt, MOVE_SPEED, this.map.collision, PLAYER_HALF);
+      const speed = p.mounted ? MOVE_SPEED * MOUNT_SPEED_MULT : MOVE_SPEED;
+      const next = stepWithCollision({ x: p.x, y: p.y }, { dx: this.input.dx, dy: this.input.dy }, dt, speed, this.map.collision, PLAYER_HALF);
       p.x = next.x;
       p.y = next.y;
     }
@@ -1133,6 +1183,7 @@ export class SoloRoom {
     const p = this.player();
     p.alive = false;
     p.hp = 0;
+    p.mounted = false;
     this.deadUntil = now + PLAYER_RESPAWN_MS;
     this.input.dx = 0;
     this.input.dy = 0;
@@ -1165,6 +1216,7 @@ export class SoloRoom {
       quests: this.questLog,
       hunt: this.hunt,
       huntPoints: this.huntPts,
+      hasMount: this.hasMount,
       lastSeen: Date.now(),
     };
     // A dungeon is not a safe resume point — store the overworld the gate

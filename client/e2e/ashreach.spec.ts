@@ -26,6 +26,14 @@ test("Ashreach PvP: spawn protection, skull, and death drops", async ({ browser 
   const aSid = await pageA.evaluate(() => window.__mmo!.sessionId());
   const bSid = await pageB.evaluate(() => window.__mmo!.sessionId());
 
+  // The shared GM fixture drifts in Melee level across runs; pin the attacker
+  // (B) to A's level so the PvP band (±15) holds regardless of that drift.
+  const bName = await pageB.evaluate(() => window.__mmo!.me()!.name);
+  const aLevel = await pageA.evaluate(() => window.__mmo!.me()!.level);
+  await pageA.fill("#chat-input", `/setlevel ${aLevel} ${bName}`);
+  await pageA.press("#chat-input", "Enter");
+  await expect.poll(() => pageB.evaluate(() => window.__mmo!.me()!.level)).toBe(aLevel);
+
   // Spawn protection: B just joined, so A's immediate attack is blocked (a
   // blocked attack also doesn't skull). A's own protection lapsed during its
   // longer login flow.

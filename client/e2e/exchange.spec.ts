@@ -18,6 +18,19 @@ test("post, match, collect (with tax), and cancel on the Exchange", async ({ pag
   await enterWorldAsGm(page);
   await clearBag(page);
 
+  // The GM account persists orders across runs — clear its book so the counts
+  // below are exact (cancel refunds escrow into the now-empty bag).
+  await page.evaluate(() => window.__mmo!.requestExchange());
+  await page.waitForTimeout(300);
+  for (let i = 0; i < 12; i++) {
+    const orders = await page.evaluate(() => window.__mmo!.exchange().orders);
+    if (orders.length === 0) break;
+    for (const o of orders) await page.evaluate((id) => window.__mmo!.exchangeCancel(id), o.id);
+    await page.waitForTimeout(200);
+    await clearBag(page); // discard refunded escrow so it can't skew later counts
+  }
+  await expect.poll(() => page.evaluate(() => window.__mmo!.exchange().orders.length)).toBe(0);
+
   // Stand at the vendor (the Exchange clerk) with goods + coins.
   await cmd(page, "/tp 624 432");
   await cmd(page, "/give iron_ore 5");
@@ -54,6 +67,7 @@ test("post, match, collect (with tax), and cancel on the Exchange", async ({ pag
   // Cancel path: post a sell, cancel it, escrow comes back.
   await page.evaluate(() => window.__mmo!.exchangePost("sell", "iron_ore", 5, 99));
   await expect.poll(() => count(page, "iron_ore")).toBe(0);
+  await expect.poll(() => page.evaluate(() => window.__mmo!.exchange().orders.length)).toBe(1);
   const cancelId = await page.evaluate(() => window.__mmo!.exchange().orders[0]!.id);
   await page.evaluate((i) => window.__mmo!.exchangeCancel(i), cancelId);
   await expect.poll(() => count(page, "iron_ore")).toBe(5);
