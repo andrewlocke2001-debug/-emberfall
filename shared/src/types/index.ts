@@ -92,6 +92,12 @@ export const PARTY_MAX = 5;
 
 /** Raid (P12): the Molten Throne admits up to 8 (two parties can share). */
 export const RAID_MAX_PLAYERS = 8;
+
+/** Battleground (P12.2): structured team PvP. First team to the score wins. */
+export const BG_ZONE = "bg_arena";
+export const BG_SCORE_TO_WIN = 3;
+/** Coins paid to each winner (a faucet — ledgered). */
+export const BG_REWARD_COINS = 150;
 /** Max melee-level gap for a party member to share kill XP. */
 export const PARTY_LEVEL_RANGE = 10;
 

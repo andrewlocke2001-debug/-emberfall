@@ -54,6 +54,17 @@ export const NPCS: Record<string, NpcDef> = {
     quests: ["forge_proven"],
     color: 0xc28b4e,
   },
+  battlemaster_kor: {
+    id: "battlemaster_kor",
+    name: "Battlemaster Kor",
+    zone: "meadowbrook",
+    x: 560,
+    y: 528,
+    greeting:
+      "Steel sharpens steel. Queue up for the Proving Grounds and show me what the frontier taught you.",
+    quests: [],
+    color: 0x991b1b,
+  },
   stabler_bran: {
     id: "stabler_bran",
     name: "Bran the Stabler",

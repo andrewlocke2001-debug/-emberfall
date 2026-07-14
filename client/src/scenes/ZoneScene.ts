@@ -248,6 +248,7 @@ export class ZoneScene extends Phaser.Scene {
       onAccept: (questId) => this.connection.room.send(ClientMessage.QuestAccept, { questId }),
       onComplete: (questId) => this.connection.room.send(ClientMessage.QuestComplete, { questId }),
       onBuyMount: () => this.connection.room.send(ClientMessage.BuyMount),
+      onBgQueue: () => this.connection.room.send(ClientMessage.BgQueue),
     });
     this.events.once("shutdown", () => this.dialogue?.destroy());
 
@@ -1049,6 +1050,8 @@ export class ZoneScene extends Phaser.Scene {
       toggleMount: () => room.send(ClientMessage.ToggleMount),
       requestMount: () => room.send(ClientMessage.RequestMount),
       fastTravel: (to: string) => room.send(ClientMessage.FastTravel, { to }),
+      bgQueue: () => room.send(ClientMessage.BgQueue),
+      playerTeam: (sessionId: string) => room.state?.players?.get(sessionId)?.team ?? "",
       buy: (vendorId: string, itemId: string, qty: number) =>
         room.send(ClientMessage.Buy, { vendorId, itemId, qty }),
       sell: (vendorId: string, itemId: string, qty: number) =>

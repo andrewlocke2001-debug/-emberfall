@@ -110,6 +110,8 @@ export interface MmoTestApi {
   toggleMount(): void;
   requestMount(): void;
   fastTravel(to: string): void;
+  bgQueue(): void;
+  playerTeam(sessionId: string): string;
   sessionId(): string;
   buy(vendorId: string, itemId: string, qty: number): void;
   sell(vendorId: string, itemId: string, qty: number): void;

@@ -52,6 +52,8 @@ export class PlayerSchema extends Schema {
   declare title: string;
   /** Riding a mount (P11): faster movement, shown to everyone. */
   declare mounted: boolean;
+  /** Battleground team ("red"/"blue"; "" outside a match). Synced (P12.2). */
+  declare team: string;
 
   constructor() {
     super();
@@ -76,6 +78,7 @@ export class PlayerSchema extends Schema {
     this.skullUntil = 0;
     this.title = "";
     this.mounted = false;
+    this.team = "";
   }
 }
 defineTypes(PlayerSchema, {
@@ -100,6 +103,7 @@ defineTypes(PlayerSchema, {
   skullUntil: "number",
   title: "string",
   mounted: "boolean",
+  team: "string",
 });
 
 /** A non-player combatant. M0 ships one stationary training dummy. */

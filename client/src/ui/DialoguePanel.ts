@@ -7,6 +7,7 @@ export interface DialoguePanelOptions {
   onAccept: (questId: string) => void;
   onComplete: (questId: string) => void;
   onBuyMount: () => void;
+  onBgQueue: () => void;
 }
 
 /**
@@ -81,6 +82,14 @@ export class DialoguePanel {
     if (this.npc.id === "stabler_bran") {
       if (this.mountOwned) this.note("✓ You own a mount — press M to ride.");
       else this.option(`Buy a mount (${MOUNT_COST}g)`, () => this.opts.onBuyMount());
+    }
+
+    // The Battlemaster runs the Proving Grounds queue (P12.2).
+    if (this.npc.id === "battlemaster_kor") {
+      this.option("Queue for the battleground", () => {
+        this.opts.onBgQueue();
+        this.close();
+      });
     }
   }
 

@@ -89,6 +89,8 @@ export const ClientMessage = {
   RequestMount: "requestMount",
   /** Fast-travel from the waystone you're standing on to another (coin fee). */
   FastTravel: "fastTravel",
+  /** Join the battleground queue (the matchmaker pops a match at two). */
+  BgQueue: "bgQueue",
   /** Accept an available quest. */
   QuestAccept: "questAccept",
   /** Turn in a quest whose objectives are met. */

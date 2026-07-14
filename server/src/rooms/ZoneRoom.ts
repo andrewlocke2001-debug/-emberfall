@@ -73,6 +73,9 @@ import {
   FRIENDS_MAX,
   PARTY_MAX,
   RAID_MAX_PLAYERS,
+  BG_ZONE,
+  BG_SCORE_TO_WIN,
+  BG_REWARD_COINS,
   PARTY_LEVEL_RANGE,
   EXCHANGE_MAX_ORDERS,
   SKULL_MS,
@@ -137,6 +140,7 @@ import { vendorDef, vendorsInZone } from "@mmo/shared/data/vendors";
 import { waystoneById, waystonesInZone } from "@mmo/shared/data/waystones";
 import { RAID_ZONE, RAID_BOSSES, RAID_RELIC } from "@mmo/shared/data/raid";
 import { nextRaidBoss, isFinalRaidBoss, raidLocked, nextRaidLock } from "@mmo/shared/systems/raid";
+import { battleground, type BgTeam } from "../services/battleground";
 import { EnemySchema, PlayerSchema, ZoneState, GroundLootSchema } from "@mmo/shared/schema/state";
 import {
   MoveSchema,
@@ -303,6 +307,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly mounts = new Set<string>();
   /** Raid weekly lockout per session (ms epoch; persisted). */
   private readonly raidLocks = new Map<string, number>();
+  /** Battleground match state (only used when this room IS the arena). */
+  private readonly bgScore: Record<BgTeam, number> = { red: 0, blue: 0 };
+  private bgOver = false;
   /** Monotonic counter for unique GM-spawned mob ids. */
   private gmSpawnCount = 0;
   /** Monotonic counter for unique ground-loot ids. */
@@ -484,6 +491,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.onMessage(ClientMessage.FastTravel, FastTravelSchema, (client, msg: FastTravelPayload) => {
       void this.handleFastTravel(client, msg);
     });
+    this.onMessage(ClientMessage.BgQueue, (client) => this.handleBgQueue(client));
 
     this.onMessage(ClientMessage.QuestAccept, QuestActionSchema, (client, msg: QuestActionPayload) => {
       this.handleQuestAccept(client, msg);
@@ -664,6 +672,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.titles.set(client.sessionId, saved.title);
     if (saved.hasMount) this.mounts.add(client.sessionId);
     this.raidLocks.set(client.sessionId, saved.raidLockUntil);
+    // Battleground: pin the matchmaker's team on the synced schema.
+    if (this.map.id === BG_ZONE) player.team = battleground.teamOf(options?.ticket ?? "", name);
     this.guildCache.set(
       client.sessionId,
       saved.guildId ? { guildId: saved.guildId, rank: (saved.guildRank ?? "member") as GuildRank } : null,
@@ -736,6 +746,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     // Unregister presence — but only if we still own the entry (on a zone
     // transfer the destination room may have already re-registered them).
     if (presence.get(player.name)?.zone === this.map.id) presence.unregister(player.name);
+    battleground.dequeue(player.name); // never leave a ghost in the BG queue
 
     const snapshot = this.finalizeSnapshot(
       toSaved(player, this.map.id, inventory, equipment, durability, bank, quests, friends, hunt, huntPts, title, hasMount, raidLock),
@@ -826,15 +837,20 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       return;
     }
 
-    // PvP: allowed inside an active duel, or freely (with anti-grief rules) in
-    // a PvP risk zone (the Ashreach, P9.2).
+    // PvP: allowed inside an active duel, freely (with anti-grief rules) in a
+    // PvP risk zone (the Ashreach, P9.2), or cross-team in the battleground.
     const duelTarget = this.duels.get(sessionId);
     const inDuelWith = duelTarget === msg.targetId;
-    const pvpZone = PVP_ZONES.has(this.map.id) && this.state.players.has(msg.targetId) && msg.targetId !== sessionId;
-    if (inDuelWith || pvpZone) {
+    const otherPlayer = this.state.players.has(msg.targetId) && msg.targetId !== sessionId;
+    const pvpZone = PVP_ZONES.has(this.map.id) && otherPlayer;
+    const inBg = this.map.id === BG_ZONE && otherPlayer;
+    if (inDuelWith || pvpZone || inBg) {
       const foe = this.state.players.get(msg.targetId);
       if (!foe || !foe.alive) return;
-      if (!inDuelWith) {
+      // The battleground is structured: only cross-team hits land; no bands,
+      // no protection, no skulls — the queue was the consent.
+      if (inBg && foe.team === player.team) return;
+      if (!inDuelWith && !inBg) {
         // Anti-grief: level band, and spawn protection on either side.
         if (!canAttack(player.level, foe.level)) {
           this.systemTo(client, `${foe.name} is outside your level range.`);
@@ -869,6 +885,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
             // A formal duel: no item loss — announce, end, then normal respawn.
             this.endDuel(sessionId, msg.targetId, `${player.name} defeated ${foe.name} in a duel!`);
             this.killPlayer(foe, msg.targetId, now);
+          } else if (inBg) {
+            // A battleground kill: no loss, quick respawn, and a team point.
+            this.killPlayer(foe, msg.targetId, now);
+            this.scoreBgKill(player.team);
           } else {
             // Risk-zone kill: the victim drops (handled in killPlayer).
             this.endDuel(sessionId, msg.targetId, `${player.name} slew ${foe.name} in the Ashreach!`);
@@ -1669,6 +1689,72 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     // zone's `default` entry, where the stone stands).
     const payload: TransferPayload = { zone: dest.zone, entry: "default" };
     client.send(ServerMessage.Transfer, payload);
+  }
+
+  // --- battleground (structured team PvP, P12.2) -------------------------------
+
+  /** Queue for the battleground; the matchmaker pops a 1v1+ match at two. */
+  private handleBgQueue(client: Client): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player || !player.alive) return;
+    if (this.map.id === BG_ZONE) return; // already fighting
+    const joined = battleground.enqueue(player.name, (ticket, team) => {
+      // Match popped: hand this player to the arena instance on their team's
+      // corner. Same handoff as gates/fast-travel.
+      this.transferring.add(sessionId);
+      this.endTradesFor(sessionId);
+      this.endDuelsFor(sessionId);
+      const payload: TransferPayload = { zone: BG_ZONE, entry: team, ticket };
+      client.send(ServerMessage.Transfer, payload);
+    });
+    this.systemTo(client, joined ? "Queued for the battleground…" : "Already queued.");
+  }
+
+  /** A battleground kill: score it and settle the match at the cap. */
+  private scoreBgKill(killerTeam: string): void {
+    if (this.bgOver || (killerTeam !== "red" && killerTeam !== "blue")) return;
+    const team = killerTeam as BgTeam;
+    this.bgScore[team] += 1;
+    const announce: ChatBroadcastPayload = {
+      channel: "zone",
+      from: "System",
+      zone: this.map.id,
+      text: `${team === "red" ? "Red" : "Blue"} scores! Red ${this.bgScore.red} — Blue ${this.bgScore.blue}.`,
+      at: Date.now(),
+    };
+    this.broadcast(ServerMessage.Chat, announce);
+    if (this.bgScore[team] < BG_SCORE_TO_WIN) return;
+
+    // Match over: pay the winners (a ledgered faucet) and send everyone home.
+    this.bgOver = true;
+    this.state.players.forEach((p, sid) => {
+      if (p.team !== team) return;
+      const c = this.clientFor(sid);
+      const res = addItem(this.inventories.get(sid) ?? [], "coins", BG_REWARD_COINS, itemDef("coins")!.maxStack);
+      this.inventories.set(sid, res.inventory);
+      void recordLedger({ account: p.id, itemId: "coins", delta: BG_REWARD_COINS, reason: "battleground" });
+      if (c) {
+        this.sendInventory(c);
+        this.systemTo(c, `Victory! +${BG_REWARD_COINS} coins.`);
+      }
+    });
+    const fin: ChatBroadcastPayload = {
+      channel: "zone",
+      from: "System",
+      zone: this.map.id,
+      text: `${team === "red" ? "Red" : "Blue"} wins the battleground!`,
+      at: Date.now(),
+    };
+    this.broadcast(ServerMessage.Chat, fin);
+    this.clock.setTimeout(() => {
+      this.state.players.forEach((_p, sid) => {
+        if (this.transferring.has(sid)) return;
+        this.transferring.add(sid);
+        const payload: TransferPayload = { zone: DEFAULT_ZONE, entry: "default" };
+        this.clientFor(sid)?.send(ServerMessage.Transfer, payload);
+      });
+    }, 4000);
   }
 
   // --- duels (consensual PvP, no item loss) ------------------------------------
@@ -2941,7 +3027,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (player.alive) return;
       const at = this.deadUntil.get(sessionId);
       if (at !== undefined && now >= at) {
-        const entry = this.map.entries["default"]!;
+        // Battleground: respawn at your team's corner, not mid-arena.
+        const entry =
+          (this.map.id === BG_ZONE ? this.map.entries[player.team] : undefined) ??
+          this.map.entries["default"]!;
         player.x = entry.x;
         player.y = entry.y;
         player.hp = player.maxHp;

@@ -417,6 +417,9 @@ export class SoloRoom {
       case ClientMessage.FastTravel:
         this.doFastTravel(msg.to);
         break;
+      case ClientMessage.BgQueue:
+        this.system("The battleground needs other players — it opens with multiplayer.");
+        break;
       case ClientMessage.ExchangePost:
         // Single-player: no market without other players.
         this.system("The Exchange only trades between real players — it opens with multiplayer.");

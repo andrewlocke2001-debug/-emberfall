@@ -5,6 +5,7 @@ import tanglewood from "./tanglewood.json";
 import cinderDepths from "./cinder_depths.json";
 import ashreach from "./ashreach.json";
 import moltenThrone from "./molten_throne.json";
+import bgArena from "./bg_arena.json";
 
 interface TiledObject {
   name: string;
@@ -29,6 +30,7 @@ const maps: Record<string, TiledMap> = {
   cinder_depths: cinderDepths as unknown as TiledMap,
   ashreach: ashreach as unknown as TiledMap,
   molten_throne: moltenThrone as unknown as TiledMap,
+  bg_arena: bgArena as unknown as TiledMap,
 };
 
 const layer = (map: TiledMap, name: string): TiledLayer | undefined =>
