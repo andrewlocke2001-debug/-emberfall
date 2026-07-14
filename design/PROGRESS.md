@@ -464,6 +464,24 @@ pitch holds at this scale. Outstanding to call it v1.0 *live*: a paid game
 server (Fly trial ended) + making the repo public for the Pages link — both
 user decisions. The single-file solo build is the play-test channel.
 
+## ART pass (2026-07-14) — the art-direction overhaul (commit ade2100)
+- New procedural art kit (`client/src/render/artkit.ts`): the entire visual
+  identity painted at runtime (no image files — the single-file build stays
+  self-contained). Per-zone terrain palettes, painted grass/roads/flagstone/
+  rock/facades/canopies, flowing water overlay, humanoid hero puppets with a
+  two-frame walk cycle + mounts, one authored silhouette per mob family +
+  per-boss bodies with auras, zone atmospheres (vignette/fog/particles),
+  landmark glows, combat/level-up/gather VFX, and an ember-gold themed UI +
+  title screen. Presentation-only: collision, hit areas, DOM contracts, and
+  test APIs unchanged.
+- Audit finds fixed: ChatBox sticky focus (Enter re-focused the input via the
+  window hotkey — since P1.5); achievements.spec pinned GM melee level
+  (fixture drift had unlocked melee_40).
+- 176 unit + 41 e2e green; single-file rebuilt + file:// verified + resent.
+- Steam prep note: a desktop wrapper (Electron/Tauri) + Steamworks SDK,
+  store-page assets, and the $100 app fee are the remaining trail — see the
+  session notes; the game itself is content-complete and now presentable.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
