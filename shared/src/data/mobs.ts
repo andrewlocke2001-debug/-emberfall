@@ -232,6 +232,32 @@ export const MOBS: Record<string, MobDef> = {
     telegraph: { windupMs: 1600, radius: 140, damage: 55, cooldownMs: 7000 },
   },
 
+  // --- World-event herald (P12.3): leads the scheduled zone invasions. ---
+  invasion_herald: {
+    kind: "invasion_herald",
+    name: "Invasion Herald",
+    level: 35,
+    attack: 40,
+    strength: 42,
+    defence: 32,
+    maxHp: 1500,
+    aggroRadius: 380,
+    leashRadius: 900,
+    attackRange: 52,
+    attackCooldownMs: 2200,
+    moveSpeed: 140,
+    respawnMs: 999_999_999, // event-controlled, never respawns on its own
+    xpReward: 800,
+    drops: [
+      { itemId: "coins", min: 200, max: 400, chance: 1 },
+      { itemId: "ancient_relic", min: 1, max: 2, chance: 1 },
+      { itemId: "health_potion", min: 1, max: 2, chance: 0.6 },
+    ],
+    color: 0x14b8a6,
+    boss: true,
+    telegraph: { windupMs: 1500, radius: 130, damage: 45, cooldownMs: 7000 },
+  },
+
   // --- Molten Throne raid gauntlet (P12.1): five bosses, in kill order. ---
   // Raid bosses never respawn inside a run (huge respawnMs); the room chains
   // the next spawn on each death (see shared/data/raid.ts).

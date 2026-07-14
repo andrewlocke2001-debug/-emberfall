@@ -67,6 +67,15 @@ import { npcDef } from "@mmo/shared/data/npcs";
 import { waystoneById, waystonesInZone } from "@mmo/shared/data/waystones";
 import { RAID_ZONE, RAID_BOSSES, RAID_RELIC } from "@mmo/shared/data/raid";
 import { nextRaidBoss, isFinalRaidBoss, raidLocked, nextRaidLock } from "@mmo/shared/systems/raid";
+import {
+  INVASION_INTERVAL_MS,
+  INVASION_ESCORTS,
+  INVASION_HERALD,
+  INVASION_ESCORT_KIND,
+  INVASION_ZONES,
+  INVASION_HERALD_ID,
+  INVASION_ESCORT_PREFIX,
+} from "@mmo/shared/data/invasions";
 import { vendorDef, vendorsInZone } from "@mmo/shared/data/vendors";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -202,6 +211,8 @@ export class SoloRoom {
   private huntPts: number;
   private hasMount: boolean;
   private raidLock: number;
+  private invasionActive = false;
+  private nextInvasionAt = Date.now() + INVASION_INTERVAL_MS;
 
   constructor(
     zoneId: string,
@@ -577,6 +588,9 @@ export class SoloRoom {
       }
       this.pushHunt();
     }
+
+    // World event: felling the herald repels the invasion (P12.3).
+    if (enemy.id === INVASION_HERALD_ID) this.endInvasion();
 
     // The raid gauntlet (mirrors the server's advanceRaid).
     if (this.map.id === RAID_ZONE) {
@@ -960,6 +974,38 @@ export class SoloRoom {
     this.player().mounted = !this.player().mounted;
   }
 
+  // --- world events: zone invasions (P12.3, mirrors the server) ---------------
+
+  private startInvasion(): void {
+    if (this.invasionActive || !INVASION_ZONES.has(this.map.id)) return;
+    this.invasionActive = true;
+    const at = this.map.entries["default"]!;
+    this.addEnemy(INVASION_HERALD, at.x + 48, at.y, INVASION_HERALD_ID);
+    for (let i = 0; i < INVASION_ESCORTS; i++) {
+      const angle = (Math.PI * 2 * i) / INVASION_ESCORTS;
+      this.addEnemy(
+        INVASION_ESCORT_KIND,
+        at.x + 48 + Math.cos(angle) * 72,
+        at.y + Math.sin(angle) * 72,
+        `${INVASION_ESCORT_PREFIX}${i + 1}`,
+      );
+    }
+    this.system("⚔ An invasion! A warband storms the gate — slay the Invasion Herald to repel it!");
+  }
+
+  private endInvasion(): void {
+    if (!this.invasionActive) return;
+    this.invasionActive = false;
+    this.nextInvasionAt = Date.now() + INVASION_INTERVAL_MS;
+    this.system("The invasion is repelled! The warband scatters.");
+    [...this.state.enemies.keys()]
+      .filter((id) => id === INVASION_HERALD_ID || id.startsWith(INVASION_ESCORT_PREFIX))
+      .forEach((id) => {
+        this.state.enemies.delete(id);
+        this.enemyAI.delete(id);
+      });
+  }
+
   private doFastTravel(to: string): void {
     if (this.transferring) return;
     const p = this.player();
@@ -1072,8 +1118,13 @@ export class SoloRoom {
         p.hp = p.maxHp;
         p.energy = p.maxEnergy;
         break;
+      case "invasion":
+        if (!INVASION_ZONES.has(this.map.id)) this.system("This zone is never invaded.");
+        else if (this.invasionActive) this.system("An invasion is already underway.");
+        else this.startInvasion();
+        break;
       default:
-        this.system(`Unknown command "/${cmd}". Try /give /tp /spawn /heal.`);
+        this.system(`Unknown command "/${cmd}". Try /give /tp /spawn /heal /invasion.`);
     }
   }
 
@@ -1092,6 +1143,11 @@ export class SoloRoom {
       p.y = next.y;
     }
     if (p.energy < p.maxEnergy) p.energy = Math.min(p.maxEnergy, p.energy + ENERGY_REGEN_PER_SEC * dt);
+
+    // World events: the scheduled invasion (single-player keeps them too).
+    if (!this.invasionActive && INVASION_ZONES.has(this.map.id) && now >= this.nextInvasionAt) {
+      this.startInvasion();
+    }
 
     // Zone exit → persist + hand off to a fresh room (client reboots).
     if (!this.transferring) {

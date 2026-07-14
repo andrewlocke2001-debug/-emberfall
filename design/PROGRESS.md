@@ -436,6 +436,34 @@ yet on real devices because we're not deployed.
   only matters at populations a single Fly machine won't see pre-scale.
 - 165 unit + 38 e2e. P11 exit (mobile session; instant hub hops) met locally.
 
+## P12 — the mountain top (complete, local) → **v1.0**
+- **P12.1 the Molten Throne**: instanced 8-player raid past the Ashreach. Five
+  chain-spawned telegraphed bosses (48→60) ordered by `shared/data/raid.ts`;
+  the Molten King awards the Blade of the Molten King (best-in-slot relic)
+  once per character per week (`raidLockUntil` persisted, migration add_raid,
+  ledgered `raid_relic`; pure chain/lockout logic + tests). GM `/raidreset`.
+  Full solo parity.
+- **P12.2 the Proving Grounds**: structured team PvP. Queue at Battlemaster
+  Kor (or anywhere via message) → the matchmaker pops a match at two, minting
+  a dungeon ticket and red/blue teams (synced `PlayerSchema.team`) → a
+  symmetric arena where only cross-team hits land (no bands/skulls/loss) →
+  kills score → first to 3 wins 150 coins each (ledgered faucet) → all home.
+- **P12.3 world events v1**: scheduled zone invasions (15-min timer in
+  greenreach/tanglewood, GM `/invasion` to force): an Invasion Herald
+  mini-boss + 4 escorts storm the gate; slaying the herald repels the event
+  and scatters the warband. Full solo parity (timer + command).
+- 176 unit + 41 e2e (raid/battleground/invasion specs).
+
+# 🏔 v1.0 (local build) — 2026-07-13
+Every roadmap phase P0–P12 is built and verified: combat, five skills,
+quests, social (friends/parties/guilds/hiscores), a leveling world with a
+dungeon + raid, a full economy (trade, Exchange, sinks, dashboard), opt-in
+PvP (duels/Ashreach/battleground), retention (hunts/achievements/ironman),
+comfort (mounts/fast travel/PWA), and world events. The "best of every MMO"
+pitch holds at this scale. Outstanding to call it v1.0 *live*: a paid game
+server (Fly trial ended) + making the repo public for the Pages link — both
+user decisions. The single-file solo build is the play-test channel.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.

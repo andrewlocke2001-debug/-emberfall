@@ -141,6 +141,15 @@ import { waystoneById, waystonesInZone } from "@mmo/shared/data/waystones";
 import { RAID_ZONE, RAID_BOSSES, RAID_RELIC } from "@mmo/shared/data/raid";
 import { nextRaidBoss, isFinalRaidBoss, raidLocked, nextRaidLock } from "@mmo/shared/systems/raid";
 import { battleground, type BgTeam } from "../services/battleground";
+import {
+  INVASION_INTERVAL_MS,
+  INVASION_ESCORTS,
+  INVASION_HERALD,
+  INVASION_ESCORT_KIND,
+  INVASION_ZONES,
+  INVASION_HERALD_ID,
+  INVASION_ESCORT_PREFIX,
+} from "@mmo/shared/data/invasions";
 import { EnemySchema, PlayerSchema, ZoneState, GroundLootSchema } from "@mmo/shared/schema/state";
 import {
   MoveSchema,
@@ -310,6 +319,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   /** Battleground match state (only used when this room IS the arena). */
   private readonly bgScore: Record<BgTeam, number> = { red: 0, blue: 0 };
   private bgOver = false;
+  /** A zone invasion (world event) is currently running here. */
+  private invasionActive = false;
   /** Monotonic counter for unique GM-spawned mob ids. */
   private gmSpawnCount = 0;
   /** Monotonic counter for unique ground-loot ids. */
@@ -370,6 +381,11 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.maxClients = this.map.id === RAID_ZONE ? RAID_MAX_PLAYERS : PARTY_MAX;
       const back = this.map.exits[0]?.to;
       this.returnZone = back && isZoneId(back) ? back : DEFAULT_ZONE;
+    }
+
+    // World events (P12.3): eligible zones get invaded on a schedule.
+    if (INVASION_ZONES.has(this.map.id)) {
+      this.clock.setInterval(() => this.startInvasion(), INVASION_INTERVAL_MS);
     }
 
     this.gmAllow = parseGmAllowlist(process.env["GM_USERNAMES"]);
@@ -1004,6 +1020,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     // The raid gauntlet: a boss death spawns the next boss; the final death
     // awards the lockout-gated relic to every contributor (P12.1).
     if (this.map.id === RAID_ZONE) this.advanceRaid(enemy.kind, contributors);
+
+    // World event: felling the herald repels the invasion (P12.3).
+    if (enemy.id === INVASION_HERALD_ID) this.endInvasion();
     contributors.clear();
   }
 
@@ -1757,6 +1776,58 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     }, 4000);
   }
 
+  // --- world events: zone invasions (P12.3) -------------------------------------
+
+  /** A warband storms the zone gate: escorts around a herald mini-boss. */
+  private startInvasion(): void {
+    if (this.invasionActive || !INVASION_ZONES.has(this.map.id)) return;
+    this.invasionActive = true;
+    const at = this.map.entries["default"]!;
+    this.addEnemy(INVASION_HERALD, at.x + 48, at.y, INVASION_HERALD_ID);
+    for (let i = 0; i < INVASION_ESCORTS; i++) {
+      const angle = (Math.PI * 2 * i) / INVASION_ESCORTS;
+      this.addEnemy(
+        INVASION_ESCORT_KIND,
+        at.x + 48 + Math.cos(angle) * 72,
+        at.y + Math.sin(angle) * 72,
+        `${INVASION_ESCORT_PREFIX}${i + 1}`,
+      );
+    }
+    const announce: ChatBroadcastPayload = {
+      channel: "zone",
+      from: "System",
+      zone: this.map.id,
+      text: "⚔ An invasion! A warband storms the gate — slay the Invasion Herald to repel it!",
+      at: Date.now(),
+    };
+    this.broadcast(ServerMessage.Chat, announce);
+  }
+
+  /** The herald fell: the warband scatters and the event ends. */
+  private endInvasion(): void {
+    if (!this.invasionActive) return;
+    this.invasionActive = false;
+    const announce: ChatBroadcastPayload = {
+      channel: "zone",
+      from: "System",
+      zone: this.map.id,
+      text: "The invasion is repelled! The warband scatters.",
+      at: Date.now(),
+    };
+    this.broadcast(ServerMessage.Chat, announce);
+    // Clear the event spawns (herald corpse + surviving escorts) after a beat
+    // so the death animation and loot settle first.
+    this.clock.setTimeout(() => {
+      [...this.state.enemies.keys()]
+        .filter((id) => id === INVASION_HERALD_ID || id.startsWith(INVASION_ESCORT_PREFIX))
+        .forEach((id) => {
+          this.state.enemies.delete(id);
+          this.enemyAI.delete(id);
+          this.mobContributors.delete(id);
+        });
+    }, 2000);
+  }
+
   // --- duels (consensual PvP, no item loss) ------------------------------------
 
   private handleDuelRequest(client: Client, msg: DuelRequestPayload): void {
@@ -1864,6 +1935,15 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       case "raidreset":
         this.raidLocks.set(client.sessionId, 0);
         this.systemTo(client, "Raid lockout cleared.");
+        break;
+      case "invasion":
+        if (!INVASION_ZONES.has(this.map.id)) {
+          this.systemTo(client, "This zone is never invaded.");
+        } else if (this.invasionActive) {
+          this.systemTo(client, "An invasion is already underway.");
+        } else {
+          this.startInvasion();
+        }
         break;
       case "sethp":
         this.gmSetHp(client, player, args);
