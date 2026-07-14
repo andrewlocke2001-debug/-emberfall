@@ -57,16 +57,21 @@ import { npcsInZone, type NpcDef } from "@mmo/shared/data/npcs";
 import { vendorsInZone, type VendorDef } from "@mmo/shared/data/vendors";
 import { waystonesInZone, type WaystoneDef } from "@mmo/shared/data/waystones";
 import { FastTravelPanel } from "../ui/FastTravelPanel";
+import {
+  ensureArtTextures,
+  paintZoneTexture,
+  paintWaterOverlay,
+  applyAtmosphere,
+  addLandmarkGlow,
+  sparkBurst,
+  levelUpBurst,
+} from "../render/artkit";
 
 const RECONCILE_SNAP = 64; // px of drift beyond which we hard-snap the local player
 const REMOTE_LERP = 0.25; // interpolation factor for remote entities
 const PLAYER_HALF = 12; // must match the server's collision box half-extent
 
-// Tile colors keyed by gid (see tools/mapgen). Trees render as a canopy
-// circle (TREE_GID) for a softer look; everything else fills its tile.
-const TREE_GID = 4;
-const GROUND_COLORS: Record<number, number> = { 1: 0x243a1c, 2: 0x4a3f2c, 6: 0x5a4631 };
-const OBSTACLE_COLORS: Record<number, number> = { 3: 0x6b6660, 5: 0x21406b, 7: 0x6b573c };
+// Terrain + entity art now live in render/artkit.ts (the procedural art kit).
 
 /**
  * The playable zone. Renders authoritative server state, predicts the local
@@ -167,7 +172,9 @@ export class ZoneScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor("#0d1018");
+    this.cameras.main.setBackgroundColor("#0b0e14");
+    // Generate the whole art package (silhouettes, glows, particles) up front.
+    ensureArtTextures(this);
     // The tilemap + camera bounds are set on the first state frame, once we
     // know which zone the server put us in (see ensureWorld).
 
@@ -468,6 +475,8 @@ export class ZoneScene extends Phaser.Scene {
       view.setHp(player.hp, player.maxHp);
       view.setAlive(player.alive);
       view.setMounted(player.mounted);
+      view.setSkulled(player.skullUntil > Date.now());
+      view.setTitle(player.title);
     });
     room.state.enemies.forEach((enemy, id) => {
       const view = this.enemies.get(id);
@@ -577,6 +586,8 @@ export class ZoneScene extends Phaser.Scene {
         y: enemy.y,
         name: enemy.name,
         color: MOBS[enemy.kind]?.color ?? 0xef4444,
+        mobKind: enemy.kind,
+        boss: MOBS[enemy.kind]?.boss ?? false,
         onClick: () => this.selectTarget(id),
       });
       view.setHp(enemy.hp, enemy.maxHp);
@@ -617,7 +628,17 @@ export class ZoneScene extends Phaser.Scene {
       .setStroke("#000", 3);
     dot.setInteractive({ useHandCursor: true });
     dot.on("pointerdown", () => this.connection.room.send(ClientMessage.Pickup, { lootId: id }));
-    return this.add.container(loot.x, loot.y, [dot, label]).setDepth(2);
+    // A soft glimmer + gentle bob so drops catch the eye without shouting.
+    const glimmer = this.add
+      .image(0, 0, "fx-soft")
+      .setTint(color)
+      .setAlpha(0.35)
+      .setScale(2.2)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const c = this.add.container(loot.x, loot.y, [glimmer, dot, label]).setDepth(2);
+    this.tweens.add({ targets: dot, y: -3, duration: 900, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: glimmer, alpha: 0.15, duration: 1100, yoyo: true, repeat: -1 });
+    return c;
   }
 
   private setupMessages(): void {
@@ -630,14 +651,18 @@ export class ZoneScene extends Phaser.Scene {
       if (!targetView) return;
       if (evt.heal) {
         targetView.floatingHeal(evt.damage);
+        sparkBurst(this, targetView.container.x, targetView.container.y - 10, 0x4ade80, 5);
       } else {
         targetView.hitFlash();
         targetView.floatingDamage(evt.damage);
+        sparkBurst(this, targetView.container.x, targetView.container.y - 8, 0xffd166, evt.targetDied ? 12 : 6);
       }
     });
 
     this.connection.room.onMessage(ServerMessage.LevelUp, (p: LevelUpPayload) => {
       this.showLevelUp(p);
+      const me = this.players.get(this.localSessionId);
+      if (me) levelUpBurst(this, me.container.x, me.container.y);
     });
 
     this.connection.room.onMessage(ServerMessage.Inventory, (p: InventoryPayload) => {
@@ -769,6 +794,7 @@ export class ZoneScene extends Phaser.Scene {
       .setStrokeStyle(2, 0x10131a)
       .setInteractive({ useHandCursor: true });
     dot.on("pointerdown", () => this.shop?.open(vendor));
+    addLandmarkGlow(this, vendor.x, vendor.y, 0xffd166, 0.9);
     const label = this.add
       .text(0, -20, `${vendor.name} 🪙`, {
         fontFamily: "system-ui, sans-serif",
@@ -790,6 +816,7 @@ export class ZoneScene extends Phaser.Scene {
       this.dialogue?.open(npc);
       this.connection.room.send(ClientMessage.Talk, { npcId: npc.id });
     });
+    addLandmarkGlow(this, npc.x, npc.y, 0xffe8a3, 0.8);
     const label = this.add
       .text(0, -20, npc.name, {
         fontFamily: "system-ui, sans-serif",
@@ -808,7 +835,10 @@ export class ZoneScene extends Phaser.Scene {
       .circle(0, 0, 9, def?.color ?? 0x9e9e9e)
       .setStrokeStyle(2, 0x10131a)
       .setInteractive({ useHandCursor: true });
-    dot.on("pointerdown", () => this.connection.room.send(ClientMessage.Gather, { nodeId: id }));
+    dot.on("pointerdown", () => {
+      this.connection.room.send(ClientMessage.Gather, { nodeId: id });
+      sparkBurst(this, x, y - 4, def?.color ?? 0x9bd1ff, 5);
+    });
     const label = this.add
       .text(0, -18, def?.name ?? type, {
         fontFamily: "system-ui, sans-serif",
@@ -827,6 +857,7 @@ export class ZoneScene extends Phaser.Scene {
       .setStrokeStyle(2, 0xffffff)
       .setInteractive({ useHandCursor: true });
     dot.on("pointerdown", () => this.fastTravelPanel?.open(w.id));
+    addLandmarkGlow(this, w.x, w.y, 0x7dd3fc, 1.1);
     const label = this.add
       .text(0, -20, "Waystone", {
         fontFamily: "system-ui, sans-serif",
@@ -840,6 +871,7 @@ export class ZoneScene extends Phaser.Scene {
 
   /** A static "Bank" marker so players can find the town bank. */
   private drawBankMarker(x: number, y: number): void {
+    addLandmarkGlow(this, x, y, 0x9ae6b4, 0.8);
     const tile = this.add.rectangle(x, y, 26, 26, 0x2e6f4f).setStrokeStyle(2, 0xffe066).setDepth(-9);
     const label = this.add
       .text(x, y - 22, "🏦 Bank", {
@@ -854,25 +886,26 @@ export class ZoneScene extends Phaser.Scene {
     void label;
   }
 
-  /** Render the zone's ground + obstacle tiles once into a static graphic. */
+  /** Paint the zone once into a canvas texture (the art kit's terrain pass),
+   *  then dress it with the zone's atmosphere (vignette, fog, particles). */
   private drawTilemap(map: ZoneMap): void {
-    const g = this.add.graphics().setDepth(-10);
-    const t = map.tileSize;
-    for (let i = 0; i < map.ground.length; i++) {
-      const x = (i % map.cols) * t;
-      const y = Math.floor(i / map.cols) * t;
-      g.fillStyle(GROUND_COLORS[map.ground[i]!] ?? 0x1a2417, 1);
-      g.fillRect(x, y, t, t);
-
-      const obstacle = map.obstacles[i]!;
-      if (obstacle === TREE_GID) {
-        g.fillStyle(0x14361f, 1);
-        g.fillCircle(x + t / 2, y + t / 2, t * 0.5);
-      } else if (obstacle !== 0) {
-        g.fillStyle(OBSTACLE_COLORS[obstacle] ?? 0x444444, 1);
-        g.fillRect(x, y, t, t);
-      }
+    const key = paintZoneTexture(this, map, map.id);
+    this.add.image(0, 0, key).setOrigin(0).setDepth(-10);
+    // Flowing water/lava: a highlight overlay drifting over the streams.
+    const waterKey = paintWaterOverlay(this, map, map.id);
+    if (waterKey) {
+      const flow = this.add.image(0, 0, waterKey).setOrigin(0).setDepth(-9).setAlpha(0.9);
+      this.tweens.add({
+        targets: flow,
+        x: 5,
+        alpha: 0.45,
+        duration: 1600,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
     }
+    applyAtmosphere(this, map.id, map.pixelWidth, map.pixelHeight);
   }
 
   /** A brief gold banner when a skill levels up — pure feedback, no state. */

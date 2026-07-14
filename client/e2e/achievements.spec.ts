@@ -9,12 +9,19 @@ test("achievements unlock from state; titles are gated + synced", async ({ page 
   await enterWorldAsGm(page);
   const sid = await page.evaluate(() => window.__mmo!.sessionId());
 
+  // The shared GM fixture's Melee level drifts up across suite history (raid
+  // kills etc.) — pin it below 40 so the locked/unlocked split is stable.
+  await page.fill("#chat-input", "/setlevel 10");
+  await page.press("#chat-input", "Enter");
+  await expect.poll(() => page.evaluate(() => window.__mmo!.me()!.level)).toBe(10);
+
   await page.evaluate(() => window.__mmo!.requestAchievements());
   await expect
     .poll(() => page.evaluate(() => window.__mmo!.achievements().list.length))
     .toBeGreaterThan(0);
   const list = await page.evaluate(() => window.__mmo!.achievements().list);
   expect(list.find((a) => a.id === "first_quest")?.unlocked).toBe(true);
+  expect(list.find((a) => a.id === "melee_10")?.unlocked).toBe(true);
   expect(list.find((a) => a.id === "melee_40")?.unlocked).toBe(false);
 
   // A locked title is refused; an unlocked one is worn and synced.

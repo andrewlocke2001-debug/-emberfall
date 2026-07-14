@@ -332,12 +332,117 @@
         z-index: 9; display: none; flex-direction: column; gap: 8px; padding: 12px; width: 300px;
         background: rgba(13,16,24,0.98); border: 1px solid #2a3142; border-radius: 10px; }
       #fasttravel-body { display: flex; flex-direction: column; gap: 8px; }
+
+      /* ======================================================================
+         THE EMBERFALL THEME — the art-direction layer. Appended last so it
+         overrides the classic styling via the cascade; selectors and ids are
+         untouched, so panel logic and tests are unaffected.
+         Palette: deep slate night · ember amber · aged gold · moss + crimson.
+         ====================================================================== */
+      :root {
+        --ink: #0b0e14;
+        --panel: #12161f;
+        --panel-2: #171c28;
+        --line: #2c3548;
+        --line-lit: #46536e;
+        --text: #e8e4d8;
+        --muted: #8b94a7;
+        --ember: #f59e0b;
+        --gold: #ffd166;
+        --blood: #e5484d;
+        --moss: #4ade80;
+        --serif: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+      }
+      html, body { background:
+        radial-gradient(1200px 700px at 50% -10%, #171d2c 0%, var(--ink) 55%) fixed; color: var(--text); }
+
+      /* — Title screen: an ember hearth — */
+      #login { background:
+        radial-gradient(900px 520px at 50% 118%, rgba(245,158,11,0.16) 0%, rgba(245,158,11,0) 60%),
+        radial-gradient(1200px 700px at 50% -10%, #171d2c 0%, var(--ink) 60%); }
+      #login h1 { font-family: var(--serif); font-size: 52px; font-weight: 700; letter-spacing: 6px;
+        text-transform: uppercase; margin-bottom: -6px;
+        background: linear-gradient(180deg, #fff3d6 0%, var(--gold) 45%, #c2651b 100%);
+        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 2px 14px rgba(245,158,11,0.35)); }
+      #login .tagline { font-family: var(--serif); font-style: italic; font-size: 14px;
+        color: var(--muted); letter-spacing: 2px; margin: -4px 0 10px; }
+      #login input { background: var(--panel-2); border-color: var(--line); border-radius: 10px;
+        transition: border-color .15s, box-shadow .15s; }
+      #login input:focus { border-color: var(--ember); box-shadow: 0 0 0 3px rgba(245,158,11,0.18); }
+      #login button { background: linear-gradient(180deg, #f7b23b 0%, #d9822b 100%); color: #241505;
+        border-radius: 10px; letter-spacing: .4px; box-shadow: 0 2px 10px rgba(0,0,0,.5),
+        inset 0 1px 0 rgba(255,255,255,.35); transition: transform .08s, filter .12s; }
+      #login button:hover { background: linear-gradient(180deg, #ffc257 0%, #e8923a 100%); filter: brightness(1.05); }
+      #login button:active { transform: translateY(1px); }
+      #login button.secondary { background: var(--panel-2); color: var(--text);
+        border: 1px solid var(--line); box-shadow: none; }
+      #login button.secondary:hover { background: #1e2534; border-color: var(--line-lit); }
+
+      /* — Shared panel chrome — */
+      #inventory, #bank, #craft, #quests, #dialogue, #shop, #friends, #party, #guild,
+      #trade, #exchange, #fasttravel {
+        background: linear-gradient(180deg, rgba(23,28,40,0.98) 0%, rgba(15,19,28,0.98) 100%);
+        border: 1px solid var(--line); border-top-color: var(--line-lit);
+        border-radius: 12px; box-shadow: 0 18px 50px rgba(0,0,0,0.6),
+        inset 0 1px 0 rgba(255,255,255,0.04); }
+      .inv-header span, .bank-header span, .craft-header span, .quests-header span,
+      .dialogue-header span, .shop-header span, .friends-header span, .party-header span,
+      .guild-header span, .trade-header span, #dialogue-name {
+        font-family: var(--serif); font-size: 15px !important; letter-spacing: 1.5px;
+        text-transform: uppercase; color: var(--gold); }
+      button { font-family: inherit; }
+
+      /* — Slots & rarity: a soft glow instead of a bare border — */
+      .inv-slot, .gear-slot { background: linear-gradient(180deg, #1a2130 0%, #141926 100%); }
+      .inv-slot.filled:hover { border-color: var(--line-lit); }
+      .inv-slot.fine, .gear-slot.fine { box-shadow: inset 0 0 10px rgba(90,160,255,0.18); }
+      .inv-slot.rare, .gear-slot.rare { box-shadow: inset 0 0 10px rgba(199,125,255,0.2); }
+      .inv-slot.relic, .gear-slot.relic { box-shadow: inset 0 0 12px rgba(255,179,71,0.28); }
+      .inv-slot .inv-qty { color: var(--gold); }
+
+      /* — Chat: quieter glass — */
+      #chat-log .line { background: rgba(10,13,20,0.62); border-left: 2px solid rgba(245,158,11,0.35);
+        border-radius: 4px 8px 8px 4px; }
+      #chat-input { background: rgba(15,19,28,0.9); border-color: var(--line); border-radius: 8px; }
+      #chat-input:focus { border-color: var(--ember); }
+      #chat-channel { border-radius: 8px; }
+
+      /* — Ability bar: forged slots + ember energy — */
+      #abilities .energy { border-color: var(--line-lit); box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+      #abilities .energy-fill { background: linear-gradient(90deg, #d9822b, var(--gold)); }
+      #abilities .ability-slot { background: linear-gradient(180deg, #1c2333 0%, #131826 100%);
+        border-color: var(--line); border-radius: 10px;
+        box-shadow: 0 3px 10px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05); }
+      #abilities .ability-slot:hover { border-color: var(--ember);
+        box-shadow: 0 3px 12px rgba(245,158,11,.25), inset 0 1px 0 rgba(255,255,255,.06); }
+      #abilities .ability-key { color: var(--gold); font-weight: 700; }
+
+      /* — Rows/buttons across panels — */
+      .bank-row, .craft-row, .shop-row, .trade-btn, .dialogue-opt {
+        background: linear-gradient(180deg, #1b2231 0%, #151a27 100%);
+        border-radius: 8px; transition: border-color .12s, transform .08s; }
+      .bank-row:hover, .craft-row:hover, .shop-row:hover, .trade-btn:hover, .dialogue-opt:hover {
+        border-color: var(--ember); }
+      .bank-row:active, .trade-btn:active, .dialogue-opt:active { transform: translateY(1px); }
+
+      /* — HUD chip — */
+      #hud { background: rgba(11,14,20,0.7); border: 1px solid var(--line); border-radius: 8px;
+        font-family: var(--serif); letter-spacing: .6px; }
+
+      /* — Scrollbars — */
+      ::-webkit-scrollbar { width: 9px; height: 9px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #2b3345; border-radius: 6px;
+        border: 2px solid rgba(0,0,0,0); background-clip: content-box; }
+      ::-webkit-scrollbar-thumb:hover { background: #3a4560; background-clip: content-box; }
     </style>
   </head>
   <body>
     <div id="game"></div>
     <div id="login">
-      <h1>⚔ Emberfall</h1>
+      <h1>Emberfall</h1>
+      <div class="tagline">a world lit by dying embers</div>
       <input id="name" type="text" placeholder="Username" maxlength="24" autocomplete="username" />
       <input
         id="password"

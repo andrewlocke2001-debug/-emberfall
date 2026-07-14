@@ -38,6 +38,10 @@ export class ChatBox {
   private readonly onInputKey = (e: KeyboardEvent): void => {
     if (e.key === "Enter") {
       e.preventDefault();
+      // Without this, the same keystroke bubbles to onWindowKey AFTER blur()
+      // and re-focuses the input — sticky chat focus that swallowed WASD/panel
+      // keys until Escape. (Found in the v1.0 art audit.)
+      e.stopPropagation();
       const text = this.input.value.trim();
       this.input.value = "";
       if (text) {
@@ -47,6 +51,7 @@ export class ChatBox {
       }
       this.input.blur();
     } else if (e.key === "Escape") {
+      e.stopPropagation();
       this.input.value = "";
       this.input.blur();
     }
