@@ -101,3 +101,17 @@ describe("objectiveStatus / questReady", () => {
     expect(objectiveStatus(obj, 2, [])).toMatchObject({ done: true });
   });
 });
+
+describe("withEquipped", () => {
+  it("adds equipped items to the bag view without mutating it", async () => {
+    const { withEquipped } = await import("./quests");
+    const bag = [{ itemId: "copper_ore", qty: 3 }];
+    const merged = withEquipped(bag, { weapon: "bronze_sword", body: undefined });
+    expect(merged).toEqual([
+      { itemId: "copper_ore", qty: 3 },
+      { itemId: "bronze_sword", qty: 1 },
+    ]);
+    expect(bag).toHaveLength(1); // untouched
+    expect(withEquipped(bag, {})).toBe(bag); // no gear = same reference
+  });
+});

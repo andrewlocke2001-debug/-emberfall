@@ -186,6 +186,9 @@ export interface CombatEventPayload {
   targetDied: boolean;
   /** True for a heal (client shows a green +N instead of damage). */
   heal?: boolean;
+  /** True when the swing missed — the client shows "Miss" so attacks never
+   *  feel swallowed (play-test: silent misses read as "not registering"). */
+  miss?: boolean;
 }
 
 /** Chat channels a client can post to (whisper is its own message). */

@@ -1,7 +1,13 @@
 import { MOUNT_COST, type ItemStack } from "@mmo/shared";
 import type { NpcDef } from "@mmo/shared/data/npcs";
 import { QUESTS } from "@mmo/shared/data/quests";
-import { canAccept, findQuest, questReady, type QuestLog } from "@mmo/shared/systems/quests";
+import {
+  canAccept,
+  findQuest,
+  questReady,
+  objectiveStatus,
+  type QuestLog,
+} from "@mmo/shared/systems/quests";
 
 export interface DialoguePanelOptions {
   onAccept: (questId: string) => void;
@@ -74,7 +80,16 @@ export class DialoguePanel {
       } else if (questReady(def, qp, this.bag)) {
         this.option(`Turn in: ${def.name}`, () => this.opts.onComplete(questId));
       } else {
-        this.note(`… ${def.name} (in progress)`);
+        // Show exactly what's still missing (play-test: "Dorin still says
+        // bring ore" — the real ask was a SMITHED sword; now it says so).
+        const parts = def.objectives
+          .map((obj, i) => {
+            const s = objectiveStatus(obj, qp.progress[i] ?? 0, this.bag);
+            return s.done ? null : `${obj.desc} — ${s.current}/${s.required}`;
+          })
+          .filter(Boolean)
+          .join(" · ");
+        this.note(`… ${def.name}: ${parts || "in progress"}`);
       }
     }
 

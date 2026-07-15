@@ -20,6 +20,7 @@ import {
   MOUNT_SPEED_MULT,
   MOUNT_COST,
   FAST_TRAVEL_COST,
+  DEATH_DURABILITY_LOSS,
   TICK_MS,
   GCD_MS,
   ENERGY_REGEN_PER_SEC,
@@ -890,6 +891,21 @@ export class SoloRoom {
     if (!def) return;
     const qp = findQuest(this.questLog, questId);
     if (!qp || qp.status !== "active") return;
+    // Equipped collect items count: auto-unequip what the turn-in needs.
+    for (const obj of def.objectives) {
+      if (obj.type !== "collect") continue;
+      let missing = obj.count - countItem(this.inventory, obj.itemId);
+      for (const [slot, itemId] of Object.entries(this.equipment)) {
+        if (missing <= 0 || itemId !== obj.itemId) continue;
+        const back = addItem(this.inventory, itemId, 1, itemDef(itemId)?.maxStack ?? 1);
+        if (back.added <= 0) break;
+        this.inventory = back.inventory;
+        delete this.equipment[slot as EquipSlot];
+        missing -= 1;
+      }
+    }
+    this.applyMaxHp();
+    this.pushEquipment();
     if (!questReady(def, qp, this.inventory)) {
       this.system("You haven't finished that quest yet.");
       return;
@@ -1165,15 +1181,24 @@ export class SoloRoom {
       if (e.alive) this.updateMob(e, dt, now);
     });
 
-    // Respawn the player.
+    // Respawn the player. Dying inside a dungeon/raid ejects to its overworld
+    // gate (a boss camping the entry made respawning there an endless trap).
     if (!p.alive && this.deadUntil > 0 && now >= this.deadUntil) {
-      const entry = this.map.entries["default"]!;
-      p.x = entry.x;
-      p.y = entry.y;
+      this.deadUntil = 0;
       p.hp = p.maxHp;
       p.energy = p.maxEnergy;
       p.alive = true;
-      this.deadUntil = 0;
+      const back = mapForId(this.map.id)?.exits[0]?.to;
+      if ((this.map.id === "cinder_depths" || this.map.id === RAID_ZONE) && back && !this.transferring) {
+        this.system("You fell — the wardens dragged you back outside.");
+        this.transferring = true;
+        this.persist();
+        this.emit(ServerMessage.Transfer, { zone: back, entry: "default" });
+        return;
+      }
+      const entry = this.map.entries["default"]!;
+      p.x = entry.x;
+      p.y = entry.y;
     }
 
     // Respawn dead enemies.
@@ -1309,6 +1334,21 @@ export class SoloRoom {
     this.enemyAI.forEach((ai) => {
       if (ai.target === SOLO_ID) ai.target = null;
     });
+    // Death stings: every equipped piece takes a durability hit.
+    let wore = false;
+    for (const itemId of Object.values(this.equipment)) {
+      const def = itemId ? itemDef(itemId) : undefined;
+      if (!itemId || !def || !hasDurability(def)) continue;
+      const before = currentDurability(def, this.durability);
+      if (before <= 0) continue;
+      this.durability[itemId] = wear(before, DEATH_DURABILITY_LOSS);
+      wore = true;
+    }
+    if (wore) {
+      this.applyMaxHp();
+      this.pushEquipment();
+      this.system("Death has worn your gear — repair it at a vendor.");
+    }
   }
 
   // --- persistence -----------------------------------------------------------

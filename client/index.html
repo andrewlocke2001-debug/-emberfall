@@ -50,7 +50,7 @@
       /* In-game HUD + chat (shown by ChatBox once you're in the world) */
       #hud { position: fixed; top: 10px; left: 12px; z-index: 5; display: none;
         font-size: 14px; color: #cdd6e6; background: rgba(13,16,24,0.55);
-        padding: 4px 10px; border-radius: 6px; pointer-events: none; }
+        padding: 4px 10px; border-radius: 6px; /* hoverable: stat tooltips */ }
       #chat { position: fixed; bottom: 10px; left: 10px; z-index: 6; display: none;
         flex-direction: column; gap: 6px; width: min(360px, 72vw); }
       #chat-log { display: flex; flex-direction: column; gap: 2px; max-height: 28vh;
@@ -430,6 +430,52 @@
       #hud { background: rgba(11,14,20,0.7); border: 1px solid var(--line); border-radius: 8px;
         font-family: var(--serif); letter-spacing: .6px; }
 
+      /* — Tutorial cards (first launch) — */
+      #tutorial { position: fixed; inset: 0; z-index: 20; display: none;
+        align-items: center; justify-content: center; background: rgba(5,7,11,0.55); }
+      #tutorial-card { width: min(440px, 88vw); padding: 18px 20px;
+        background: linear-gradient(180deg, rgba(23,28,40,0.99) 0%, rgba(15,19,28,0.99) 100%);
+        border: 1px solid var(--line-lit); border-radius: 14px;
+        box-shadow: 0 24px 70px rgba(0,0,0,0.7); }
+      #tutorial-title { font-family: var(--serif); font-size: 20px; color: var(--gold);
+        letter-spacing: 1px; margin-bottom: 8px; }
+      #tutorial-body { font-size: 14px; line-height: 1.55; color: var(--text); }
+      #tutorial-body b { color: #ffe8a3; }
+      #tutorial-row { display: flex; align-items: center; justify-content: space-between;
+        margin-top: 14px; }
+      #tutorial-step { font-size: 12px; color: var(--muted); }
+      .tutorial-btns { display: flex; gap: 8px; }
+      #tutorial-skip { padding: 7px 12px; font-size: 13px; border-radius: 8px; cursor: pointer;
+        background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+      #tutorial-skip:hover { color: var(--text); border-color: var(--line-lit); }
+      #tutorial-next { padding: 7px 16px; font-size: 13px; font-weight: 700; border: 0;
+        border-radius: 8px; cursor: pointer; color: #241505;
+        background: linear-gradient(180deg, #f7b23b 0%, #d9822b 100%); }
+      #tutorial-next:hover { filter: brightness(1.08); }
+
+      /* — Settings panel — */
+      #settings { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        z-index: 12; display: none; flex-direction: column; gap: 8px; padding: 12px;
+        width: 360px; background: rgba(13,16,24,0.98); border: 1px solid var(--line);
+        border-radius: 12px; }
+      #settings-body { display: flex; flex-direction: column; gap: 6px; max-height: 62vh;
+        overflow-y: auto; }
+      .set-section { font-family: var(--serif); font-size: 12px; letter-spacing: 1.5px;
+        text-transform: uppercase; color: var(--gold); margin: 8px 0 2px; }
+      .set-row { display: flex; align-items: center; justify-content: space-between;
+        gap: 10px; font-size: 13px; padding: 4px 2px; }
+      .set-key { min-width: 74px; text-align: center; padding: 5px 8px; border-radius: 8px;
+        border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+        cursor: pointer; font-size: 13px; }
+      .set-key:hover { border-color: var(--ember); }
+      .set-key.listening { border-color: var(--gold); color: var(--gold); }
+      .set-row input[type="checkbox"] { accent-color: var(--ember); width: 16px; height: 16px; }
+      .set-actions { display: flex; gap: 8px; margin-top: 8px; }
+      .set-actions button { flex: 1; padding: 7px 0; font-size: 13px; border-radius: 8px;
+        cursor: pointer; background: var(--panel-2); color: var(--text);
+        border: 1px solid var(--line); }
+      .set-actions button:hover { border-color: var(--ember); }
+
       /* — Scrollbars — */
       ::-webkit-scrollbar { width: 9px; height: 9px; }
       ::-webkit-scrollbar-track { background: transparent; }
@@ -464,6 +510,9 @@
       <div class="hint hint-mobile">Move: drag the left side · Target: tap an enemy · Attack: hold the ⚔ button</div>
     </div>
     <div id="hud"></div>
+    <button id="settings-gear" type="button" title="Settings" style="position:fixed;top:10px;right:12px;
+      z-index:7;display:none;width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:16px;
+      background:rgba(13,16,24,0.7);color:#cdd6e6;border:1px solid #2c3548">⚙</button>
     <div id="abilities"></div>
     <div id="chat">
       <div id="chat-log"></div>
@@ -534,6 +583,23 @@
     <div id="fasttravel">
       <div class="trade-header"><span>Waystone</span><button id="fasttravel-close" type="button">✕</button></div>
       <div id="fasttravel-body"></div>
+    </div>
+    <div id="tutorial">
+      <div id="tutorial-card">
+        <div id="tutorial-title"></div>
+        <div id="tutorial-body"></div>
+        <div id="tutorial-row">
+          <div id="tutorial-step"></div>
+          <div class="tutorial-btns">
+            <button id="tutorial-skip" type="button">Skip tutorial</button>
+            <button id="tutorial-next" type="button">Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="settings">
+      <div class="trade-header"><span>Settings</span><button id="settings-close" type="button">✕</button></div>
+      <div id="settings-body"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

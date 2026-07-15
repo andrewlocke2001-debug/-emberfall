@@ -37,6 +37,10 @@ export const MOUNT_COST = 500;
 /** Fast-travel (P11): flat coin fee per waystone jump (a sink). */
 export const FAST_TRAVEL_COST = 30;
 
+/** Death penalty: every equipped piece loses this much durability (a repair
+ *  bill — dying should sting without deleting progress). */
+export const DEATH_DURABILITY_LOSS = 15;
+
 /** Default tab-target ability range, in world units. */
 export const ABILITY_RANGE = 150;
 

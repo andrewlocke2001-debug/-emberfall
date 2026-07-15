@@ -73,6 +73,7 @@ import {
   FRIENDS_MAX,
   PARTY_MAX,
   RAID_MAX_PLAYERS,
+  DEATH_DURABILITY_LOSS,
   BG_ZONE,
   BG_SCORE_TO_WIN,
   BG_REWARD_COINS,
@@ -887,6 +888,16 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       const result = resolveAttack(atk, this.playerStats(msg.targetId, foe));
       this.commitAbility(sessionId, ability, now);
       player.energy -= cost;
+      if (!result.hit) {
+        // Misses are feedback too — silence reads as a swallowed input.
+        this.broadcast(ServerMessage.CombatEvent, {
+          attackerId: sessionId,
+          targetId: msg.targetId,
+          damage: 0,
+          targetDied: false,
+          miss: true,
+        });
+      }
       if (result.hit) {
         foe.hp = result.targetHpAfter;
         this.wearGear(client, this.equipment.get(sessionId)?.weapon);
@@ -928,6 +939,16 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.commitAbility(sessionId, ability, now);
     player.energy -= cost;
 
+    if (!result.hit) {
+      const missEvt: CombatEventPayload = {
+        attackerId: sessionId,
+        targetId: enemy.id,
+        damage: 0,
+        targetDied: false,
+        miss: true,
+      };
+      this.broadcast(ServerMessage.CombatEvent, missEvt);
+    }
     if (result.hit) {
       enemy.hp = result.targetHpAfter;
       // A landing swing wears the weapon (P8 durability).
@@ -2891,6 +2912,27 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     if (!qp || qp.status !== "active") return;
 
     let inventory = this.inventories.get(sessionId) ?? [];
+
+    // Play-test fix: an EQUIPPED collect item counts (Dorin refused a proudly
+    // worn Bronze Sword). Auto-unequip anything the turn-in needs but the bag
+    // lacks, so consumption below stays a plain bag operation.
+    const equipment = this.equipment.get(sessionId) ?? {};
+    for (const obj of def.objectives) {
+      if (obj.type !== "collect") continue;
+      let missing = obj.count - countItem(inventory, obj.itemId);
+      for (const [slot, itemId] of Object.entries(equipment)) {
+        if (missing <= 0 || itemId !== obj.itemId) continue;
+        const back = addItem(inventory, itemId, 1, itemDef(itemId)?.maxStack ?? 1);
+        if (back.added <= 0) break; // bag full — readiness check will explain
+        inventory = back.inventory;
+        delete equipment[slot as keyof typeof equipment];
+        missing -= 1;
+      }
+    }
+    this.inventories.set(sessionId, inventory);
+    this.equipment.set(sessionId, equipment);
+    this.applyMaxHp(sessionId, player);
+
     if (!questReady(def, qp, inventory)) {
       this.systemTo(client, "You haven't finished that quest yet.");
       return;
@@ -2922,6 +2964,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
     this.questLogs.set(sessionId, completeQuest(log, msg.questId));
     this.sendInventory(client);
+    this.sendEquipment(client); // the auto-unequip above may have changed gear
     this.sendQuests(client);
     this.systemTo(client, `Quest complete: ${def.name}!`);
   }
@@ -3107,6 +3150,26 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (player.alive) return;
       const at = this.deadUntil.get(sessionId);
       if (at !== undefined && now >= at) {
+        // Dying inside a dungeon or the raid ejects you to its overworld gate
+        // (play-test: a boss camped the respawn point — an inescapable trap).
+        // The battleground is exempt: you respawn at your team's corner.
+        if (isDungeonId(this.map.id) && this.map.id !== BG_ZONE && this.returnZone) {
+          this.deadUntil.delete(sessionId);
+          player.hp = player.maxHp;
+          player.alive = true;
+          if (!this.transferring.has(sessionId)) {
+            this.transferring.add(sessionId);
+            this.endTradesFor(sessionId);
+            this.endDuelsFor(sessionId);
+            const out: TransferPayload = { zone: this.returnZone, entry: "default" };
+            const c = this.clientFor(sessionId);
+            if (c) {
+              this.systemTo(c, "You fell — the wardens dragged you back outside.");
+              c.send(ServerMessage.Transfer, out);
+            }
+          }
+          return;
+        }
         // Battleground: respawn at your team's corner, not mid-arena.
         const entry =
           (this.map.id === BG_ZONE ? this.map.entries[player.team] : undefined) ??
@@ -3316,6 +3379,16 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     player.hp = 0;
     player.mounted = false; // a corpse doesn't ride
     this.deadUntil.set(sessionId, now + PLAYER_RESPAWN_MS);
+    // Death stings: every equipped piece takes a durability hit (a repair
+    // bill), except in the battleground where dying is part of the sport.
+    if (this.map.id !== BG_ZONE) {
+      const dead = this.clientFor(sessionId);
+      const equip = this.equipment.get(sessionId) ?? {};
+      if (dead) {
+        for (const itemId of Object.values(equip)) this.wearGear(dead, itemId, DEATH_DURABILITY_LOSS);
+        if (Object.keys(equip).length > 0) this.systemTo(dead, "Death has worn your gear — repair it at a vendor.");
+      }
+    }
     if (PVP_ZONES.has(this.map.id)) {
       const { drops, remaining } = deathDrops(this.inventories.get(sessionId) ?? [], itemDef);
       if (drops.length > 0) {

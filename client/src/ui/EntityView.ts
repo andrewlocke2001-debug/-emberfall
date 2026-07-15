@@ -304,6 +304,11 @@ export class EntityView {
     this.floatingText(`+${amount}`, "#4ade80");
   }
 
+  /** Gray "Miss" — a swing that didn't land is still feedback. */
+  floatingMiss(): void {
+    this.floatingText("Miss", "#9aa4b5");
+  }
+
   private floatingText(label: string, color: string): void {
     const text = this.scene.add
       .text(this.container.x, this.container.y - this.radius - 24, label, {

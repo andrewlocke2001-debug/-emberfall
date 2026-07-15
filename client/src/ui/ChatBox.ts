@@ -101,6 +101,21 @@ export class ChatBox {
     this.hud.textContent = text;
   }
 
+  /** HUD as titled segments — hovering a stat explains what it does. */
+  setHudParts(parts: { text: string; tip?: string }[]): void {
+    this.hud.replaceChildren();
+    parts.forEach((p, i) => {
+      if (i > 0) this.hud.appendChild(document.createTextNode(" · "));
+      const span = document.createElement("span");
+      span.textContent = p.text;
+      if (p.tip) {
+        span.title = p.tip;
+        span.style.cursor = "help";
+      }
+      this.hud.appendChild(span);
+    });
+  }
+
   destroy(): void {
     window.removeEventListener("keydown", this.onWindowKey);
     this.input.removeEventListener("keydown", this.onInputKey);

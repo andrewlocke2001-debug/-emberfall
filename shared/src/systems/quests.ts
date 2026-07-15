@@ -99,6 +99,24 @@ export function questReady(def: QuestDef, qp: QuestProgress, inv: Inventory): bo
   return def.objectives.every((obj, i) => objectiveStatus(obj, qp.progress[i] ?? 0, inv).done);
 }
 
+/**
+ * The bag PLUS currently-equipped items, for quest readiness checks — a
+ * smithed sword you proudly equipped still counts as "brought back" (found in
+ * play-testing: Dorin refused an equipped Bronze Sword). Pure; used for
+ * DISPLAY and readiness. Turn-in consumption still pulls from the real bag
+ * (the server auto-unequips first).
+ */
+export function withEquipped(
+  inv: Inventory,
+  equipment: Partial<Record<string, string>>,
+): Inventory {
+  const extra: Inventory = [];
+  for (const itemId of Object.values(equipment)) {
+    if (itemId) extra.push({ itemId, qty: 1 });
+  }
+  return extra.length === 0 ? inv : [...inv, ...extra];
+}
+
 export function completeQuest(log: QuestLog, questId: string): QuestLog {
   return log.map((qp) => (qp.questId === questId ? { ...qp, status: "complete" as const } : qp));
 }

@@ -52,7 +52,7 @@ import type {
   AchievementsPayload,
   MountPayload,
 } from "@mmo/shared";
-import type { QuestLog } from "@mmo/shared/systems/quests";
+import { withEquipped, type QuestLog } from "@mmo/shared/systems/quests";
 import { npcsInZone, type NpcDef } from "@mmo/shared/data/npcs";
 import { vendorsInZone, type VendorDef } from "@mmo/shared/data/vendors";
 import { waystonesInZone, type WaystoneDef } from "@mmo/shared/data/waystones";
@@ -66,6 +66,9 @@ import {
   sparkBurst,
   levelUpBurst,
 } from "../render/artkit";
+import { TutorialGuide } from "../ui/TutorialGuide";
+import { SettingsPanel } from "../ui/SettingsPanel";
+import { loadSettings, type Settings } from "../settings";
 
 const RECONCILE_SNAP = 64; // px of drift beyond which we hard-snap the local player
 const REMOTE_LERP = 0.25; // interpolation factor for remote entities
@@ -151,6 +154,10 @@ export class ZoneScene extends Phaser.Scene {
   private achievementsState: AchievementsPayload = { list: [], title: "" };
   /** Whether the player owns a mount (P11). */
   private mountOwned = false;
+  /** Player settings (rebindable keys + toggles) and the pages that edit them. */
+  private settings: Settings = loadSettings();
+  private settingsPanel?: SettingsPanel;
+  private tutorial?: TutorialGuide;
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map: ZoneMap | undefined = undefined;
@@ -194,12 +201,14 @@ export class ZoneScene extends Phaser.Scene {
 
     const keyboard = this.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
-    this.keys = keyboard.addKeys("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,P,G,T,X,M") as Record<
-      string,
-      Phaser.Input.Keyboard.Key
-    >;
+    // Movement/attack are fixed; every panel + ability key comes from the
+    // player's bindings (Settings → Controls). Re-read on each zone load.
+    this.settings = loadSettings();
+    const bound = [...new Set(Object.values(this.settings.keys))];
+    const keyList = `W,A,S,D,SPACE,${bound.join(",")}`;
+    this.keys = keyboard.addKeys(keyList) as Record<string, Phaser.Input.Keyboard.Key>;
     this.escKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    keyboard.addCapture("W,A,S,D,SPACE,ONE,TWO,THREE,I,B,C,J,F,P,G,T,X,M,UP,DOWN,LEFT,RIGHT");
+    keyboard.addCapture(`${keyList},UP,DOWN,LEFT,RIGHT`);
 
     this.selectionRing = this.add
       .circle(0, 0, 28)
@@ -368,6 +377,25 @@ export class ZoneScene extends Phaser.Scene {
     });
     this.events.once("shutdown", () => this.fastTravelPanel?.destroy());
 
+    // Settings (⚙ button) + the first-launch tutorial (skippable).
+    this.tutorial = new TutorialGuide();
+    this.settingsPanel = new SettingsPanel({
+      onChange: (s) => {
+        this.settings = s; // toggles apply live; key changes on next zone load
+      },
+      onReplayTutorial: () => this.tutorial?.maybeShow(true),
+    });
+    const gear = document.getElementById("settings-gear");
+    if (gear) {
+      gear.style.display = "block";
+      gear.onclick = () => this.settingsPanel?.toggle();
+    }
+    this.events.once("shutdown", () => {
+      this.settingsPanel?.destroy();
+      this.tutorial?.destroy();
+    });
+    this.tutorial.maybeShow();
+
     this.bankPanel = new BankPanel({
       onDeposit: (itemId, qty) => this.connection.room.send(ClientMessage.Deposit, { itemId, qty }),
       onWithdraw: (itemId, qty) => this.connection.room.send(ClientMessage.Withdraw, { itemId, qty }),
@@ -409,8 +437,21 @@ export class ZoneScene extends Phaser.Scene {
       ` · 🔨${smithingLvl} · 🍳${cookingLvl}` +
       (me && me.restedXp > 0 ? " · 💤 rested" : "");
     if (hud !== this.lastHud) {
-      this.chat?.setHud(hud);
       this.lastHud = hud;
+      // Titled segments: hovering a stat explains what it does (play-test ask).
+      const parts: { text: string; tip?: string }[] = [
+        { text: `${this.map?.displayName ?? ""} — ${room.state.players.size} online` },
+        { text: `⚔${meleeLvl}`, tip: `Melee ${meleeLvl} — accuracy and max hit; levels from landing blows.` },
+        { text: `♥${vitalityLvl}`, tip: `Vitality ${vitalityLvl} — raises max HP; levels alongside combat.` },
+        { text: `⛏${miningLvl}`, tip: `Mining ${miningLvl} — which rocks you can work and how reliably.` },
+        { text: `🎣${fishingLvl}`, tip: `Fishing ${fishingLvl} — which waters you can fish and how reliably.` },
+        { text: `🔨${smithingLvl}`, tip: `Smithing ${smithingLvl} — smelt bars and forge gear at the forge (C).` },
+        { text: `🍳${cookingLvl}`, tip: `Cooking ${cookingLvl} — turn raw catches into healing food (C).` },
+      ];
+      if (me && me.restedXp > 0) {
+        parts.push({ text: "💤 rested", tip: "Rested — +50% XP while this bonus lasts (earned offline)." });
+      }
+      this.chat?.setHudParts(parts);
     }
 
     // --- read input → movement intent (keyboard digital + joystick analog)
@@ -509,10 +550,11 @@ export class ZoneScene extends Phaser.Scene {
 
     // 1/2/3 fire on press; held Space (or the touch button) auto-repeats the
     // basic Strike whenever it comes off the global cooldown.
-    if (Phaser.Input.Keyboard.JustDown(this.keys["ONE"]!)) this.tryUseAbility("strike");
-    if (Phaser.Input.Keyboard.JustDown(this.keys["TWO"]!)) this.tryUseAbility("power_strike");
-    if (Phaser.Input.Keyboard.JustDown(this.keys["THREE"]!)) this.tryUseAbility("mend");
-    if (Phaser.Input.Keyboard.JustDown(this.keys["I"]!)) this.inventory?.toggle();
+    const bind = this.settings.keys;
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.ability1]!)) this.tryUseAbility("strike");
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.ability2]!)) this.tryUseAbility("power_strike");
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.ability3]!)) this.tryUseAbility("mend");
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.inventory]!)) this.inventory?.toggle();
 
     // Bank: fetch contents when you arrive at one; B toggles the panel there;
     // walking away closes it.
@@ -522,20 +564,20 @@ export class ZoneScene extends Phaser.Scene {
       if (nowAtBank) room.send(ClientMessage.RequestBank);
       else this.bankPanel?.toggle(false);
     }
-    if (Phaser.Input.Keyboard.JustDown(this.keys["B"]!) && this.atBank) this.bankPanel?.toggle();
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.bank]!) && this.atBank) this.bankPanel?.toggle();
 
-    if (Phaser.Input.Keyboard.JustDown(this.keys["J"]!)) this.questPanel?.toggle();
-    if (Phaser.Input.Keyboard.JustDown(this.keys["F"]!)) this.friendsPanel?.toggle();
-    if (Phaser.Input.Keyboard.JustDown(this.keys["P"]!)) this.partyPanel?.toggle();
-    if (Phaser.Input.Keyboard.JustDown(this.keys["G"]!)) this.guildPanel?.toggle();
-    if (Phaser.Input.Keyboard.JustDown(this.keys["T"]!)) this.tradePanel?.toggle();
-    if (Phaser.Input.Keyboard.JustDown(this.keys["X"]!)) this.exchangePanel?.toggle();
-    if (Phaser.Input.Keyboard.JustDown(this.keys["M"]!)) {
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.quests]!)) this.questPanel?.toggle();
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.friends]!)) this.friendsPanel?.toggle();
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.party]!)) this.partyPanel?.toggle();
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.guild]!)) this.guildPanel?.toggle();
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.trade]!)) this.tradePanel?.toggle();
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.exchange]!)) this.exchangePanel?.toggle();
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.mount]!)) {
       this.connection.room.send(ClientMessage.ToggleMount);
     }
 
     // Crafting panel (C); refresh its skill gates from live XP while open.
-    if (Phaser.Input.Keyboard.JustDown(this.keys["C"]!)) this.craftPanel?.toggle();
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.craft]!)) this.craftPanel?.toggle();
     if (this.craftPanel?.isOpen() && me) {
       this.craftPanel.setLevels({
         smithing: levelForXp(me.smithingXp),
@@ -663,12 +705,17 @@ export class ZoneScene extends Phaser.Scene {
     this.connection.room.onMessage(ServerMessage.CombatEvent, (evt: CombatEventPayload) => {
       const targetView = this.enemies.get(evt.targetId) ?? this.players.get(evt.targetId);
       if (!targetView) return;
+      const numbers = this.settings.showDamage;
+      if (evt.miss) {
+        if (numbers) targetView.floatingMiss();
+        return;
+      }
       if (evt.heal) {
-        targetView.floatingHeal(evt.damage);
+        if (numbers) targetView.floatingHeal(evt.damage);
         sparkBurst(this, targetView.container.x, targetView.container.y - 10, 0x4ade80, 5);
       } else {
         targetView.hitFlash();
-        targetView.floatingDamage(evt.damage);
+        if (numbers) targetView.floatingDamage(evt.damage);
         sparkBurst(this, targetView.container.x, targetView.container.y - 8, 0xffd166, evt.targetDied ? 12 : 6);
       }
     });
@@ -680,12 +727,14 @@ export class ZoneScene extends Phaser.Scene {
     });
 
     this.connection.room.onMessage(ServerMessage.Inventory, (p: InventoryPayload) => {
+      this.showGainToasts(this.inventorySlots, p.slots);
       this.inventorySlots = p.slots;
       this.inventory?.setInventory(p.slots);
       this.bankPanel?.setBag(p.slots);
       this.craftPanel?.setBag(p.slots);
-      this.questPanel?.setBag(p.slots);
-      this.dialogue?.setBag(p.slots);
+      // Quest views count equipped items too (a worn sword still "counts").
+      this.questPanel?.setBag(withEquipped(p.slots, this.equipmentSlots));
+      this.dialogue?.setBag(withEquipped(p.slots, this.equipmentSlots));
       this.shop?.setBag(p.slots);
       this.tradePanel?.setBag(p.slots);
     });
@@ -728,6 +777,9 @@ export class ZoneScene extends Phaser.Scene {
       this.equipmentSlots = p.equipment;
       this.equipmentDurability = p.durability ?? {};
       this.inventory?.setEquipment(p.equipment, this.equipmentDurability);
+      // Keep the quest views' merged bag+gear in sync on equip changes too.
+      this.questPanel?.setBag(withEquipped(this.inventorySlots, this.equipmentSlots));
+      this.dialogue?.setBag(withEquipped(this.inventorySlots, this.equipmentSlots));
     });
     this.connection.room.onMessage(ServerMessage.Bank, (p: BankPayload) => {
       this.bankSlots = p.slots;
@@ -775,6 +827,10 @@ export class ZoneScene extends Phaser.Scene {
     for (const npc of npcsInZone(zoneId)) this.drawNpcMarker(npc);
     for (const v of vendorsInZone(zoneId)) this.drawVendorMarker(v);
     for (const w of waystonesInZone(zoneId)) this.drawWaystoneMarker(w);
+    // The smith's forge: a visible, clickable place to smelt & craft (the C
+    // panel works anywhere, but play-testers looked for a forge — give them one).
+    const dorin = npcsInZone(zoneId).find((n) => n.id === "smith_dorin");
+    if (dorin) this.drawForgeMarker(dorin.x + 40, dorin.y + 24);
     // Center small zones on large viewports (no top-left pinning): widen the
     // bounds symmetrically when the world is smaller than the screen.
     const vw = this.scale.width;
@@ -894,6 +950,28 @@ export class ZoneScene extends Phaser.Scene {
     this.add.container(w.x, w.y, [dot, label]).setDepth(3);
   }
 
+  /** The clickable forge beside the smith — opens the crafting panel. */
+  private drawForgeMarker(x: number, y: number): void {
+    addLandmarkGlow(this, x, y, 0xff8a3c, 0.9);
+    const anvil = this.add
+      .rectangle(0, 0, 20, 12, 0x3a4150)
+      .setStrokeStyle(2, 0x1a1f29)
+      .setInteractive({ useHandCursor: true });
+    anvil.on("pointerdown", () => this.craftPanel?.toggle(true));
+    const ember = this.add.image(0, -2, "fx-soft").setTint(0xff8a3c).setAlpha(0.7).setScale(0.8)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({ targets: ember, alpha: 0.3, duration: 700, yoyo: true, repeat: -1 });
+    const label = this.add
+      .text(0, -20, "⚒ Forge (C)", {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "12px",
+        color: "#ffb066",
+      })
+      .setOrigin(0.5)
+      .setStroke("#000", 3);
+    this.add.container(x, y, [anvil, ember, label]).setDepth(3);
+  }
+
   /** A static "Bank" marker so players can find the town bank. */
   private drawBankMarker(x: number, y: number): void {
     addLandmarkGlow(this, x, y, 0x9ae6b4, 0.8);
@@ -930,7 +1008,45 @@ export class ZoneScene extends Phaser.Scene {
         ease: "Sine.easeInOut",
       });
     }
-    applyAtmosphere(this, map.id, map.pixelWidth, map.pixelHeight);
+    applyAtmosphere(this, map.id, map.pixelWidth, map.pixelHeight, this.settings.particles);
+  }
+
+  /** Float "+N Item" above the player whenever the bag GAINS something —
+   *  mining a rock, landing a catch, crafting, looting, quest rewards. One
+   *  diff covers every acquisition path (play-test ask: quiet confirmation). */
+  private showGainToasts(prev: ItemStack[], next: ItemStack[]): void {
+    if (prev.length === 0 && next.length > 0 && this.lastHud === "") return; // login flood
+    const before = new Map<string, number>();
+    for (const s of prev) before.set(s.itemId, (before.get(s.itemId) ?? 0) + s.qty);
+    const after = new Map<string, number>();
+    for (const s of next) after.set(s.itemId, (after.get(s.itemId) ?? 0) + s.qty);
+    const me = this.players.get(this.localSessionId);
+    if (!me) return;
+    let stack = 0;
+    after.forEach((qty, itemId) => {
+      const gain = qty - (before.get(itemId) ?? 0);
+      if (gain <= 0 || stack >= 3) return;
+      const name = ITEMS[itemId]?.name ?? itemId;
+      const toast = this.add
+        .text(me.container.x, me.container.y - 34 - stack * 16, `+${gain} ${name}`, {
+          fontFamily: "system-ui, sans-serif",
+          fontSize: "13px",
+          color: itemId === "coins" ? "#ffd166" : "#b8f5c8",
+          fontStyle: "bold",
+        })
+        .setOrigin(0.5)
+        .setStroke("#05070a", 4)
+        .setDepth(50);
+      this.tweens.add({
+        targets: toast,
+        y: toast.y - 26,
+        alpha: 0,
+        duration: 1100,
+        ease: "Cubic.easeOut",
+        onComplete: () => toast.destroy(),
+      });
+      stack += 1;
+    });
   }
 
   /** A brief gold banner when a skill levels up — pure feedback, no state. */

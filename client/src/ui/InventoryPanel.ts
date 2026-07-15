@@ -28,7 +28,10 @@ export class InventoryPanel {
   private visible = false;
 
   constructor(private readonly opts: InventoryPanelOptions) {
-    // Equipment strip, built once above the bag grid.
+    // Equipment strip above the bag grid. The scene restarts on every zone
+    // transfer and rebuilds this panel — remove any previous strip first, or
+    // the panel grows a duplicate gear row per zone change (play-test find).
+    document.getElementById("inv-gear")?.remove();
     this.gearRow = document.createElement("div");
     this.gearRow.id = "inv-gear";
     this.root.insertBefore(this.gearRow, this.grid);

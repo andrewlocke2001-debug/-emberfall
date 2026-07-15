@@ -1117,7 +1117,13 @@ const ATMOS: Record<string, Atmosphere> = {
  * particles (pollen / leaves / embers / ash) per zone. Everything is fixed to
  * the camera and never blocks input (all overlays are non-interactive).
  */
-export function applyAtmosphere(scene: Phaser.Scene, zoneId: string, worldW: number, worldH: number): void {
+export function applyAtmosphere(
+  scene: Phaser.Scene,
+  zoneId: string,
+  worldW: number,
+  worldH: number,
+  particles = true,
+): void {
   const a = ATMOS[zoneId] ?? ATMOS["meadowbrook"]!;
 
   // Vignette: four soft gradient edges (cheap + resolution independent).
@@ -1150,8 +1156,8 @@ export function applyAtmosphere(scene: Phaser.Scene, zoneId: string, worldW: num
     ease: "Sine.easeInOut",
   });
 
-  // Ambient particles across the whole zone.
-  if (a.particle) {
+  // Ambient particles across the whole zone (toggleable in Settings).
+  if (a.particle && particles) {
     scene.add
       .particles(0, 0, a.particle.texture, {
         x: { min: 0, max: worldW },
