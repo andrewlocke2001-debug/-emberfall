@@ -91,6 +91,12 @@ export const ClientMessage = {
   FastTravel: "fastTravel",
   /** Join the battleground queue (the matchmaker pops a match at two). */
   BgQueue: "bgQueue",
+  /** Choose a Melee perk from an unlocked tier (permanent until respec). */
+  ChoosePerk: "choosePerk",
+  /** Burn the respec fee and clear all perk choices. */
+  RespecPerks: "respecPerks",
+  /** Ask for my chosen perks. */
+  RequestPerks: "requestPerks",
   /** Accept an available quest. */
   QuestAccept: "questAccept",
   /** Turn in a quest whose objectives are met. */
@@ -155,6 +161,8 @@ export const ServerMessage = {
   Achievements: "achievements",
   /** Whether the owner owns a mount. */
   Mount: "mount",
+  /** The owner's chosen Melee perks. */
+  Perks: "perks",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -419,6 +427,16 @@ export interface AchievementsPayload {
 /** Server → client: mount ownership (riding state is synced on the schema). */
 export interface MountPayload {
   owned: boolean;
+}
+
+/** Client → server: choose one perk by id. */
+export interface ChoosePerkPayload {
+  id: string;
+}
+
+/** Server → client: the owner's chosen perk ids. */
+export interface PerksPayload {
+  chosen: string[];
 }
 
 /** Client → server: fast-travel to the waystone with this id. */

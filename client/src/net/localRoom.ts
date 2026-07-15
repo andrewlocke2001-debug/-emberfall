@@ -94,6 +94,15 @@ import { mobDef, type TelegraphDef } from "@mmo/shared/data/mobs";
 import { exitAt, type ZoneMap } from "@mmo/shared/systems/zonemap";
 import { parseCommand } from "@mmo/shared/systems/gm";
 import { rollHunt, recordHuntKill, type HuntTask } from "@mmo/shared/systems/hunts";
+import { RESPEC_COST } from "@mmo/shared/data/perks";
+import {
+  canChoosePerk,
+  applyPerkStats,
+  perkGcdMs,
+  perkLifesteal,
+  perkMaxHpBonus,
+  executeAdjust,
+} from "@mmo/shared/systems/perks";
 import { huntReward } from "@mmo/shared/data/hunts";
 
 // Mirrors of ZoneRoom's local tuning constants.
@@ -130,6 +139,7 @@ export interface SoloSave {
   huntPoints: number;
   hasMount: boolean;
   raidLockUntil: number;
+  perks: string[];
   lastSeen: number;
 }
 
@@ -156,6 +166,7 @@ function defaultSave(): SoloSave {
     huntPoints: 0,
     hasMount: false,
     raidLockUntil: 0,
+    perks: [],
     lastSeen: Date.now(),
   };
 }
@@ -212,6 +223,7 @@ export class SoloRoom {
   private huntPts: number;
   private hasMount: boolean;
   private raidLock: number;
+  private chosenPerks: string[];
   private invasionActive = false;
   private nextInvasionAt = Date.now() + INVASION_INTERVAL_MS;
 
@@ -231,6 +243,7 @@ export class SoloRoom {
     this.huntPts = save.huntPoints;
     this.hasMount = save.hasMount ?? false;
     this.raidLock = save.raidLockUntil ?? 0;
+    this.chosenPerks = save.perks ?? [];
 
     // Offline rested-XP accrual (mirrors the server's load path).
     save.restedXp = restedAccrual(Date.now() - save.lastSeen, save.restedXp);
@@ -387,6 +400,7 @@ export class SoloRoom {
         this.pushQuests();
         this.pushHunt();
         this.pushMount();
+        this.pushPerks();
         this.pushEmptySocial();
         break;
       case ClientMessage.Equip:
@@ -431,6 +445,15 @@ export class SoloRoom {
         break;
       case ClientMessage.BgQueue:
         this.system("The battleground needs other players — it opens with multiplayer.");
+        break;
+      case ClientMessage.ChoosePerk:
+        this.doChoosePerk(msg.id);
+        break;
+      case ClientMessage.RespecPerks:
+        this.doRespecPerks();
+        break;
+      case ClientMessage.RequestPerks:
+        this.pushPerks();
         break;
       case ClientMessage.ExchangePost:
         // Single-player: no market without other players.
@@ -501,7 +524,7 @@ export class SoloRoom {
     base.attack += bonus.attack;
     base.strength += bonus.strength;
     base.defence += bonus.defence;
-    return base;
+    return applyPerkStats(base, this.chosenPerks);
   }
 
   private mobStats(e: EnemySchema): CombatStats {
@@ -546,12 +569,20 @@ export class SoloRoom {
     this.commitAbility(ability, now);
     p.energy -= cost;
 
+    if (!result.hit) {
+      this.emit(ServerMessage.CombatEvent, { attackerId: SOLO_ID, targetId: enemy.id, damage: 0, targetDied: false, miss: true });
+    }
     if (result.hit) {
-      enemy.hp = result.targetHpAfter;
+      const dmg = executeAdjust(result.damage, enemy.hp, enemy.maxHp, this.chosenPerks);
+      const hpAfter = Math.max(0, enemy.hp - dmg);
+      const died = hpAfter <= 0;
+      enemy.hp = hpAfter;
+      const ls = perkLifesteal(this.chosenPerks);
+      if (ls > 0 && dmg > 0 && p.alive) p.hp = Math.min(p.maxHp, p.hp + ls);
       this.wearGear(this.equipment.weapon); // a landing swing wears the weapon
       this.tagged.add(enemy.id);
-      this.emit(ServerMessage.CombatEvent, { attackerId: SOLO_ID, targetId: enemy.id, damage: result.damage, targetDied: result.targetDied });
-      if (result.targetDied) {
+      this.emit(ServerMessage.CombatEvent, { attackerId: SOLO_ID, targetId: enemy.id, damage: dmg, targetDied: died });
+      if (died) {
         enemy.alive = false;
         enemy.respawnAt = now + mobDef(enemy.kind).respawnMs;
         enemy.teleAt = 0;
@@ -562,7 +593,7 @@ export class SoloRoom {
   }
 
   private commitAbility(ability: { id: string; cooldownMs: number; onGcd?: boolean }, now: number): void {
-    if (ability.onGcd ?? true) this.gcdUntil = now + GCD_MS;
+    if (ability.onGcd ?? true) this.gcdUntil = now + perkGcdMs(this.chosenPerks, GCD_MS);
     if (ability.cooldownMs > 0) this.abilityCooldowns.set(ability.id, now + ability.cooldownMs);
   }
 
@@ -689,7 +720,10 @@ export class SoloRoom {
 
   private applyMaxHp(): void {
     const p = this.player();
-    const newMax = maxHpForVitality(levelForXp(p.vitalityXp)) + equipmentBonus(this.effectiveGear(), itemDef).maxHp;
+    const newMax =
+      maxHpForVitality(levelForXp(p.vitalityXp)) +
+      equipmentBonus(this.effectiveGear(), itemDef).maxHp +
+      perkMaxHpBonus(this.chosenPerks);
     if (newMax === p.maxHp) return;
     p.maxHp = newMax;
     if (p.hp > newMax) p.hp = newMax;
@@ -988,6 +1022,36 @@ export class SoloRoom {
   private doToggleMount(): void {
     if (!this.hasMount) return this.system("You don't own a mount. Visit the Stabler in Meadowbrook.");
     this.player().mounted = !this.player().mounted;
+  }
+
+  // --- perks (PT.5 skill tree; mirrors ZoneRoom) -------------------------------
+
+  private pushPerks(): void {
+    this.emit(ServerMessage.Perks, { chosen: [...this.chosenPerks] });
+  }
+
+  private doChoosePerk(id: unknown): void {
+    if (typeof id !== "string") return;
+    if (!canChoosePerk(id, this.player().level, this.chosenPerks)) {
+      return this.system("You can't take that perk yet.");
+    }
+    this.chosenPerks.push(id);
+    this.applyMaxHp();
+    this.pushPerks();
+    this.system("Perk learned. Your training shows.");
+  }
+
+  private doRespecPerks(): void {
+    if (this.chosenPerks.length === 0) return this.system("You have no perks to reset.");
+    if (countItem(this.inventory, "coins") < RESPEC_COST) {
+      return this.system(`Resetting your perks costs ${RESPEC_COST} coins.`);
+    }
+    this.inventory = removeItem(this.inventory, "coins", RESPEC_COST).inventory;
+    this.chosenPerks = [];
+    this.applyMaxHp();
+    this.pushInventory();
+    this.pushPerks();
+    this.system("Your perks have been reset.");
   }
 
   // --- world events: zone invasions (P12.3, mirrors the server) ---------------
@@ -1377,6 +1441,7 @@ export class SoloRoom {
       huntPoints: this.huntPts,
       hasMount: this.hasMount,
       raidLockUntil: this.raidLock,
+      perks: this.chosenPerks,
       lastSeen: Date.now(),
     };
     // A dungeon/raid is not a safe resume point — store the overworld the

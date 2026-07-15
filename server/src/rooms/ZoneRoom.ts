@@ -70,6 +70,8 @@ import {
   type AchievementsPayload,
   type MountPayload,
   type FastTravelPayload,
+  type ChoosePerkPayload,
+  type PerksPayload,
   FRIENDS_MAX,
   PARTY_MAX,
   RAID_MAX_PLAYERS,
@@ -142,6 +144,15 @@ import { waystoneById, waystonesInZone } from "@mmo/shared/data/waystones";
 import { RAID_ZONE, RAID_BOSSES, RAID_RELIC } from "@mmo/shared/data/raid";
 import { nextRaidBoss, isFinalRaidBoss, raidLocked, nextRaidLock } from "@mmo/shared/systems/raid";
 import { battleground, type BgTeam } from "../services/battleground";
+import { RESPEC_COST } from "@mmo/shared/data/perks";
+import {
+  canChoosePerk,
+  applyPerkStats,
+  perkGcdMs,
+  perkLifesteal,
+  perkMaxHpBonus,
+  executeAdjust,
+} from "@mmo/shared/systems/perks";
 import {
   INVASION_INTERVAL_MS,
   INVASION_ESCORTS,
@@ -183,6 +194,7 @@ import {
   HuntBuySchema,
   SetTitleSchema,
   FastTravelSchema,
+  ChoosePerkSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -317,6 +329,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly mounts = new Set<string>();
   /** Raid weekly lockout per session (ms epoch; persisted). */
   private readonly raidLocks = new Map<string, number>();
+  /** Chosen Melee perks per session (the skill tree; persisted). */
+  private readonly perks = new Map<string, string[]>();
   /** Battleground match state (only used when this room IS the arena). */
   private readonly bgScore: Record<BgTeam, number> = { red: 0, blue: 0 };
   private bgOver = false;
@@ -423,6 +437,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.sendQuests(client);
       this.sendHunt(client); // the onJoin push can lose the handler race too
       this.sendMount(client);
+      this.sendPerks(client);
     });
 
     this.onMessage(ClientMessage.Equip, EquipSchema, (client, msg: EquipPayload) => {
@@ -509,6 +524,12 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       void this.handleFastTravel(client, msg);
     });
     this.onMessage(ClientMessage.BgQueue, (client) => this.handleBgQueue(client));
+
+    this.onMessage(ClientMessage.ChoosePerk, ChoosePerkSchema, (client, msg: ChoosePerkPayload) => {
+      this.handleChoosePerk(client, msg);
+    });
+    this.onMessage(ClientMessage.RespecPerks, (client) => this.handleRespecPerks(client));
+    this.onMessage(ClientMessage.RequestPerks, (client) => this.sendPerks(client));
 
     this.onMessage(ClientMessage.QuestAccept, QuestActionSchema, (client, msg: QuestActionPayload) => {
       this.handleQuestAccept(client, msg);
@@ -689,6 +710,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.titles.set(client.sessionId, saved.title);
     if (saved.hasMount) this.mounts.add(client.sessionId);
     this.raidLocks.set(client.sessionId, saved.raidLockUntil);
+    this.perks.set(client.sessionId, saved.perks);
     // Battleground: pin the matchmaker's team on the synced schema.
     if (this.map.id === BG_ZONE) player.team = battleground.teamOf(options?.ticket ?? "", name);
     this.guildCache.set(
@@ -735,6 +757,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.mounts.delete(client.sessionId);
     const raidLock = this.raidLocks.get(client.sessionId) ?? 0;
     this.raidLocks.delete(client.sessionId);
+    const myPerks = this.perks.get(client.sessionId) ?? [];
+    this.perks.delete(client.sessionId);
     this.enemyAI.forEach((ai) => {
       if (ai.target === client.sessionId) ai.target = null;
     });
@@ -766,7 +790,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     battleground.dequeue(player.name); // never leave a ghost in the BG queue
 
     const snapshot = this.finalizeSnapshot(
-      toSaved(player, this.map.id, inventory, equipment, durability, bank, quests, friends, hunt, huntPts, title, hasMount, raidLock),
+      toSaved(player, this.map.id, inventory, equipment, durability, bank, quests, friends, hunt, huntPts, title, hasMount, raidLock, myPerks),
     );
     this.state.players.delete(client.sessionId);
     try {
@@ -899,15 +923,21 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         });
       }
       if (result.hit) {
-        foe.hp = result.targetHpAfter;
+        const myPerks = this.perks.get(sessionId) ?? [];
+        const dmg = executeAdjust(result.damage, foe.hp, foe.maxHp, myPerks);
+        const hpAfter = Math.max(0, foe.hp - dmg);
+        const died = hpAfter <= 0;
+        foe.hp = hpAfter;
+        const ls = perkLifesteal(myPerks);
+        if (ls > 0 && dmg > 0 && player.alive) player.hp = Math.min(player.maxHp, player.hp + ls);
         this.wearGear(client, this.equipment.get(sessionId)?.weapon);
         this.broadcast(ServerMessage.CombatEvent, {
           attackerId: sessionId,
           targetId: msg.targetId,
-          damage: result.damage,
-          targetDied: result.targetDied,
+          damage: dmg,
+          targetDied: died,
         });
-        if (result.targetDied) {
+        if (died) {
           if (inDuelWith) {
             // A formal duel: no item loss — announce, end, then normal respawn.
             this.endDuel(sessionId, msg.targetId, `${player.name} defeated ${foe.name} in a duel!`);
@@ -950,7 +980,15 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.broadcast(ServerMessage.CombatEvent, missEvt);
     }
     if (result.hit) {
-      enemy.hp = result.targetHpAfter;
+      // The skill tree hooks in here: Executioner boosts low-HP damage,
+      // Vampiric heals on landed strikes.
+      const myPerks = this.perks.get(sessionId) ?? [];
+      const dmg = executeAdjust(result.damage, enemy.hp, enemy.maxHp, myPerks);
+      const hpAfter = Math.max(0, enemy.hp - dmg);
+      const died = hpAfter <= 0;
+      enemy.hp = hpAfter;
+      const ls = perkLifesteal(myPerks);
+      if (ls > 0 && dmg > 0 && player.alive) player.hp = Math.min(player.maxHp, player.hp + ls);
       // A landing swing wears the weapon (P8 durability).
       this.wearGear(client, this.equipment.get(sessionId)?.weapon);
       // Tag this player as a contributor — landing a hit earns kill credit.
@@ -958,11 +996,11 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       const evt: CombatEventPayload = {
         attackerId: sessionId,
         targetId: enemy.id,
-        damage: result.damage,
-        targetDied: result.targetDied,
+        damage: dmg,
+        targetDied: died,
       };
       this.broadcast(ServerMessage.CombatEvent, evt);
-      if (result.targetDied) {
+      if (died) {
         enemy.alive = false;
         enemy.respawnAt = now + mobDef(enemy.kind).respawnMs;
         // Cancel any in-flight telegraph so a dead boss can't slam.
@@ -1142,7 +1180,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
   /** Start the GCD (if applicable) and this ability's own cooldown. */
   private commitAbility(sessionId: string, ability: { id: string; cooldownMs: number; onGcd?: boolean }, now: number): void {
-    if (ability.onGcd ?? true) this.gcdUntil.set(sessionId, now + GCD_MS);
+    if (ability.onGcd ?? true) {
+      // Quickblade shortens the GCD (server-authoritative pacing).
+      this.gcdUntil.set(sessionId, now + perkGcdMs(this.perks.get(sessionId) ?? [], GCD_MS));
+    }
     if (ability.cooldownMs > 0) {
       let cds = this.abilityCooldowns.get(sessionId);
       if (!cds) {
@@ -1635,6 +1676,49 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     player.title = def.title;
     this.titles.set(sessionId, def.title);
     this.sendAchievements(client);
+  }
+
+  // --- the Melee skill tree (perks) ---------------------------------------------
+
+  private sendPerks(client: Client): void {
+    const payload: PerksPayload = { chosen: this.perks.get(client.sessionId) ?? [] };
+    client.send(ServerMessage.Perks, payload);
+  }
+
+  /** Pick a perk from an unlocked, unspent tier — permanent until respec. */
+  private handleChoosePerk(client: Client, msg: ChoosePerkPayload): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+    const chosen = this.perks.get(sessionId) ?? [];
+    if (!canChoosePerk(msg.id, player.level, chosen)) {
+      this.systemTo(client, "You can't take that perk (tier locked, or already chosen).");
+      return;
+    }
+    this.perks.set(sessionId, [...chosen, msg.id]);
+    this.applyMaxHp(sessionId, player); // Juggernaut raises max HP immediately
+    this.sendPerks(client);
+    this.systemTo(client, "Perk learned. Fight like you mean it.");
+  }
+
+  /** Burn the respec fee, clear all choices (a deliberate gold sink). */
+  private handleRespecPerks(client: Client): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+    if ((this.perks.get(sessionId) ?? []).length === 0) return;
+    const inv = this.inventories.get(sessionId) ?? [];
+    if (countItem(inv, "coins") < RESPEC_COST) {
+      this.systemTo(client, `A respec costs ${RESPEC_COST} coins.`);
+      return;
+    }
+    this.inventories.set(sessionId, removeItem(inv, "coins", RESPEC_COST).inventory);
+    void recordLedger({ account: player.id, itemId: "coins", delta: -RESPEC_COST, reason: "respec" });
+    this.perks.set(sessionId, []);
+    this.applyMaxHp(sessionId, player);
+    this.sendInventory(client);
+    this.sendPerks(client);
+    this.systemTo(client, "Your training is forgotten — the tiers await new choices.");
   }
 
   // --- mounts (P11: faster travel; a coin sink) --------------------------------
@@ -3063,14 +3147,16 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     base.attack += bonus.attack;
     base.strength += bonus.strength;
     base.defence += bonus.defence;
-    return base;
+    // The skill tree adjusts the finished sheet (Berserker/Guardian).
+    return applyPerkStats(base, this.perks.get(sessionId) ?? []);
   }
 
   /** Target maxHp for a session: Vitality curve + equipped-gear maxHp bonus. */
   private maxHpFor(sessionId: string, player: PlayerSchema): number {
     return (
       maxHpForVitality(levelForXp(player.vitalityXp)) +
-      equipmentBonus(this.effectiveGear(sessionId), itemDef).maxHp
+      equipmentBonus(this.effectiveGear(sessionId), itemDef).maxHp +
+      perkMaxHpBonus(this.perks.get(sessionId) ?? [])
     );
   }
 
@@ -3446,6 +3532,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         this.titles.get(sessionId) ?? null,
         this.mounts.has(sessionId),
         this.raidLocks.get(sessionId) ?? 0,
+        this.perks.get(sessionId) ?? [],
       ),
     );
   }
@@ -3491,6 +3578,7 @@ function toSaved(
   title: string | null,
   hasMount: boolean,
   raidLockUntil: number,
+  perks: string[],
 ): SavedCharacter {
   return {
     playerId: p.id,
@@ -3519,5 +3607,6 @@ function toSaved(
     title,
     hasMount,
     raidLockUntil,
+    perks,
   };
 }

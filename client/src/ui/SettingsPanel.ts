@@ -26,6 +26,7 @@ const KEY_LABELS: Record<keyof KeyBinds, string> = {
   trade: "Trade",
   exchange: "Exchange",
   mount: "Mount / dismount",
+  skills: "Skill tree",
   ability1: "Ability 1 (Strike)",
   ability2: "Ability 2 (Power Strike)",
   ability3: "Ability 3 (Mend)",

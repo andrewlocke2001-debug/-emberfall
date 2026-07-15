@@ -32,6 +32,7 @@ import type {
   HuntBuyPayload,
   SetTitlePayload,
   FastTravelPayload,
+  ChoosePerkPayload,
 } from "./messages";
 
 /**
@@ -194,6 +195,10 @@ export const FastTravelSchema = z.strictObject({
   to: z.string().min(1).max(64),
 });
 
+export const ChoosePerkSchema = z.strictObject({
+  id: z.string().min(1).max(64),
+});
+
 // --- compile-time drift guards (no runtime cost) -----------------------------
 
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -235,11 +240,13 @@ void _exReq;
 const _huntBuy: AssertEqual<z.output<typeof HuntBuySchema>, HuntBuyPayload> = true;
 const _setTitle: AssertEqual<z.output<typeof SetTitleSchema>, SetTitlePayload> = true;
 const _fastTravel: AssertEqual<z.output<typeof FastTravelSchema>, FastTravelPayload> = true;
+const _choosePerk: AssertEqual<z.output<typeof ChoosePerkSchema>, ChoosePerkPayload> = true;
 void _duelReq;
 void _duelResp;
 void _huntBuy;
 void _setTitle;
 void _fastTravel;
+void _choosePerk;
 void _friend;
 void _partyInvite;
 void _guildCreate;

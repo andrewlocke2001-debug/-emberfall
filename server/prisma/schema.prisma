@@ -73,6 +73,8 @@ model Player {
   // Raid weekly lockout (P12): ms epoch until which the relic is claimed.
   // Float holds ms exactly (< 2^53) without BigInt friction.
   raidLockUntil Float @default(0)
+  // Chosen Melee perk ids as a JSON string array (the skill tree).
+  perks      Json     @default("[]")
   // Guild membership (loose reference, consistent with the id conventions).
   guildId    String?
   guildRank  String?

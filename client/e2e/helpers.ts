@@ -110,6 +110,10 @@ export interface MmoTestApi {
   toggleMount(): void;
   requestMount(): void;
   fastTravel(to: string): void;
+  perks(): string[];
+  choosePerk(id: string): void;
+  respecPerks(): void;
+  requestPerks(): void;
   bgQueue(): void;
   playerTeam(sessionId: string): string;
   sessionId(): string;

@@ -51,6 +51,7 @@ import type {
   HuntPayload,
   AchievementsPayload,
   MountPayload,
+  PerksPayload,
 } from "@mmo/shared";
 import { withEquipped, type QuestLog } from "@mmo/shared/systems/quests";
 import { npcsInZone, type NpcDef } from "@mmo/shared/data/npcs";
@@ -68,6 +69,7 @@ import {
 } from "../render/artkit";
 import { TutorialGuide } from "../ui/TutorialGuide";
 import { SettingsPanel } from "../ui/SettingsPanel";
+import { PerksPanel } from "../ui/PerksPanel";
 import { loadSettings, type Settings } from "../settings";
 
 const RECONCILE_SNAP = 64; // px of drift beyond which we hard-snap the local player
@@ -158,6 +160,9 @@ export class ZoneScene extends Phaser.Scene {
   private settings: Settings = loadSettings();
   private settingsPanel?: SettingsPanel;
   private tutorial?: TutorialGuide;
+  /** The Melee skill tree (toggle K) + last-known chosen perks. */
+  private perksPanel?: PerksPanel;
+  private chosenPerks: string[] = [];
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map: ZoneMap | undefined = undefined;
@@ -377,6 +382,13 @@ export class ZoneScene extends Phaser.Scene {
     });
     this.events.once("shutdown", () => this.fastTravelPanel?.destroy());
 
+    this.perksPanel = new PerksPanel({
+      onChoose: (id) => this.connection.room.send(ClientMessage.ChoosePerk, { id }),
+      onRespec: () => this.connection.room.send(ClientMessage.RespecPerks),
+      onRefresh: () => this.connection.room.send(ClientMessage.RequestPerks),
+    });
+    this.events.once("shutdown", () => this.perksPanel?.destroy());
+
     // Settings (⚙ button) + the first-launch tutorial (skippable).
     this.tutorial = new TutorialGuide();
     this.settingsPanel = new SettingsPanel({
@@ -575,6 +587,8 @@ export class ZoneScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys[bind.mount]!)) {
       this.connection.room.send(ClientMessage.ToggleMount);
     }
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.skills]!)) this.perksPanel?.toggle();
+    this.perksPanel?.setMeleeLevel(self?.level ?? 1);
 
     // Crafting panel (C); refresh its skill gates from live XP while open.
     if (Phaser.Input.Keyboard.JustDown(this.keys[bind.craft]!)) this.craftPanel?.toggle();
@@ -772,6 +786,10 @@ export class ZoneScene extends Phaser.Scene {
     this.connection.room.onMessage(ServerMessage.Mount, (p: MountPayload) => {
       this.mountOwned = p.owned;
       this.dialogue?.setMountOwned(p.owned);
+    });
+    this.connection.room.onMessage(ServerMessage.Perks, (p: PerksPayload) => {
+      this.chosenPerks = p.chosen;
+      this.perksPanel?.setPerks(p.chosen);
     });
     this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
       this.equipmentSlots = p.equipment;
@@ -1224,6 +1242,10 @@ export class ZoneScene extends Phaser.Scene {
       toggleMount: () => room.send(ClientMessage.ToggleMount),
       requestMount: () => room.send(ClientMessage.RequestMount),
       fastTravel: (to: string) => room.send(ClientMessage.FastTravel, { to }),
+      perks: () => this.chosenPerks,
+      choosePerk: (id: string) => room.send(ClientMessage.ChoosePerk, { id }),
+      respecPerks: () => room.send(ClientMessage.RespecPerks),
+      requestPerks: () => room.send(ClientMessage.RequestPerks),
       bgQueue: () => room.send(ClientMessage.BgQueue),
       playerTeam: (sessionId: string) => room.state?.players?.get(sessionId)?.team ?? "",
       buy: (vendorId: string, itemId: string, qty: number) =>

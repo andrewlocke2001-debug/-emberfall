@@ -15,6 +15,7 @@ export interface KeyBinds {
   trade: string;
   exchange: string;
   mount: string;
+  skills: string;
   ability1: string;
   ability2: string;
   ability3: string;
@@ -39,6 +40,7 @@ export const DEFAULT_KEYS: KeyBinds = {
   trade: "T",
   exchange: "X",
   mount: "M",
+  skills: "K",
   ability1: "ONE",
   ability2: "TWO",
   ability3: "THREE",
