@@ -482,6 +482,44 @@ user decisions. The single-file solo build is the play-test channel.
   store-page assets, and the $100 app fee are the remaining trail — see the
   session notes; the game itself is content-complete and now presentable.
 
+## Steam package (2026-07-14)
+- `desktop/` Electron wrapper (sandboxed, contextIsolation, smoke-verified
+  `Emberfall.exe` via `EMBERFALL_SMOKE=1` → SMOKE_OK); electron-builder
+  `--dir` output `release/win-unpacked` is the SteamPipe depot as-is.
+- `steam/`: 7 capsules at exact Steam sizes + 6 1920×1080 screenshots
+  (generated from styled HTML via Playwright) + `STEAM.md` runbook with
+  store copy. Blocked on the user's Steamworks account + $100 app fee.
+- Store-shot pass surfaced and fixed a latent P1.3 bug: Phaser reuses scene
+  instances on `scene.start()`, so stale per-zone fields blanked the world
+  after zone transfer — all per-zone state now resets in `init()`.
+
+## Play-test round PT.1–PT.5 (2026-07-14/15) — first real user feedback
+- **PT.1 fixes** (commit 13dc0ea): misses now broadcast + gray "Miss" float
+  ("attacks not registering" was silent whiffs); duplicate gear rows in the
+  inventory panel (constructor re-inserted per scene restart); Dorin's quest
+  refused because the required sword was *equipped* — turn-in now auto-unequips
+  and dialogue/quest views count equipped items (`withEquipped`); death now
+  costs 15 durability on all equipped gear (except in the battleground);
+  dying in a dungeon/raid ejects you to the overworld gate (Broodmother was
+  camping the respawn); dialogue shows per-objective progress counts.
+- **PT.2**: +N item-gain toasts on gather/loot/buy; HUD stat hover tooltips.
+- **PT.3**: 6-step tutorial on first launch with Skip; replayable from
+  Settings (`mmo:tutorial-done`).
+- **PT.4**: Settings page — rebindable action keys (conflict-swap, reserved
+  movement keys), damage-number + particle toggles, persisted per browser.
+- **PT.5 skill tree**: melee perk tiers at levels 5/15/30, one permanent
+  either-or pick per tier (Berserker +15% STR / Guardian +15% DEF ·
+  Quickblade −10% GCD / Vampiric heal-on-hit · Executioner +30% vs low HP /
+  Juggernaut +40 maxHp); respec burns 200 coins (ledger `respec`). Pure
+  systems in `shared/systems/perks.ts` (tested); server applies perks only at
+  existing seams (playerStats/maxHp/GCD/hit resolution, PvE + PvP); K opens
+  the PerksPanel; full solo parity; `perks.spec.ts` e2e ready.
+- **PT.5 status**: 182 unit green, typecheck clean, solo single-file rebuilt +
+  headless-verified (choose/gate/respec/persist). ⚠ Migration
+  `20260714120000_add_perks` is **pending on Neon** — run
+  `npm run db:deploy -w @mmo/server`, then the full e2e suite (the server
+  can't load players until the column exists).
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
