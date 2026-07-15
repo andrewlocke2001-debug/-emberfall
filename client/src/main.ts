@@ -71,7 +71,7 @@ function bootGame(token: string): void {
   // headless-Chromium screenshots, so this gives a capturable automated path.
   const forceCanvas = new URLSearchParams(window.location.search).has("canvas");
 
-  const game = new Phaser.Game({
+  const game: Phaser.Game = new Phaser.Game({
     type: forceCanvas ? Phaser.CANVAS : Phaser.AUTO,
     parent: "game",
     backgroundColor: "#0d1018",
@@ -89,6 +89,8 @@ function bootGame(token: string): void {
   const zone = savedZone && isZoneId(savedZone) ? savedZone : DEFAULT_ZONE;
   game.registry.set("zone", zone);
   game.registry.set("joinOpts", { token });
+  // Debug/diagnostic handle (harmless; used by render audits).
+  (window as unknown as Record<string, unknown>)["__game"] = game;
 }
 
 // Guest: reuse an existing session if present, else create a guest account.

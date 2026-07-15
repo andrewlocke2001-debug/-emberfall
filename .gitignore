@@ -13,3 +13,8 @@ client/.playwright/
 
 # single-file solo build output
 /emberfall-solo.html
+
+# desktop (Steam) wrapper artifacts
+/desktop/node_modules/
+/desktop/app/
+/desktop/release/

@@ -153,7 +153,7 @@ export class ZoneScene extends Phaser.Scene {
   private mountOwned = false;
 
   /** The current zone's map; resolved from server state on the first frame. */
-  private map?: ZoneMap;
+  private map: ZoneMap | undefined = undefined;
 
   /** DOM chat overlay + zone HUD. */
   private chat?: ChatBox;
@@ -169,6 +169,20 @@ export class ZoneScene extends Phaser.Scene {
   init(data: { connection: ZoneConnection }): void {
     this.connection = data.connection;
     this.localSessionId = data.connection.room.sessionId;
+    // Phaser REUSES the scene instance across scene.start() — reset every
+    // per-zone field or the new zone inherits the old zone's state. The stale
+    // `map` in particular made ensureWorld() skip drawing after EVERY zone
+    // transfer (a black world) — latent since P1.3, surfaced by the art
+    // audit's post-transfer screenshots.
+    this.map = undefined;
+    this.players.clear();
+    this.enemies.clear();
+    this.telegraphs.clear();
+    this.lootViews.clear();
+    this.predictionReady = false;
+    this.selectedTargetId = null;
+    this.atBank = false;
+    this.lastSentDir = { dx: 0, dy: 0 };
   }
 
   create(): void {
@@ -761,7 +775,18 @@ export class ZoneScene extends Phaser.Scene {
     for (const npc of npcsInZone(zoneId)) this.drawNpcMarker(npc);
     for (const v of vendorsInZone(zoneId)) this.drawVendorMarker(v);
     for (const w of waystonesInZone(zoneId)) this.drawWaystoneMarker(w);
-    this.cameras.main.setBounds(0, 0, this.map.pixelWidth, this.map.pixelHeight);
+    // Center small zones on large viewports (no top-left pinning): widen the
+    // bounds symmetrically when the world is smaller than the screen.
+    const vw = this.scale.width;
+    const vh = this.scale.height;
+    const bx = Math.min(0, -(vw - this.map.pixelWidth) / 2);
+    const by = Math.min(0, -(vh - this.map.pixelHeight) / 2);
+    this.cameras.main.setBounds(
+      bx,
+      by,
+      Math.max(this.map.pixelWidth, this.map.pixelWidth - 2 * bx),
+      Math.max(this.map.pixelHeight, this.map.pixelHeight - 2 * by),
+    );
   }
 
   /** Draw/refresh a boss's telegraphed-AoE danger circle (a "get out" warning). */

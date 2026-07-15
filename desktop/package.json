@@ -1,0 +1,30 @@
+{
+  "name": "emberfall-desktop",
+  "productName": "Emberfall",
+  "version": "1.0.0",
+  "description": "Emberfall — a combat-first RPG. A world lit by dying embers.",
+  "author": "Emberfall",
+  "main": "main.cjs",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "smoke": "cross-env EMBERFALL_SMOKE=1 electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.emberfall.game",
+    "productName": "Emberfall",
+    "files": ["main.cjs", "preload.cjs", "app/**/*"],
+    "directories": { "output": "release" },
+    "win": {
+      "target": [{ "target": "dir" }],
+      "signAndEditExecutable": false
+    }
+  }
+}
