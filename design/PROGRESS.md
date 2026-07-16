@@ -546,6 +546,15 @@ user decisions. The single-file solo build is the play-test channel.
   `page.click`), never `element.click()` — same class as the "screenshot-
   verify transfers" lesson.**
 
+- **PT.8 (2026-07-16)** — "can't pick up drops until the mob respawns": the
+  corpse kept its interactive hit area (setAlive only dimmed it) and its
+  pointerdown stopPropagation'd, eating every click on the pile beneath it.
+  Fix: disableInteractive on death / re-enable on respawn. Plus walk-over
+  auto-pickup for YOUR drops (client sends Pickup within PICKUP_RANGE;
+  canAdd precheck, 1s throttle; public piles stay click-to-take). The P3.3
+  "auto walk-over pickup deferred" item is now done. Verified headless:
+  kill → drop lands in bag with zero clicks, corpse input disabled.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
