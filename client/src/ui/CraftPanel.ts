@@ -31,6 +31,13 @@ export class CraftPanel {
   }
 
   setLevels(levels: Record<string, number>): void {
+    // Called every frame while open — re-render ONLY on a real change. An
+    // unconditional rebuild replaces the row buttons between a click's
+    // mousedown and mouseup, so mouse clicks never land ("crafting is dead").
+    const same =
+      Object.keys(levels).length === Object.keys(this.levels).length &&
+      Object.entries(levels).every(([k, v]) => this.levels[k] === v);
+    if (same) return;
     this.levels = levels;
     if (this.visible) this.render();
   }
