@@ -214,6 +214,9 @@ export class EntityView {
     if (alive === this.alive) return;
     this.alive = alive;
     if (!alive) {
+      // A corpse must release its hit area — loot drops right under it, and a
+      // still-interactive body eats the pile's clicks until respawn.
+      if (this.body.input) this.body.disableInteractive();
       dustPuff(this.scene, this.container.x, this.container.y + 8);
       this.scene.tweens.add({
         targets: this.body,
@@ -223,6 +226,7 @@ export class EntityView {
       });
       this.container.setAlpha(0.3);
     } else {
+      if (this.body.input) this.body.setInteractive();
       this.body.setAngle(0);
       this.container.setAlpha(1);
     }

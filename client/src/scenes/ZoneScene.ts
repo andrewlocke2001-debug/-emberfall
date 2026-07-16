@@ -14,9 +14,11 @@ import {
   type EquipmentPayload,
   type BankPayload,
   PICKUP_RANGE,
+  distSq,
 } from "@mmo/shared";
 import { stepWithCollision } from "@mmo/shared/systems/collision";
 import { levelForXp } from "@mmo/shared/systems/progression";
+import { canAdd } from "@mmo/shared/systems/inventory";
 import { ITEMS, type EquipSlot } from "@mmo/shared/data/items";
 import { BANKS, nearBank } from "@mmo/shared/data/banks";
 import { NODES, RESOURCES } from "@mmo/shared/data/resources";
@@ -94,6 +96,8 @@ export class ZoneScene extends Phaser.Scene {
   private readonly telegraphs = new Map<string, Phaser.GameObjects.Arc>();
   /** Ground-loot pile markers, keyed by loot id. */
   private readonly lootViews = new Map<string, Phaser.GameObjects.Container>();
+  /** Last walk-over pickup attempt per loot id (throttles the auto-send). */
+  private readonly lootAttemptAt = new Map<string, number>();
 
   private predicted = { x: 0, y: 0 };
   private predictionReady = false;
@@ -191,6 +195,7 @@ export class ZoneScene extends Phaser.Scene {
     this.enemies.clear();
     this.telegraphs.clear();
     this.lootViews.clear();
+    this.lootAttemptAt.clear();
     this.predictionReady = false;
     this.selectedTargetId = null;
     this.atBank = false;
@@ -614,6 +619,23 @@ export class ZoneScene extends Phaser.Scene {
     if (this.keys["SPACE"]!.isDown || (this.touch?.attackHeld() ?? false)) {
       this.tryUseAbility("strike");
     }
+
+    // Walk-over auto-pickup: your own drops hoover up as you step on them
+    // (play-test ask — no clicking corpse-covered piles). Public piles stay
+    // click-to-take so you can't vacuum someone else's loot by strolling by.
+    if (self?.alive) {
+      const now = Date.now();
+      this.connection.room.state.loot.forEach((loot, id: string) => {
+        if (loot.ownerId !== this.connection.room.sessionId) return;
+        if (distSq(self.x, self.y, loot.x, loot.y) > PICKUP_RANGE * PICKUP_RANGE) return;
+        const def = ITEMS[loot.itemId];
+        // Skip what can't fit — the server would refuse anyway (and nag).
+        if (!def || !canAdd(this.inventorySlots, loot.itemId, loot.qty, def.maxStack)) return;
+        if (now - (this.lootAttemptAt.get(id) ?? 0) < 1000) return;
+        this.lootAttemptAt.set(id, now);
+        this.connection.room.send(ClientMessage.Pickup, { lootId: id });
+      });
+    }
   }
 
   /** Client-side gate (target/energy/cooldown) then send the ability intent. */
@@ -691,6 +713,7 @@ export class ZoneScene extends Phaser.Scene {
     $(room.state).loot.onRemove((_loot: GroundLootSchema, id: string) => {
       this.lootViews.get(id)?.destroy();
       this.lootViews.delete(id);
+      this.lootAttemptAt.delete(id);
     });
   }
 
