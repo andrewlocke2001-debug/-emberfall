@@ -150,7 +150,8 @@
       .craft-row { text-align: left; border: 1px solid #2a3142; background: #1a2030; color: #e6e6e6;
         border-radius: 6px; padding: 6px 8px; cursor: pointer; }
       .craft-row:hover:enabled { border-color: #3b82f6; }
-      .craft-row:disabled { opacity: 0.45; cursor: default; }
+      .craft-row:disabled { opacity: 0.5; filter: grayscale(0.35); cursor: not-allowed; }
+      .craft-missing { color: #f87171; }
       .craft-row .craft-title { font-size: 13px; }
       .craft-row .craft-detail { font-size: 11px; color: #8893a7; }
 
@@ -422,7 +423,7 @@
       .bank-row, .craft-row, .shop-row, .trade-btn, .dialogue-opt {
         background: linear-gradient(180deg, #1b2231 0%, #151a27 100%);
         border-radius: 8px; transition: border-color .12s, transform .08s; }
-      .bank-row:hover, .craft-row:hover, .shop-row:hover, .trade-btn:hover, .dialogue-opt:hover {
+      .bank-row:hover, .craft-row:hover:enabled, .shop-row:hover, .trade-btn:hover, .dialogue-opt:hover {
         border-color: var(--ember); }
       .bank-row:active, .trade-btn:active, .dialogue-opt:active { transform: translateY(1px); }
 

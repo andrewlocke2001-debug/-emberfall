@@ -393,14 +393,27 @@ export class ZoneScene extends Phaser.Scene {
     this.tutorial = new TutorialGuide();
     this.settingsPanel = new SettingsPanel({
       onChange: (s) => {
-        this.settings = s; // toggles apply live; key changes on next zone load
+        this.settings = s;
+        // Register any newly bound keys NOW — the update loop reads
+        // this.keys[bind.*] immediately, and an unregistered key crashes
+        // JustDown every frame (the game "freezes" after a rebind).
+        const kb = this.input.keyboard;
+        if (kb) {
+          for (const name of Object.values(s.keys)) {
+            if (!this.keys[name]) this.keys[name] = kb.addKey(name);
+          }
+          kb.addCapture(Object.values(s.keys).join(","));
+        }
       },
       onReplayTutorial: () => this.tutorial?.maybeShow(true),
     });
     const gear = document.getElementById("settings-gear");
     if (gear) {
       gear.style.display = "block";
-      gear.onclick = () => this.settingsPanel?.toggle();
+      gear.onclick = () => {
+        this.settingsPanel?.toggle();
+        gear.blur(); // else a later Space (attack) "clicks" the still-focused gear
+      };
     }
     this.events.once("shutdown", () => {
       this.settingsPanel?.destroy();

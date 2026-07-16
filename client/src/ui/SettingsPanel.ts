@@ -51,6 +51,8 @@ export class SettingsPanel {
   private readonly body = document.getElementById("settings-body") as HTMLDivElement;
   private settings: Settings = loadSettings();
   private listening: HTMLButtonElement | null = null;
+  /** Cancels a pending key-capture (rebind) — MUST run on close/destroy. */
+  private cancelListen: (() => void) | null = null;
 
   constructor(private readonly opts: SettingsPanelOptions) {
     document.getElementById("settings-close")?.addEventListener("click", () => this.toggle(false));
@@ -62,6 +64,9 @@ export class SettingsPanel {
 
   toggle(force?: boolean): void {
     const show = force ?? this.root.style.display !== "flex";
+    // Closing mid-rebind must release the window key-capture, or it swallows
+    // every keystroke forever (WASD/chat/panels all dead — a "frozen" game).
+    if (!show) this.cancelListen?.();
     this.root.style.display = show ? "flex" : "none";
     if (show) this.render();
   }
@@ -113,7 +118,7 @@ export class SettingsPanel {
 
     const note = document.createElement("div");
     note.className = "set-row";
-    note.innerHTML = `<span style="color:var(--muted);font-size:12px">Key changes apply after your next zone change or reload.</span>`;
+    note.innerHTML = `<span style="color:var(--muted);font-size:12px">Key changes apply immediately.</span>`;
     this.body.appendChild(note);
 
     const actions = document.createElement("div");
@@ -160,14 +165,19 @@ export class SettingsPanel {
       window.removeEventListener("keydown", onKey, true);
       btn.classList.remove("listening");
       this.listening = null;
+      this.cancelListen = null;
       this.render();
     };
+    this.cancelListen = done;
     const onKey = (e: KeyboardEvent): void => {
       e.preventDefault();
       e.stopPropagation();
       if (e.key === "Escape") return done();
       const name = eventToKeyName(e);
-      if (!name || RESERVED_KEYS.has(name)) return; // keep listening
+      if (!name || RESERVED_KEYS.has(name)) {
+        btn.textContent = "reserved — try another"; // tell them, keep listening
+        return;
+      }
       // Swap with any action already using this key (no dead bindings).
       for (const other of Object.keys(this.settings.keys) as (keyof KeyBinds)[]) {
         if (this.settings.keys[other] === name) this.settings.keys[other] = this.settings.keys[action];
@@ -180,6 +190,7 @@ export class SettingsPanel {
   }
 
   destroy(): void {
+    this.cancelListen?.();
     this.root.style.display = "none";
   }
 }

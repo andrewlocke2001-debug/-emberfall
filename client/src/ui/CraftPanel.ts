@@ -49,9 +49,6 @@ export class CraftPanel {
     this.list.replaceChildren();
     for (const recipe of Object.values(RECIPES)) {
       const out = ITEMS[recipe.output.itemId];
-      const inputs = recipe.inputs
-        .map((i) => `${i.qty} ${ITEMS[i.itemId]?.name ?? i.itemId}`)
-        .join(" + ");
       const haveLevel = (this.levels[recipe.skill] ?? 1) >= recipe.levelReq;
       const haveMats = canCraft(this.bag, recipe);
 
@@ -64,7 +61,20 @@ export class CraftPanel {
       title.textContent = `${out?.name ?? recipe.output.itemId} — ${recipe.skill} ${recipe.levelReq}`;
       const detail = document.createElement("div");
       detail.className = "craft-detail";
-      detail.textContent = haveLevel ? inputs : `Requires ${recipe.skill} level ${recipe.levelReq}`;
+      if (!haveLevel) {
+        detail.textContent = `Requires ${recipe.skill} level ${recipe.levelReq}`;
+        detail.classList.add("craft-missing");
+      } else {
+        // Per-material have/need so a greyed row says exactly what's missing.
+        recipe.inputs.forEach((input, i) => {
+          const have = this.bag.reduce((n, s) => (s.itemId === input.itemId ? n + s.qty : n), 0);
+          if (i > 0) detail.append(" + ");
+          const span = document.createElement("span");
+          span.textContent = `${ITEMS[input.itemId]?.name ?? input.itemId} ${Math.min(have, input.qty)}/${input.qty}`;
+          if (have < input.qty) span.className = "craft-missing";
+          detail.appendChild(span);
+        });
+      }
       row.append(title, detail);
       row.addEventListener("click", () => this.opts.onCraft(recipe.id));
       this.list.appendChild(row);
