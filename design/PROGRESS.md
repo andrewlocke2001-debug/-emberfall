@@ -535,6 +535,16 @@ user decisions. The single-file solo build is the play-test channel.
     per-material have/need ("Copper Ore 1/1 + Tin Ore 0/1", missing in red),
     disabled rows grey out, hover glow is :enabled-only.
   - All verified headless against the rebuilt single-file (commit 433a975).
+- **PT.7 (2026-07-16)** — crafting was dead to REAL mouse clicks all along:
+  the update loop calls `craftPanel.setLevels()` every frame while open and
+  it re-rendered unconditionally, rebuilding the row buttons 60×/s — a human
+  click's mousedown target was destroyed before mouseup, so no click event
+  ever fired. e2e/probes never caught it because JS `el.click()` bypasses
+  hit-testing. Fix: change-guard in setLevels (audited the other per-frame
+  setters: perks guarded, ability bar style-only, HUD lastHud-guarded).
+  **LESSON: verify UI click paths with trusted pointer events (Playwright
+  `page.click`), never `element.click()` — same class as the "screenshot-
+  verify transfers" lesson.**
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
