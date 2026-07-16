@@ -520,6 +520,22 @@ user decisions. The single-file solo build is the play-test channel.
   `npm run db:deploy -w @mmo/server`, then the full e2e suite (the server
   can't load players until the column exists).
 
+- **PT.6 (2026-07-16)** — second play-test report, both symptoms fixed:
+  - "Frozen after settings" had TWO roots: (a) rebinding a key crashed the
+    update loop every frame (`this.keys` only registers key objects at scene
+    create; `JustDown(this.keys[newKey])` read `_justDown` off undefined) —
+    onChange now registers new keys live (+addCapture), rebinds apply
+    immediately; (b) closing the panel mid-rebind ("press…") leaked the
+    capture-phase window keydown listener which swallowed every keystroke
+    forever — a cancelListen handle now runs on toggle-off/destroy, and
+    reserved keys show "reserved — try another" instead of eating input
+    silently. Gear button blurs after click (Space=attack re-opened it).
+  - "Forge clicks do nothing": material-less rows are disabled buttons and
+    the art-pass hover glow made them look clickable — rows now show
+    per-material have/need ("Copper Ore 1/1 + Tin Ore 0/1", missing in red),
+    disabled rows grey out, hover glow is :enabled-only.
+  - All verified headless against the rebuilt single-file (commit 433a975).
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
