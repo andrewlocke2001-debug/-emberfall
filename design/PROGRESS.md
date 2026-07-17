@@ -568,6 +568,19 @@ user decisions. The single-file solo build is the play-test channel.
   farm ~20–25c/min. Repo now PUBLIC + Pages workflow in use — re-run the
   Pages workflow after balance pushes to update the live build.
 
+- **PT.10 (2026-07-17)** — accuracy + the REAL coin printer. (1) Combat:
+  OSRS curve = ~48% hit at even stats → felt broken at 1.5s GCD; new
+  `PLAYER_ACCURACY_BONUS` +30pts (cap 95%) on PLAYER attacks only via
+  `resolveAttack(..., accuracyBonus)` (mobs keep the raw curve — incoming
+  damage unchanged). Even-match now ~80-92%, under-leveled still ~73%↓.
+  (2) PT.9 nerfed mob coins but the user's money actually came from
+  mine→smelt→sell: iron_bar (value 30, one 3s ore, instant smelt) printed
+  ~150c/min. Gear now sells at 15% (`GEAR_BUYBACK_RATE`), iron_ore 10→8,
+  iron_bar 30→12, bronze_bar 12→8. Honest rates: ~20-25c/min early,
+  ~40-50c/min iron-tier. 185 unit (+3) green. **LESSON: ask the player
+  WHERE the money came from before tuning; ledger reasons would have
+  shown it (economy dashboard exists — check it next time).**
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
