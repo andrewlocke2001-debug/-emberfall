@@ -23,3 +23,13 @@ describe("sellValue", () => {
     expect(sellValue(item(100))).toBeLessThan(buyCost(item(100)));
   });
 });
+
+describe("sellValue for equipment", () => {
+  const gear = (value: number): ItemDef =>
+    ({ id: "g", name: "G", rarity: "common", maxStack: 1, value, equipSlot: "weapon" }) as ItemDef;
+
+  it("gear sells at the worse GEAR_BUYBACK_RATE (anti craft-and-dump)", () => {
+    expect(sellValue(gear(100))).toBe(15);
+    expect(sellValue(gear(100))).toBeLessThan(sellValue(item(100)));
+  });
+});

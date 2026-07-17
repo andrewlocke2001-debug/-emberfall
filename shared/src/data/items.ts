@@ -151,7 +151,7 @@ export const ITEMS: Record<string, ItemDef> = {
     name: "Iron Ore",
     rarity: "common",
     maxStack: STACK_MAX,
-    value: 10,
+    value: 8,
     desc: "Smelts into an iron bar.",
   },
   raw_shrimp: {
@@ -177,7 +177,7 @@ export const ITEMS: Record<string, ItemDef> = {
     name: "Bronze Bar",
     rarity: "common",
     maxStack: STACK_MAX,
-    value: 12,
+    value: 8,
     desc: "Smithed from copper + tin. Forge it into gear.",
   },
   iron_bar: {
@@ -185,7 +185,7 @@ export const ITEMS: Record<string, ItemDef> = {
     name: "Iron Bar",
     rarity: "common",
     maxStack: STACK_MAX,
-    value: 30,
+    value: 12,
     desc: "Forge it into iron gear.",
   },
 

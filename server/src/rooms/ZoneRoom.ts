@@ -9,6 +9,7 @@ import {
   ServerMessage,
   TICK_MS,
   GCD_MS,
+  PLAYER_ACCURACY_BONUS,
   ENERGY_REGEN_PER_SEC,
   PICKUP_RANGE,
   LOOT_OWNERSHIP_MS,
@@ -909,7 +910,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (distSq(player.x, player.y, foe.x, foe.y) > ability.range * ability.range) return;
       const atk = this.playerStats(sessionId, player);
       atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
-      const result = resolveAttack(atk, this.playerStats(msg.targetId, foe));
+      const result = resolveAttack(atk, this.playerStats(msg.targetId, foe), Math.random, PLAYER_ACCURACY_BONUS);
       this.commitAbility(sessionId, ability, now);
       player.energy -= cost;
       if (!result.hit) {
@@ -963,7 +964,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
     const atk = this.playerStats(sessionId, player);
     atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
-    const result = resolveAttack(atk, mobCombatStats(enemy));
+    const result = resolveAttack(atk, mobCombatStats(enemy), Math.random, PLAYER_ACCURACY_BONUS);
 
     // The swing happens regardless of hit/miss → it costs energy + cooldown.
     this.commitAbility(sessionId, ability, now);

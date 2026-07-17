@@ -1,4 +1,4 @@
-import { VENDOR_BUYBACK_RATE } from "../types";
+import { GEAR_BUYBACK_RATE, VENDOR_BUYBACK_RATE } from "../types";
 import type { ItemDef } from "../data/items";
 
 /**
@@ -11,5 +11,8 @@ export function buyCost(def: ItemDef): number {
 }
 
 export function sellValue(def: ItemDef): number {
-  return Math.max(1, Math.floor(def.value * VENDOR_BUYBACK_RATE));
+  // Equipment sells at a worse rate: mass-forging gear for vendor coin was
+  // the economy's biggest faucet (play-test: mount money in minutes).
+  const rate = def.equipSlot ? GEAR_BUYBACK_RATE : VENDOR_BUYBACK_RATE;
+  return Math.max(1, Math.floor(def.value * rate));
 }

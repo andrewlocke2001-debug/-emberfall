@@ -67,3 +67,18 @@ describe("resolveAttack", () => {
     expect(resolveAttack(stats(), stats({ alive: false }), scriptedRng(0, 0)).hit).toBe(false);
   });
 });
+
+describe("resolveAttack accuracy bonus (PLAYER_ACCURACY_BONUS)", () => {
+  // Even stats (10 vs 10): raw curve = 18/(2*19) ≈ 0.474.
+  it("a roll that misses on the raw curve lands with the bonus", () => {
+    const roll = 0.6; // above 0.474, below 0.474 + 0.3
+    expect(resolveAttack(stats(), stats(), scriptedRng(roll, 0.5)).hit).toBe(false);
+    expect(resolveAttack(stats(), stats(), scriptedRng(roll, 0.5), 0.3).hit).toBe(true);
+  });
+
+  it("total accuracy is capped at 95% — the top roll still misses", () => {
+    const overwhelming = stats({ attack: 999 });
+    expect(resolveAttack(overwhelming, stats(), scriptedRng(0.96, 0.5), 1).hit).toBe(false);
+    expect(resolveAttack(overwhelming, stats(), scriptedRng(0.94, 0.5), 1).hit).toBe(true);
+  });
+});

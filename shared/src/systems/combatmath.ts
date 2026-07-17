@@ -49,11 +49,13 @@ export function resolveAttack(
   attacker: CombatStats,
   defender: CombatStats,
   rng: Rng = Math.random,
+  /** Flat accuracy added on top of the curve (players get PLAYER_ACCURACY_BONUS). */
+  accuracyBonus = 0,
 ): AttackOutcome {
   if (!attacker.alive || !defender.alive || defender.hp <= 0) {
     return { hit: false, damage: 0, targetHpAfter: defender.hp, targetDied: false };
   }
-  const landed = rng() < hitChance(attacker.attack, defender.defence);
+  const landed = rng() < Math.min(0.95, hitChance(attacker.attack, defender.defence) + accuracyBonus);
   const damage = landed ? Math.floor(rng() * (maxHit(attacker.strength) + 1)) : 0;
   const targetHpAfter = Math.max(0, defender.hp - damage);
   return { hit: landed, damage, targetHpAfter, targetDied: targetHpAfter <= 0 };

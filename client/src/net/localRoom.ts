@@ -23,6 +23,7 @@ import {
   DEATH_DURABILITY_LOSS,
   TICK_MS,
   GCD_MS,
+  PLAYER_ACCURACY_BONUS,
   ENERGY_REGEN_PER_SEC,
   PICKUP_RANGE,
   LOOT_OWNERSHIP_MS,
@@ -565,7 +566,7 @@ export class SoloRoom {
 
     const atk = this.playerStats();
     atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
-    const result = resolveAttack(atk, this.mobStats(enemy));
+    const result = resolveAttack(atk, this.mobStats(enemy), Math.random, PLAYER_ACCURACY_BONUS);
     this.commitAbility(ability, now);
     p.energy -= cost;
 
