@@ -545,6 +545,10 @@ user decisions. The single-file solo build is the play-test channel.
   **LESSON: verify UI click paths with trusted pointer events (Playwright
   `page.click`), never `element.click()` — same class as the "screenshot-
   verify transfers" lesson.**
+- **2026-07-17** — `add_perks` migration applied to Neon (user-directed
+  `db:deploy`); FULL e2e suite green post-play-test round: **182 unit +
+  42 e2e** (perks.spec included — tier gating, sibling rejection,
+  juggernaut +40 maxHp, 200c respec sink all pass against the live server).
 
 - **PT.8 (2026-07-16)** — "can't pick up drops until the mob respawns": the
   corpse kept its interactive hit area (setAlive only dimmed it) and its
