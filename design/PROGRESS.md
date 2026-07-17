@@ -559,6 +559,15 @@ user decisions. The single-file solo build is the play-test channel.
   "auto walk-over pickup deferred" item is now done. Verified headless:
   kill → drop lands in bag with zero clicks, corpse input disabled.
 
+- **PT.9 (2026-07-17)** — economy retune after "mount in 5–10 minutes":
+  quest arc paid 440c (88% of a mount) and bandits 10–30c/kill; PT.8's
+  auto-pickup also removed the loot friction the old numbers leaned on.
+  Data-only: quest coins 440→200 total, trash coins ~¼ (bandit 2–6 etc.),
+  Warden 400–800→150–300; raid/invasion (time-gated), item drops, sell
+  values, and sink prices unchanged. Target: mount ~40–60 min in, early
+  farm ~20–25c/min. Repo now PUBLIC + Pages workflow in use — re-run the
+  Pages workflow after balance pushes to update the live build.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
