@@ -88,7 +88,7 @@ export const MOBS: Record<string, MobDef> = {
     respawnMs: 8000,
     xpReward: 12,
     drops: [
-      { itemId: "coins", min: 1, max: 8, chance: 1 },
+      { itemId: "coins", min: 1, max: 3, chance: 1 },
       { itemId: "emberling_fang", min: 1, max: 1, chance: 0.5 },
     ],
     color: 0xff7043,
@@ -109,7 +109,7 @@ export const MOBS: Record<string, MobDef> = {
     respawnMs: 10000,
     xpReward: 20,
     drops: [
-      { itemId: "coins", min: 3, max: 12, chance: 1 },
+      { itemId: "coins", min: 1, max: 4, chance: 1 },
       { itemId: "ash_pelt", min: 1, max: 1, chance: 0.6 },
     ],
     color: 0x9e9e9e,
@@ -130,7 +130,7 @@ export const MOBS: Record<string, MobDef> = {
     respawnMs: 12000,
     xpReward: 35,
     drops: [
-      { itemId: "coins", min: 10, max: 30, chance: 1 },
+      { itemId: "coins", min: 2, max: 6, chance: 1 },
       { itemId: "health_potion", min: 1, max: 1, chance: 0.25 },
       { itemId: "bronze_sword", min: 1, max: 1, chance: 0.1 },
     ],
@@ -154,7 +154,7 @@ export const MOBS: Record<string, MobDef> = {
     respawnMs: 12000,
     xpReward: 90,
     drops: [
-      { itemId: "coins", min: 15, max: 40, chance: 1 },
+      { itemId: "coins", min: 3, max: 9, chance: 1 },
       { itemId: "iron_ore", min: 1, max: 2, chance: 0.4 },
       { itemId: "health_potion", min: 1, max: 1, chance: 0.15 },
     ],
@@ -176,7 +176,7 @@ export const MOBS: Record<string, MobDef> = {
     respawnMs: 18000,
     xpReward: 160,
     drops: [
-      { itemId: "coins", min: 30, max: 70, chance: 1 },
+      { itemId: "coins", min: 6, max: 15, chance: 1 },
       { itemId: "iron_bar", min: 1, max: 1, chance: 0.3 },
       { itemId: "ancient_relic", min: 1, max: 1, chance: 0.08 },
     ],
@@ -198,7 +198,7 @@ export const MOBS: Record<string, MobDef> = {
     respawnMs: 20000,
     xpReward: 220,
     drops: [
-      { itemId: "coins", min: 40, max: 90, chance: 1 },
+      { itemId: "coins", min: 8, max: 20, chance: 1 },
       { itemId: "ancient_relic", min: 1, max: 1, chance: 0.15 },
       { itemId: "health_potion", min: 1, max: 1, chance: 0.3 },
     ],
@@ -222,7 +222,7 @@ export const MOBS: Record<string, MobDef> = {
     respawnMs: 30000,
     xpReward: 1200,
     drops: [
-      { itemId: "coins", min: 400, max: 800, chance: 1 },
+      { itemId: "coins", min: 150, max: 300, chance: 1 },
       { itemId: "ancient_relic", min: 2, max: 4, chance: 1 },
       { itemId: "cinder_heart", min: 1, max: 1, chance: 0.5 },
     ],
