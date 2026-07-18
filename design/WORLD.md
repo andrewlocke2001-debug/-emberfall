@@ -352,7 +352,198 @@ each of them.)*
 
 ---
 
-*Next: **Phase 3 — THE MAP** (continent overview shaped by the Wound; the
-12 zones with level bands 1–60, local conflicts, landmarks, dungeons, and
-faction flashpoints; three interweaving faction leveling paths). This is
-the "bigger map" blueprint the build phases will implement.*
+# PHASE 3 — THE MAP
+
+> The four shipped zones (Meadowbrook, Greenreach, Tanglewood, Ashreach) and
+> both shipped instances (Cinder Depths, Molten Throne) keep their canon and
+> their place. Eight regions grow around them. Level cap rises 50 → 60 with
+> the P13 combat expansion.
+
+## 1. Continent overview — Vesper, shaped by the Wound
+
+The Ember's heart came down in the continent's east and the shard-rain fell
+in a rough spiral around it, so Vesper reads like a burn on a map: a green
+western rim (the Hearthlands, furthest from impact), a temperate middle
+increasingly striped with ember-scar, and the east rising through contested
+scar-country to the **Wound** itself — a caldera where the sky still shows a
+column of ember-light. The Fall's other signature is water and stone thrown
+out of place: a drowned southern coast where quench-steam storms broke the
+old shoreline (Vossari country), and northern ranges cracked open along
+their seams (Dolm country). The far north is the **Long Cooling** made
+visible — hearths that no longer take, frost that no longer leaves. Rule of
+travel: **west is warm and poor; east is rich and burning; north is the
+future if nothing changes.**
+
+## 2. The twelve zones
+
+*(Format: biome · level band · conflict · landmark seen zone-wide · dungeon
++ why it exists · environmental detail · faction flashpoint.)*
+
+1. **Meadowbrook Vale** *(shipped; plain-speech)* — hearthland vale · **1–8,
+   sanctuary** · Conflict: Banked vs Outburner Hearthfolk over whether the
+   town's pre-Fall vault should ever be opened. · Landmark: the Great
+   Hearth's smoke-column, straight as a plumb line in any wind. · Dungeon:
+   **the Undercroft** — the Accord grain-vault beneath the town; sealed at
+   the Fall with something rationed inside (intro dungeon, 3-player). ·
+   Detail: every door lintel bears a soot-thumb blessing, renewed daily. ·
+   Flashpoint: the Tollhouse on the tithe-road just beyond hearth-line —
+   the only place in the Vale the League's peace doesn't reach.
+2. **Greenreach Fields** *(shipped)* — farm frontier · **5–15** · Conflict:
+   homesteads vs bandit desperation, both sitting on a lamp-line that still
+   siphons Ember a century after anyone ordered it to. · Landmark: **the
+   Candle** — a snapped Accord lamp-tower, wick of rebar sky-bare. ·
+   Dungeon: **the Under-gallery** — the buried lamp-line conduit (Act II's
+   spotlight made walkable); someone keeps the old machine running. ·
+   Detail: scarecrows wear Accord uniforms — the fields' oldest joke and
+   only history lesson. · Flashpoint: the Tithe Barn, where League levy and
+   Tendfast "collections" chase the same harvest.
+3. **The Marrowgate Downs** *(new; "marrow" — Hearthfolk name for the warm
+   heart of a thing)* — chalk downs, barrow country · **10–18** · Conflict:
+   League resettlement of the downs vs the Unreturned of the refugee column
+   Marrowgate refused. · Landmark: Marrowgate itself — a walled ghost town
+   with its gates still barred *from the inside*. · Dungeon: **the Refused
+   Column** — the barrow-road under the walls where the cold falling
+   happened; the dead still queue. · Detail: every farmhouse doorstep keeps
+   an offering bowl; the rims are frosted in high summer. · Flashpoint: the
+   quarantine post on the coach road — League cold-exiles out, Tendfast
+   smugglers running kindled families in.
+4. **Tanglewood** *(shipped)* — kindled deep-forest · **15–28** · Conflict:
+   Order relic crews vs a forest that has drunk shard-fire for a century —
+   and remembers being a province. · Landmark: **the Overgrown Gate** — an
+   Accord triumphal arch strangled by fire-oaks, glowing faintly at dusk. ·
+   Dungeon: **the Sentinel Foundry** — where Ruin Sentinels still march in
+   for repair under standing orders no living person issued (justifies the
+   endless patrols). · Detail: tree rings in felled trunks show one black
+   ring — the Fall year — then rings of gold. · Flashpoint: the Order's
+   relic dig at the Gate's foot, claimed by all three factions' charters.
+5. **The Vossmere** *(new; salt-tongue doubled-s)* — drowned estuary,
+   stilt-city anchorage · **18–26** · Conflict: Shoremade Vossari want a
+   land charter; the Never-Landed call every plank ashore a betrayal. ·
+   Landmark: **the Oar Wall** — the breakwater built of ancient oars and
+   keels, black with age, never repaired and never allowed to fall. ·
+   Dungeon: **the Sunken Pyre** — the burned refugee flotilla the Wall
+   refused, fused into a reef; the fleet's guilt with a loot table. ·
+   Detail: house-hulks fly a pennant for each generation aboard; some fly
+   nine. · Flashpoint: the tide-locked salvage fields — twice a day the sea
+   opens them, and every charter in Vesper says they belong to someone
+   else.
+6. **The Dolmholt** *(new; forge-speech)* — terraced mountain holds ·
+   **26–34** · Conflict: a newly-cracked *live* seam — Rite-keepers won't
+   cut it, Open-Vein crews already are. · Landmark: **the Doors of the
+   Sealed Shift**, carved floor-to-sky in a cliff face; the names are on
+   the inside. · Dungeon: **the Sealed Shift** — the gallery finally
+   reopened; three hundred sparks went down with the fire, and what
+   rekindled there kept the shift-bells. · Detail: every stair-rail is
+   worn to a shine on the *downhill* side — miners descend loaded. ·
+   Flashpoint: the Open-Vein pithead, an illegal mine with League paper,
+   Order funding, and Tendfast saboteurs.
+7. **The Cinderfen** *(new; plain compound)* — steam-fen scar, glass reeds ·
+   **30–38** · Conflict: the Tendfast's great tending-camp versus the
+   Order's cinder harvest — mercy and appetite drawing from one wound. ·
+   Landmark: **the Glass Willow** — a vitrified giant tree that catches the
+   dusk and burns like a lamp for an hour. · Dungeon: **the Bleedworks** —
+   an Order pumping station drawing liquid cinder from under the fen;
+   built on the bones of an Accord spa that once bottled "healthful
+   warmth." · Detail: the fen weeps warm rain at night; tenders say that's
+   when the Ember dreams. · Flashpoint: the Bleedworks intake — sabotage,
+   counter-sabotage, and three flags over one valve.
+8. **The Greatwake Isles** *(new; salt-tongue)* — volcanic archipelago
+   where shards struck sea · **34–42** · Conflict: cinder-pearl beds (sea-
+   cooled cinder, stable and clean-burning) versus the kindled leviathans
+   that made the beds. · Landmark: **the Greatwake** itself — a boiling
+   wake-line across the strait that has not closed in a hundred years. ·
+   Dungeon: **the Anchor-Tomb** — the Vossari sea-funeral ground; the
+   Unreturned walk the keels asking after the tide. · Detail: islanders
+   nail kettles to shrine posts — a boiling offering needs no fire here. ·
+   Flashpoint: the pearl beds at slack tide, the only PvP arena with a
+   countdown the moon runs.
+9. **The Ashreach** *(shipped)* — high ember-scar, warlord country ·
+   **38–48, open PvP** · Conflict: canon — whoever is strong enough holds
+   the richest veins; now written as the continent's cinder rush. ·
+   Landmark: the **Sealed Accord Gate** above the Cinder Depths, and the
+   Wound's glow behind it. · Dungeon: **the Cinder Depths** *(shipped)* —
+   the buried heart's antechamber; the Lampwrights' hundred-year binding
+   camp (Act V canon). · Detail: warlord banners are half pre-Fall
+   heraldry, half mining-claim numbers. · Flashpoint: the Three Veins —
+   the richest open seam in Vesper; the zone-wide PvP fiction, now named.
+10. **The Graywastes** *(new; what farmers call grayed land)* — frost
+    steppe, dead hearths · **44–52** · Conflict: no one holds it; cache
+    expeditions race each other and the cold — the Long Cooling's preview.
+    · Landmark: **the Cold Beacon** — a lamp-tower on the horizon burning
+    *black*, casting shade at noon (mystery seed; never explained). ·
+    Dungeon: **the Hearth of the Last Village** — a town that pooled all
+    its warmth into one fire to survive a winter, wrongly; the hearth
+    still calls people home. · Detail: doors stand open the whole zone —
+    the last owners left them so, for whoever came after. · Flashpoint:
+    pre-Fall supply caches that thaw open on a timer only the Order can
+    predict — and sells.
+11. **The Kindlecourt** *(new; Accord court-compound)* — the shattered
+    capital province · **48–56** · Conflict: all three factions' endgames
+    converge on the Accord's remains — and on the Archive that shouldn't
+    still be staffed. · Landmark: **the Scaffold of the Everlasting Lamp**
+    — the city-sized, unfinished binding engine, skeletal against the
+    Wound-light. · Dungeon: **the Lamplight Archive** — where the
+    forbidden discipline is practiced *today*; raid-lead-in, and the
+    Order's unacknowledged shame. · Detail: the streets' lamp-posts all
+    lean toward the Scaffold, half-melted in one direction, like grass
+    bent by wind. · Flashpoint: the Archive approaches — the Order defends
+    with charters first and Lampwright tricks second.
+12. **The Emberheart Caldera** *(new; plain-speech)* — the Wound itself ·
+    **52–60, endgame** · Conflict: everything Phase 1 promised — the
+    cooling world's last argument, held at the lip of the thing all three
+    factions need. · Landmark: the **Wound-column** — the standing shaft of
+    ember-light where the sky burned; visible from four zones, blinding
+    here. · Dungeon: **the Molten Throne** *(shipped raid)* — the seat the
+    Ember built itself while it dreamed; the five bosses are its fever. ·
+    Detail: compasses don't spin here — they *warm*, and point down. ·
+    Flashpoint: the Last Camp — the only neutral fire in the caldera, and
+    the most broken truce in Vesper.
+
+## 3. Zone flow — three faction paths, two collisions
+
+- **League road (the Warden's March, west-spine):** Meadowbrook → Greenreach
+  → Marrowgate Downs → Tanglewood → Dolmholt → **Cinderfen** → Ashreach →
+  Graywastes → Kindlecourt → Caldera.
+- **Order road (the Charter Route, scholar's coast):** Meadowbrook →
+  Greenreach → Tanglewood → Vossmere → **Cinderfen** → Greatwake Isles →
+  Ashreach → Kindlecourt → Caldera.
+- **Tendfast road (the Scar Walk, mercy-runner's route):** Meadowbrook →
+  Marrowgate Downs → Vossmere → **Cinderfen** → Dolmholt → Greatwake Isles
+  → **Ashreach** → Graywastes → Caldera.
+
+**Collision 1 — the Bleedworks (Cinderfen, ~level 32):** all three roads
+arrive within a level of each other at the pumping station; every player's
+mid-game has the same argument in it. **Collision 2 — the Sealed Accord
+Gate (Ashreach, ~level 46):** there is one way down to the Depths and
+everyone's questline needs it; the warlords sell passage to all three flags
+and loyalty to none.
+
+---
+
+### Phase 3 — decisions made (3)
+
+1. **Shipped geography is load-bearing.** All four live zones and both
+   instances slot into the 12 unchanged; new regions extend rather than
+   redraw, so the build can ship zone-by-zone without retcons.
+2. **Level bands overlap on purpose.** Adjacent zones share 3–5 levels so
+   the three faction roads genuinely interweave instead of forming one
+   corridor.
+3. **Every dungeon is a historical guilt.** All twelve answer "what
+   happened here that no one wants to discuss" — Marrowgate's refusal, the
+   Oar Wall's pyre, the Sealed Shift — so loot runs double as lore.
+
+### Alternatives rejected (2)
+
+1. **A second continent for the expansion space** — grander, but it makes
+   the first continent feel finished, and Vesper must never feel finished.
+   Rejected: the sealed doors stay ON this map (Phase 4).
+2. **A classic 1→60 single corridor** (each zone one band, no overlap) —
+   simpler to build and tune, but it kills faction identity in leveling
+   and makes world PvP accidental instead of inevitable. Rejected.
+
+---
+
+*Next: **Phase 4 — DEPTH & HOOKS** (five named eras and their remains; the
+threat ladder to one existential endgame; holidays, curses, songs, and the
+food every culture claims; the 3 never-answered mysteries and where their
+clues sit; two sealed expansion doors).*
