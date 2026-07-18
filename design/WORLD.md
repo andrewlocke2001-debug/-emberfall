@@ -543,7 +543,177 @@ and loyalty to none.
 
 ---
 
-*Next: **Phase 4 — DEPTH & HOOKS** (five named eras and their remains; the
-threat ladder to one existential endgame; holidays, curses, songs, and the
-food every culture claims; the 3 never-answered mysteries and where their
-clues sit; two sealed expansion doors).*
+# PHASE 4 — DEPTH & HOOKS
+
+> Vesper's calendar counts from the Fall: **BF / AF** (Before/After the
+> Fall). "Now" is **103 AF**.
+
+## 1. Timeline — five eras, and what each left in the ground
+
+1. **The Cold Dark** *(myth-time, undated)* — before the First Hearth,
+   there was only the cold; every telling agrees on nothing else.
+   **Remains:** the deep hearth-stones — fire-pits older than any culture,
+   found beneath later ruins (Dolmholt deep galleries; a sealed one in
+   Meadowbrook's Undercroft; ring-pits under Graywastes barrows).
+2. **The Hearthholds** *(~800–300 BF)* — scattered hold-cultures tending
+   local fires; the asking-rites, debt-carving, and hearth-share craft are
+   all this old. **Remains:** the Dolm's oldest carved doors (Dolmholt),
+   barrow-hearths (Marrowgate Downs), the Oar Wall's bottom-most keels
+   (Vossmere).
+3. **The Accord / the Lamplight Era** *(~300 BF–0)* — unification by
+   lamp-line; the golden age of drawing, ending in the Lampwrights'
+   ambition. **Remains:** the Candle (Greenreach), the Overgrown Gate and
+   Sentinel Foundry (Tanglewood), the lamp-line under-galleries, the
+   Kindlecourt and the Scaffold of the Everlasting Lamp, every Ruin
+   Sentinel still on patrol.
+4. **The Fall & the Scattering** *(0–~40 AF)* — the night the sky burned
+   and the mean years after: refusals, flights, sealings. **Remains:**
+   Marrowgate's inside-barred gates (Downs), the Sunken Pyre reef
+   (Vossmere), the Sealed Shift doors (Dolmholt), the single black tree
+   ring in every old Tanglewood trunk.
+5. **The Long Cooling / the Frontier Age** *(~40 AF–now, 103 AF)* — the
+   rebuild, the factions, the push back east — and every winter longer
+   than the last. **Remains:** being built around the player daily: the
+   quarantine posts, the Bleedworks (raised 71 AF), tally-scar tattoos,
+   Meadowbrook itself.
+
+## 2. The threat ladder
+
+- **Zone tier:** kindled wildlife (emberlings, ash-wolves, leviathans of
+  the Greatwake) · desperate humans (bandits, warlords, Open-Vein crews) ·
+  the Accord's leftovers (Ruin Sentinels on century-old orders) · the
+  Unreturned (lost heat walking, thickest where the Cooling leads).
+- **Raid tier (3):**
+  1. **The Molten King** *(shipped — Molten Throne)* — not a person: the
+     wounded Ember's fever dreamed itself a court and a crown to guard its
+     sleep. Killing him is palliative care with loot.
+  2. **Provost Ilsever, the Archivist-in-Lamplight** *(Accord Latinate
+     name; Lamplight Archive, Kindlecourt)* — head of the Lampwright cell
+     inside the Order; mistress of the forbidden Binding; her raid is her
+     collection — phylactery-lamps, each one somebody's stolen spark, some
+     of them *ranked* somebodies.
+  3. **The Shepherd of the Beacon** *(the Graywastes' black lamp)* — the
+     pre-Fall keeper who never left his post and no longer casts warmth,
+     only gathers it; the Unreturned follow him like a congregation. The
+     first raid where the danger is not damage but *drain*.
+- **Existential endgame — the Old Cold** *(plain-speech; nobody
+  capitalizes it in conversation, everybody does in their head)*: Phase
+  1's cosmology opened "before anything, cold." That cold is not gone; it
+  is the house the First Hearth was lit inside, and as the Ember weakens
+  it reclaims rooms — the Graywastes are not dying land, they are the
+  landlord returning. The Beacon burns black because *something* has
+  learned to make a lamp of absence. The endgame threat is not a dark
+  lord: it is the default state of the universe, patient, and already
+  inside the walls. Every faction's plan — ration, relight, heal — is an
+  argument about how to keep a house the owner wants back.
+
+## 3. Living details
+
+**Five holidays & rituals:**
+1. **Banking Night** (Hearthfolk; last night of autumn) — every fire in
+   town relit from one relayed ember; every door open; everyone owes a
+   log. The year's true census: who carried fire to whom.
+2. **The Asking** (Dolm; before each season's first cut) — hold-wide
+   silence; the eldest knocks on the stone and waits one full bell for an
+   answer everyone prays never comes.
+3. **Wake-Paying** (Vossari; on making port) — nine ladles of hot water
+   poured over the stern for those the wake was paid for. No names, ever.
+4. **The Loud Day** (Cinderborn; once a year) — the Menders let the
+   scar-song be played aloud on instruments built to sound like the
+   Ember dreaming. Towns find it beautiful, unbearable, and over too soon
+   to apologize for.
+5. **First Frost Count** (everyone; dreaded) — the recording of the year's
+   first frost, inked into tally-scars. That the date arrives earlier each
+   year is discussed by no one, loudly.
+
+**Three curses:** **"grate-cold"** (heartless — "a grate-cold bargain") ·
+**"ashlicker"** (one who takes warmth they never tended; fighting-rude) ·
+**"go down dark"** (wishing someone a cold falling; unforgivable — a
+criminal utterance inside Meadowbrook's hearth-line).
+
+**Two songs everyone knows:** **"The Long Log"** — the work-round with a
+verse per region; the Dolm verse is in forge-speech and the Vossari verse
+is the one they don't translate. **"Nine Ladles"** — the Vossari funeral
+tune that escaped to every tavern because it is simply too good;
+landfolk deliberately sing it slightly wrong, because singing it *right*
+makes it a real funeral.
+
+**The contested food: ember-bread** — dough baked overnight in banked
+coals. Hearthfolk invented it (obviously); the Dolm perfected it
+(stone-heat is even; surface bread is "burnt on purpose"); the Vossari
+sand-pit theirs with sea-wrack salt and call all inland loaves "raw";
+and the Cinderborn version requires no coals at all — a Mender simply
+holds the loaf — which every other culture finds deeply unsettling and
+eats anyway.
+
+## 4. The three mysteries (never answered in any text)
+
+1. **The ledger runs a surplus.** Careful tenders keep finding fires that
+   burn *longer* than their fuel accounts for. Heat is being paid IN — by
+   someone, or something, and not through any door. **Clues:** the Great
+   Hearth's tending-logs (Meadowbrook); a Bleedworks intake meter that
+   runs backwards one night a month (Cinderfen); the Last Camp's fire in
+   the Caldera, which no one has fed in nine years.
+2. **The Beacon burns black — and it is "2 of 9."** A lamp that casts
+   shade at noon, warm to the touch, with a congregation of the
+   Unreturned. **Clues:** the keeper's log in Accord shorthand
+   (Graywastes); a Kindlecourt Archive work-order reading *"Beacon 2 of
+   9 — placement per the Provost's survey"*; a keel in the Anchor-Tomb
+   branded with the same maker's mark (Greatwake Isles). Where are the
+   other seven? Never answered.
+3. **The Throne predates the Fall.** Masons' marks beneath the Molten
+   Throne's slag match tool-work in the deepest Dolm galleries — cut
+   centuries before the Emberfall. Something was built at the heart's
+   landing site *before the heart landed*. **Clues:** the marks behind
+   the Molten King's seat (raid environment); identical marks on the far
+   wall of the Sealed Shift — the miners were digging *toward* something
+   (Dolmholt); one deep hearth-stone in Meadowbrook's Undercroft bearing
+   the same mark, which is wrong in a way nobody in-world notices out
+   loud.
+
+## 5. Two sealed doors (locked at launch, on this continent)
+
+1. **The Warm Latitude** *(Vossari sea-speech)* — a stretch of open ocean
+   the Never-Landed will not chart, where the water runs warm in winter
+   and compasses behave like they do in the Caldera. The fleets have
+   standing orders older than the League: *do not follow the warmth.*
+   (Naval expansion; the STORY.md "second heart" hook, now on the map's
+   edge.)
+2. **The Answered Door** *(Dolm forge-speech)* — the deepest gallery of
+   the Dolmholt ends at a smooth, worked wall older than every era above
+   it (the Throne's masons — mystery 3). In 89 AF, a Rite-keeper
+   performed the Asking at that wall. It was answered. The Dolm sealed
+   the entire level and carved no names, which for the Dolm is the
+   loudest thing they have ever done. (Underworld expansion: what the
+   mountain remembers.)
+
+---
+
+### Phase 4 — decisions made (3)
+
+1. **One calendar (BF/AF, now = 103 AF).** Every quest, ruin, and grudge
+   can be dated; specificity is what makes lore arguable, and arguable
+   lore is what guilds argue about.
+2. **The endgame threat is cold, not fire.** Sixty levels teach players
+   that danger glows; the true enemy is the absence underneath — an
+   inversion the cosmology promised from its first sentence.
+3. **Every mystery clue is a visitable place** in a shipped or planned
+   zone — lore-hunting is a travel loop, not a wiki habit.
+
+### Alternatives rejected (2)
+
+1. **Competing calendars per culture** — realistic, unusable in quest
+   text. One reckoning, colored by dialect instead.
+2. **Provost Ilsever as the existential threat** — human villains top out
+   at raid tier. The final enemy must be bigger than any ideology, or
+   the three factions' argument stops mattering — and the cosmology
+   already promised the cold.
+
+---
+
+*The four-phase World Architecture is complete. Build mapping: **P13**
+combat expansion (8 skills, Callings, weapon movesets, trees) · **P14**
+zone construction in Phase 3 order (Marrowgate Downs first) · **P15**
+story implementation (era remains, mystery clue sites, living details as
+ambient content). STORY.md remains the Act I–V spine; this document is
+the world it happens in.*
