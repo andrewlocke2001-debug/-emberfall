@@ -10,6 +10,8 @@ import {
   TICK_MS,
   GCD_MS,
   PLAYER_ACCURACY_BONUS,
+  type CombatSkill,
+  type WeaponType,
   ENERGY_REGEN_PER_SEC,
   PICKUP_RANGE,
   LOOT_OWNERSHIP_MS,
@@ -154,6 +156,7 @@ import {
   perkMaxHpBonus,
   executeAdjust,
 } from "@mmo/shared/systems/perks";
+import { governingSkill, canUseWithWeapon } from "@mmo/shared/systems/weapons";
 import {
   INVASION_INTERVAL_MS,
   INVASION_ESCORTS,
@@ -314,6 +317,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
    * respawns (fresh life).
    */
   private readonly mobContributors = new Map<string, Set<string>>();
+  /** Which combat skill each contributor last hit with (XP routing, P13). */
+  private readonly mobContributorSkill = new Map<string, Map<string, CombatSkill>>();
   /** Dead players → the server time at which they respawn. */
   private readonly deadUntil = new Map<string, number>();
   /** Per-session global-cooldown expiry (server time, ms). */
@@ -688,6 +693,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     player.fishingXp = saved.fishingXp;
     player.smithingXp = saved.smithingXp;
     player.cookingXp = saved.cookingXp;
+    player.rangedXp = saved.rangedXp;
+    player.magicXp = saved.magicXp;
     player.restedXp = saved.restedXp;
     player.level = levelForXp(saved.meleeXp);
     // maxHp = Vitality curve + equipped gear's maxHp bonus.
@@ -764,6 +771,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (ai.target === client.sessionId) ai.target = null;
     });
     this.mobContributors.forEach((set) => set.delete(client.sessionId));
+    this.mobContributorSkill.forEach((m) => m.delete(client.sessionId));
     const inventory = this.inventories.get(client.sessionId) ?? [];
     const equipment = this.equipment.get(client.sessionId) ?? {};
     const durability = this.durability.get(client.sessionId) ?? {};
@@ -839,6 +847,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.state.enemies.set(enemy.id, enemy);
     this.enemyAI.set(enemy.id, { homeX: x, homeY: y, target: null, lastAttackAt: 0, teleReadyAt: 0 });
     this.mobContributors.set(enemy.id, new Set());
+    this.mobContributorSkill.set(enemy.id, new Map());
     return enemy;
   }
 
@@ -849,6 +858,11 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
     const ability = ABILITIES[msg.abilityId];
     if (!ability) return;
+    // Weapon gating (P13): kits belong to weapon classes — a bow cannot Strike.
+    if (!canUseWithWeapon(ability, this.equippedWeaponType(sessionId))) {
+      this.systemTo(client, ability.name + " needs a different weapon in hand.");
+      return;
+    }
 
     // You fight on foot — acting dismounts you.
     if (player.mounted) player.mounted = false;
@@ -994,6 +1008,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.wearGear(client, this.equipment.get(sessionId)?.weapon);
       // Tag this player as a contributor — landing a hit earns kill credit.
       this.mobContributors.get(enemy.id)?.add(sessionId);
+      const skillMap = this.mobContributorSkill.get(enemy.id) ?? new Map<string, CombatSkill>();
+      skillMap.set(sessionId, ability.skill ?? "melee");
+      this.mobContributorSkill.set(enemy.id, skillMap);
       const evt: CombatEventPayload = {
         attackerId: sessionId,
         targetId: enemy.id,
@@ -1046,7 +1063,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     credited.forEach((sessionId) => {
       const player = this.state.players.get(sessionId);
       if (!player) return;
-      this.grantXp(sessionId, player, meleeAmt, vitalityAmt);
+      const combatSkill: CombatSkill =
+        this.mobContributorSkill.get(enemy.id)?.get(sessionId) ??
+        governingSkill(this.equippedWeaponType(sessionId));
+      this.grantXp(sessionId, player, meleeAmt, vitalityAmt, combatSkill);
       if (contributors.has(sessionId)) {
         for (const stack of rollDrops(def.drops)) {
           this.spawnLoot(stack.itemId, stack.qty, enemy.x, enemy.y, player.id, now);
@@ -1156,11 +1176,27 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
    * drives maxHp — a Vitality level-up raises maxHp and heals by the gain so a
    * fresh level is never a downgrade mid-fight.
    */
-  private grantXp(sessionId: string, player: PlayerSchema, meleeAmt: number, vitalityAmt: number): void {
-    const melee = gainXp(player.meleeXp, this.withRested(player, meleeAmt));
-    player.meleeXp = melee.xp;
-    player.level = melee.level; // keep level == melee level even without a tick-up
-    if (melee.leveledUp) this.sendLevelUp(sessionId, "melee", melee.level);
+  private grantXp(
+    sessionId: string,
+    player: PlayerSchema,
+    combatAmt: number,
+    vitalityAmt: number,
+    skill: CombatSkill = "melee",
+  ): void {
+    if (skill === "ranged") {
+      const g = gainXp(player.rangedXp, this.withRested(player, combatAmt));
+      player.rangedXp = g.xp;
+      if (g.leveledUp) this.sendLevelUp(sessionId, "ranged", g.level);
+    } else if (skill === "magic") {
+      const g = gainXp(player.magicXp, this.withRested(player, combatAmt));
+      player.magicXp = g.xp;
+      if (g.leveledUp) this.sendLevelUp(sessionId, "magic", g.level);
+    } else {
+      const melee = gainXp(player.meleeXp, this.withRested(player, combatAmt));
+      player.meleeXp = melee.xp;
+      player.level = melee.level; // level == melee level (defence + PvP bands)
+      if (melee.leveledUp) this.sendLevelUp(sessionId, "melee", melee.level);
+    }
 
     const vitality = gainXp(player.vitalityXp, this.withRested(player, vitalityAmt));
     player.vitalityXp = vitality.xp;
@@ -1627,6 +1663,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     return {
       levels: {
         melee: levelForXp(player.meleeXp),
+        ranged: levelForXp(player.rangedXp),
+        magic: levelForXp(player.magicXp),
         vitality: levelForXp(player.vitalityXp),
         mining: levelForXp(player.miningXp),
         fishing: levelForXp(player.fishingXp),
@@ -1930,6 +1968,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
           this.state.enemies.delete(id);
           this.enemyAI.delete(id);
           this.mobContributors.delete(id);
+          this.mobContributorSkill.delete(id);
         });
     }, 2000);
   }
@@ -3127,6 +3166,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   /** Route a quest's XP reward to the right skill (combat vs non-combat). */
   private awardQuestXp(sessionId: string, player: PlayerSchema, skill: SkillId, amount: number): void {
     if (skill === "melee") this.grantXp(sessionId, player, amount, 0);
+    else if (skill === "ranged" || skill === "magic") this.grantXp(sessionId, player, amount, 0, skill);
     else if (skill === "vitality") this.grantXp(sessionId, player, 0, amount);
     else this.grantSkillXp(sessionId, player, skill, amount);
   }
@@ -3143,13 +3183,29 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   }
 
   private playerStats(sessionId: string, player: PlayerSchema): CombatStats {
-    const base = combatStatsFromLevel(player.level, player.hp, player.maxHp);
+    // Attack/strength come from the skill governing the weapon in hand
+    // (bow→Ranged, staff→Magic, else Melee); defence stays with melee training.
+    const skill = governingSkill(this.equippedWeaponType(sessionId));
+    const level =
+      skill === "ranged"
+        ? levelForXp(player.rangedXp)
+        : skill === "magic"
+          ? levelForXp(player.magicXp)
+          : player.level;
+    const base = combatStatsFromLevel(level, player.hp, player.maxHp);
+    base.defence = combatStatsFromLevel(player.level, player.hp, player.maxHp).defence;
     const bonus = equipmentBonus(this.effectiveGear(sessionId), itemDef);
     base.attack += bonus.attack;
     base.strength += bonus.strength;
     base.defence += bonus.defence;
     // The skill tree adjusts the finished sheet (Berserker/Guardian).
     return applyPerkStats(base, this.perks.get(sessionId) ?? []);
+  }
+
+  /** The weapon class in hand (undefined = bare fists or a broken weapon). */
+  private equippedWeaponType(sessionId: string): WeaponType | undefined {
+    const weaponId = this.effectiveGear(sessionId).weapon;
+    return weaponId ? itemDef(weaponId)?.weaponType : undefined;
   }
 
   /** Target maxHp for a session: Vitality curve + equipped-gear maxHp bonus. */
@@ -3596,6 +3652,8 @@ function toSaved(
     fishingXp: p.fishingXp,
     smithingXp: p.smithingXp,
     cookingXp: p.cookingXp,
+    rangedXp: p.rangedXp,
+    magicXp: p.magicXp,
     restedXp: p.restedXp,
     inventory,
     equipment,

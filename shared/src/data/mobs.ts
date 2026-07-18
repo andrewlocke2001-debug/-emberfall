@@ -155,6 +155,7 @@ export const MOBS: Record<string, MobDef> = {
     xpReward: 90,
     drops: [
       { itemId: "coins", min: 3, max: 9, chance: 1 },
+      { itemId: "hunter_longbow", min: 1, max: 1, chance: 0.04 },
       { itemId: "iron_ore", min: 1, max: 2, chance: 0.4 },
       { itemId: "health_potion", min: 1, max: 1, chance: 0.15 },
     ],
@@ -199,6 +200,7 @@ export const MOBS: Record<string, MobDef> = {
     xpReward: 220,
     drops: [
       { itemId: "coins", min: 8, max: 20, chance: 1 },
+      { itemId: "cinder_staff", min: 1, max: 1, chance: 0.05 },
       { itemId: "ancient_relic", min: 1, max: 1, chance: 0.15 },
       { itemId: "health_potion", min: 1, max: 1, chance: 0.3 },
     ],

@@ -32,6 +32,8 @@ import {
   TALK_RANGE,
   distSq,
   type SkillId,
+  type CombatSkill,
+  type WeaponType,
 } from "@mmo/shared";
 import type { MapSchema } from "@colyseus/schema";
 import { ZoneState, PlayerSchema, EnemySchema, GroundLootSchema } from "@mmo/shared/schema/state";
@@ -96,6 +98,7 @@ import { exitAt, type ZoneMap } from "@mmo/shared/systems/zonemap";
 import { parseCommand } from "@mmo/shared/systems/gm";
 import { rollHunt, recordHuntKill, type HuntTask } from "@mmo/shared/systems/hunts";
 import { RESPEC_COST } from "@mmo/shared/data/perks";
+import { governingSkill, canUseWithWeapon } from "@mmo/shared/systems/weapons";
 import {
   canChoosePerk,
   applyPerkStats,
@@ -125,6 +128,8 @@ export interface SoloSave {
   y: number;
   hp: number;
   meleeXp: number;
+  rangedXp: number;
+  magicXp: number;
   vitalityXp: number;
   miningXp: number;
   fishingXp: number;
@@ -152,6 +157,8 @@ function defaultSave(): SoloSave {
     y: 0,
     hp: 100,
     meleeXp: 0,
+    rangedXp: 0,
+    magicXp: 0,
     vitalityXp: 0,
     miningXp: 0,
     fishingXp: 0,
@@ -322,6 +329,8 @@ export class SoloRoom {
     p.x = x;
     p.y = y;
     p.meleeXp = this.save.meleeXp;
+    p.rangedXp = this.save.rangedXp;
+    p.magicXp = this.save.magicXp;
     p.vitalityXp = this.save.vitalityXp;
     p.miningXp = this.save.miningXp;
     p.fishingXp = this.save.fishingXp;
@@ -520,12 +529,22 @@ export class SoloRoom {
 
   private playerStats(): CombatStats {
     const p = this.player();
-    const base = combatStatsFromLevel(p.level, p.hp, p.maxHp);
+    const skill = governingSkill(this.equippedWeaponType());
+    const level =
+      skill === "ranged" ? levelForXp(p.rangedXp) : skill === "magic" ? levelForXp(p.magicXp) : p.level;
+    const base = combatStatsFromLevel(level, p.hp, p.maxHp);
+    base.defence = combatStatsFromLevel(p.level, p.hp, p.maxHp).defence;
     const bonus = equipmentBonus(this.effectiveGear(), itemDef);
     base.attack += bonus.attack;
     base.strength += bonus.strength;
     base.defence += bonus.defence;
     return applyPerkStats(base, this.chosenPerks);
+  }
+
+  /** The weapon class in hand (undefined = bare fists or a broken weapon). */
+  private equippedWeaponType(): WeaponType | undefined {
+    const weaponId = this.effectiveGear().weapon;
+    return weaponId ? itemDef(weaponId)?.weaponType : undefined;
   }
 
   private mobStats(e: EnemySchema): CombatStats {
@@ -538,6 +557,10 @@ export class SoloRoom {
     if (!p.alive) return;
     const ability = ABILITIES[msg.abilityId as keyof typeof ABILITIES];
     if (!ability) return;
+    // Weapon gating (P13): kits belong to weapon classes — a bow cannot Strike.
+    if (!canUseWithWeapon(ability, this.equippedWeaponType())) {
+      return this.system(ability.name + " needs a different weapon in hand.");
+    }
 
     if (p.mounted) p.mounted = false; // you fight on foot
 
@@ -588,7 +611,7 @@ export class SoloRoom {
         enemy.respawnAt = now + mobDef(enemy.kind).respawnMs;
         enemy.teleAt = 0;
         enemy.teleRadius = 0;
-        this.awardKill(enemy);
+        this.awardKill(enemy, ability.skill ?? "melee");
       }
     }
   }
@@ -598,12 +621,12 @@ export class SoloRoom {
     if (ability.cooldownMs > 0) this.abilityCooldowns.set(ability.id, now + ability.cooldownMs);
   }
 
-  private awardKill(enemy: EnemySchema): void {
+  private awardKill(enemy: EnemySchema, skill: CombatSkill = "melee"): void {
     if (!this.tagged.has(enemy.id)) return;
     this.tagged.delete(enemy.id);
     const def = mobDef(enemy.kind);
     const now = Date.now();
-    this.grantXp(def.xpReward, Math.floor(def.xpReward * VITALITY_XP_FRACTION));
+    this.grantXp(def.xpReward, Math.floor(def.xpReward * VITALITY_XP_FRACTION), skill);
     for (const stack of rollDrops(def.drops)) {
       this.spawnLoot(stack.itemId, stack.qty, enemy.x, enemy.y, now);
     }
@@ -674,12 +697,22 @@ export class SoloRoom {
     return amount + bonus;
   }
 
-  private grantXp(meleeAmt: number, vitalityAmt: number): void {
+  private grantXp(combatAmt: number, vitalityAmt: number, skill: CombatSkill = "melee"): void {
     const p = this.player();
-    const melee = gainXp(p.meleeXp, this.withRested(meleeAmt));
-    p.meleeXp = melee.xp;
-    p.level = melee.level;
-    if (melee.leveledUp) this.emit(ServerMessage.LevelUp, { skill: "melee", level: melee.level });
+    if (skill === "ranged") {
+      const g = gainXp(p.rangedXp, this.withRested(combatAmt));
+      p.rangedXp = g.xp;
+      if (g.leveledUp) this.emit(ServerMessage.LevelUp, { skill: "ranged", level: g.level });
+    } else if (skill === "magic") {
+      const g = gainXp(p.magicXp, this.withRested(combatAmt));
+      p.magicXp = g.xp;
+      if (g.leveledUp) this.emit(ServerMessage.LevelUp, { skill: "magic", level: g.level });
+    } else {
+      const melee = gainXp(p.meleeXp, this.withRested(combatAmt));
+      p.meleeXp = melee.xp;
+      p.level = melee.level; // level == melee level (defence + display)
+      if (melee.leveledUp) this.emit(ServerMessage.LevelUp, { skill: "melee", level: melee.level });
+    }
 
     const vitality = gainXp(p.vitalityXp, this.withRested(vitalityAmt));
     p.vitalityXp = vitality.xp;
@@ -715,6 +748,7 @@ export class SoloRoom {
 
   private awardQuestXp(skill: SkillId, amount: number): void {
     if (skill === "melee") this.grantXp(amount, 0);
+    else if (skill === "ranged" || skill === "magic") this.grantXp(amount, 0, skill);
     else if (skill === "vitality") this.grantXp(0, amount);
     else this.grantSkillXp(skill as NonCombatSkill, amount);
   }
@@ -1427,6 +1461,8 @@ export class SoloRoom {
       y: p.y,
       hp: p.hp,
       meleeXp: p.meleeXp,
+      rangedXp: p.rangedXp,
+      magicXp: p.magicXp,
       vitalityXp: p.vitalityXp,
       miningXp: p.miningXp,
       fishingXp: p.fishingXp,

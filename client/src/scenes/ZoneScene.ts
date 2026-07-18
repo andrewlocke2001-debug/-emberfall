@@ -19,6 +19,7 @@ import {
 import { stepWithCollision } from "@mmo/shared/systems/collision";
 import { levelForXp } from "@mmo/shared/systems/progression";
 import { canAdd } from "@mmo/shared/systems/inventory";
+import { abilityKitFor, basicAbilityFor } from "@mmo/shared/systems/weapons";
 import { ITEMS, type EquipSlot } from "@mmo/shared/data/items";
 import { BANKS, nearBank } from "@mmo/shared/data/banks";
 import { NODES, RESOURCES } from "@mmo/shared/data/resources";
@@ -161,6 +162,9 @@ export class ZoneScene extends Phaser.Scene {
   /** Whether the player owns a mount (P11). */
   private mountOwned = false;
   /** Player settings (rebindable keys + toggles) and the pages that edit them. */
+  /** Ability kit + basic attack for the equipped weapon class (P13). */
+  private weaponKit: AbilityId[] = abilityKitFor(undefined);
+  private basicAbility: AbilityId = basicAbilityFor(undefined);
   private settings: Settings = loadSettings();
   private settingsPanel?: SettingsPanel;
   private tutorial?: TutorialGuide;
@@ -200,6 +204,8 @@ export class ZoneScene extends Phaser.Scene {
     this.selectedTargetId = null;
     this.atBank = false;
     this.lastSentDir = { dx: 0, dy: 0 };
+    this.weaponKit = abilityKitFor(undefined);
+    this.basicAbility = basicAbilityFor(undefined);
   }
 
   create(): void {
@@ -457,13 +463,15 @@ export class ZoneScene extends Phaser.Scene {
     const me = room.state.players.get(this.localSessionId);
     const meleeLvl = me?.level ?? 1;
     const vitalityLvl = me ? levelForXp(me.vitalityXp) : 1;
+    const rangedLvl = me ? levelForXp(me.rangedXp) : 1;
+    const magicLvl = me ? levelForXp(me.magicXp) : 1;
     const miningLvl = me ? levelForXp(me.miningXp) : 1;
     const fishingLvl = me ? levelForXp(me.fishingXp) : 1;
     const smithingLvl = me ? levelForXp(me.smithingXp) : 1;
     const cookingLvl = me ? levelForXp(me.cookingXp) : 1;
     const hud =
       `${this.map?.displayName ?? ""} — ${room.state.players.size} online` +
-      ` · ⚔${meleeLvl} · ♥${vitalityLvl} · ⛏${miningLvl} · 🎣${fishingLvl}` +
+      ` · ⚔${meleeLvl} · 🏹${rangedLvl} · ✨${magicLvl} · ♥${vitalityLvl} · ⛏${miningLvl} · 🎣${fishingLvl}` +
       ` · 🔨${smithingLvl} · 🍳${cookingLvl}` +
       (me && me.restedXp > 0 ? " · 💤 rested" : "");
     if (hud !== this.lastHud) {
@@ -472,6 +480,8 @@ export class ZoneScene extends Phaser.Scene {
       const parts: { text: string; tip?: string }[] = [
         { text: `${this.map?.displayName ?? ""} — ${room.state.players.size} online` },
         { text: `⚔${meleeLvl}`, tip: `Melee ${meleeLvl} — accuracy and max hit; levels from landing blows.` },
+        { text: `🏹${rangedLvl}`, tip: `Ranged ${rangedLvl} — bow accuracy and damage; train it by fighting with a bow.` },
+        { text: `✨${magicLvl}`, tip: `Magic ${magicLvl} — kindled staff accuracy and damage; train it by fighting with a staff.` },
         { text: `♥${vitalityLvl}`, tip: `Vitality ${vitalityLvl} — raises max HP; levels alongside combat.` },
         { text: `⛏${miningLvl}`, tip: `Mining ${miningLvl} — which rocks you can work and how reliably.` },
         { text: `🎣${fishingLvl}`, tip: `Fishing ${fishingLvl} — which waters you can fish and how reliably.` },
@@ -581,9 +591,9 @@ export class ZoneScene extends Phaser.Scene {
     // 1/2/3 fire on press; held Space (or the touch button) auto-repeats the
     // basic Strike whenever it comes off the global cooldown.
     const bind = this.settings.keys;
-    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.ability1]!)) this.tryUseAbility("strike");
-    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.ability2]!)) this.tryUseAbility("power_strike");
-    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.ability3]!)) this.tryUseAbility("mend");
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.ability1]!)) this.tryUseAbility(this.weaponKit[0]!);
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.ability2]!)) this.tryUseAbility(this.weaponKit[1]!);
+    if (Phaser.Input.Keyboard.JustDown(this.keys[bind.ability3]!)) this.tryUseAbility(this.weaponKit[2]!);
     if (Phaser.Input.Keyboard.JustDown(this.keys[bind.inventory]!)) this.inventory?.toggle();
 
     // Bank: fetch contents when you arrive at one; B toggles the panel there;
@@ -617,7 +627,7 @@ export class ZoneScene extends Phaser.Scene {
       });
     }
     if (this.keys["SPACE"]!.isDown || (this.touch?.attackHeld() ?? false)) {
-      this.tryUseAbility("strike");
+      this.tryUseAbility(this.basicAbility);
     }
 
     // Walk-over auto-pickup: your own drops hoover up as you step on them
@@ -829,6 +839,10 @@ export class ZoneScene extends Phaser.Scene {
     });
     this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
       this.equipmentSlots = p.equipment;
+      const wType = p.equipment.weapon ? ITEMS[p.equipment.weapon]?.weaponType : undefined;
+      this.weaponKit = abilityKitFor(wType);
+      this.basicAbility = basicAbilityFor(wType);
+      this.abilityBar?.setKit(this.weaponKit);
       this.equipmentDurability = p.durability ?? {};
       this.inventory?.setEquipment(p.equipment, this.equipmentDurability);
       // Keep the quest views' merged bag+gear in sync on equip changes too.
@@ -1187,6 +1201,8 @@ export class ZoneScene extends Phaser.Scene {
               name: p.name,
               level: p.level,
               meleeXp: p.meleeXp,
+              rangedXp: p.rangedXp,
+              magicXp: p.magicXp,
               vitalityXp: p.vitalityXp,
               miningXp: p.miningXp,
               fishingXp: p.fishingXp,

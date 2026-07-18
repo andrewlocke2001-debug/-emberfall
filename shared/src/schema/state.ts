@@ -41,6 +41,8 @@ export class PlayerSchema extends Schema {
   declare smithingXp: number;
   /** Total Cooking XP (P4 crafting skill). */
   declare cookingXp: number;
+  declare rangedXp: number;
+  declare magicXp: number;
   /** Banked rested-XP credit (+50% XP while it lasts; accrues offline). */
   declare restedXp: number;
   declare alive: boolean;
@@ -72,6 +74,8 @@ export class PlayerSchema extends Schema {
     this.fishingXp = 0;
     this.smithingXp = 0;
     this.cookingXp = 0;
+    this.rangedXp = 0;
+    this.magicXp = 0;
     this.restedXp = 0;
     this.alive = true;
     this.lastAbilityAt = 0;
@@ -97,6 +101,8 @@ defineTypes(PlayerSchema, {
   fishingXp: "number",
   smithingXp: "number",
   cookingXp: "number",
+  rangedXp: "number",
+  magicXp: "number",
   restedXp: "number",
   alive: "boolean",
   lastAbilityAt: "number",

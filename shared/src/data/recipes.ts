@@ -61,6 +61,42 @@ export const RECIPES: Record<string, RecipeDef> = {
     xp: 8,
     levelReq: 1,
   },
+  forge_bronze_dagger: {
+    id: "forge_bronze_dagger",
+    skill: "smithing",
+    name: "Bronze Dagger",
+    inputs: [{ itemId: "bronze_bar", qty: 1 }],
+    output: { itemId: "bronze_dagger", qty: 1 },
+    xp: 10,
+    levelReq: 1,
+  },
+  forge_bronze_axe: {
+    id: "forge_bronze_axe",
+    skill: "smithing",
+    name: "Bronze Axe",
+    inputs: [{ itemId: "bronze_bar", qty: 1 }],
+    output: { itemId: "bronze_axe", qty: 1 },
+    xp: 12,
+    levelReq: 2,
+  },
+  forge_iron_dagger: {
+    id: "forge_iron_dagger",
+    skill: "smithing",
+    name: "Iron Dagger",
+    inputs: [{ itemId: "iron_bar", qty: 1 }],
+    output: { itemId: "iron_dagger", qty: 1 },
+    xp: 16,
+    levelReq: 12,
+  },
+  forge_iron_axe: {
+    id: "forge_iron_axe",
+    skill: "smithing",
+    name: "Iron Axe",
+    inputs: [{ itemId: "iron_bar", qty: 2 }],
+    output: { itemId: "iron_axe", qty: 1 },
+    xp: 22,
+    levelReq: 14,
+  },
 
   // --- Cooking: raw fish into food ---
   cook_shrimp: {

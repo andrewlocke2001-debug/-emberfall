@@ -31,6 +31,8 @@ export interface SavedCharacter {
   fishingXp: number;
   smithingXp: number;
   cookingXp: number;
+  rangedXp: number;
+  magicXp: number;
   /** Banked rested-XP credit (accrued offline; +50% XP while it lasts). */
   restedXp: number;
   /** Inventory stacks (JSON column). Server is the sole writer. */
@@ -253,6 +255,8 @@ class CharacterStore {
       fishingXp: c.fishingXp,
       smithingXp: c.smithingXp,
       cookingXp: c.cookingXp,
+      rangedXp: c.rangedXp,
+      magicXp: c.magicXp,
       restedXp: c.restedXp,
       inventory: asJson(c.inventory),
       equipment: asJson(c.equipment),
@@ -290,6 +294,8 @@ function toSavedCharacter(row: {
   fishingXp: number;
   smithingXp: number;
   cookingXp: number;
+  rangedXp: number;
+  magicXp: number;
   restedXp: number;
   inventory: unknown;
   equipment: unknown;
@@ -321,6 +327,8 @@ function toSavedCharacter(row: {
     fishingXp: row.fishingXp,
     smithingXp: row.smithingXp,
     cookingXp: row.cookingXp,
+    rangedXp: row.rangedXp,
+    magicXp: row.magicXp,
     restedXp: row.restedXp,
     inventory: parseInventory(row.inventory),
     equipment: parseEquipment(row.equipment),

@@ -48,6 +48,8 @@ model Player {
   fishingXp  Int      @default(0)
   smithingXp Int      @default(0)
   cookingXp  Int      @default(0)
+  rangedXp   Int      @default(0)
+  magicXp    Int      @default(0)
   restedXp   Int      @default(0)
   // Inventory as JSON: an array of { itemId, qty } stacks (see @mmo/shared
   // systems/inventory). The server is the sole writer; shape is validated there.

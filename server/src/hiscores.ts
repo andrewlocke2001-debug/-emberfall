@@ -10,8 +10,13 @@ import { prisma } from "./persistence/db";
  */
 const PAGE_SIZE = 50;
 
-const XP_COLUMNS: Record<SkillId, "meleeXp" | "vitalityXp" | "miningXp" | "fishingXp" | "smithingXp" | "cookingXp"> = {
+const XP_COLUMNS: Record<
+  SkillId,
+  "meleeXp" | "rangedXp" | "magicXp" | "vitalityXp" | "miningXp" | "fishingXp" | "smithingXp" | "cookingXp"
+> = {
   melee: "meleeXp",
+  ranged: "rangedXp",
+  magic: "magicXp",
   vitality: "vitalityXp",
   mining: "miningXp",
   fishing: "fishingXp",
@@ -50,10 +55,10 @@ export async function getHiscores(board: HiscoreBoard): Promise<HiscoreRow[]> {
   if (board === "total") {
     // Order by summed XP (a monotone proxy for total level at equal curves).
     const rows = await prisma.$queryRaw<
-      { id: string; name: string; meleeXp: number; vitalityXp: number; miningXp: number; fishingXp: number; smithingXp: number; cookingXp: number }[]
-    >`SELECT "id","name","meleeXp","vitalityXp","miningXp","fishingXp","smithingXp","cookingXp"
+      { id: string; name: string; meleeXp: number; rangedXp: number; magicXp: number; vitalityXp: number; miningXp: number; fishingXp: number; smithingXp: number; cookingXp: number }[]
+    >`SELECT "id","name","meleeXp","rangedXp","magicXp","vitalityXp","miningXp","fishingXp","smithingXp","cookingXp"
       FROM "Player"
-      ORDER BY ("meleeXp"+"vitalityXp"+"miningXp"+"fishingXp"+"smithingXp"+"cookingXp") DESC
+      ORDER BY ("meleeXp"+"rangedXp"+"magicXp"+"vitalityXp"+"miningXp"+"fishingXp"+"smithingXp"+"cookingXp") DESC
       LIMIT ${PAGE_SIZE}`;
     const irons = await ironmanFlags(rows.map((r) => r.id));
     return rows.map((r, i) => ({
@@ -72,6 +77,8 @@ export async function getHiscores(board: HiscoreBoard): Promise<HiscoreRow[]> {
       id: true,
       name: true,
       meleeXp: true,
+      rangedXp: true,
+      magicXp: true,
       vitalityXp: true,
       miningXp: true,
       fishingXp: true,

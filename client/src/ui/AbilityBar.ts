@@ -1,4 +1,4 @@
-import { ABILITIES, ABILITY_IDS, GCD_MS, type AbilityId } from "@mmo/shared";
+import { ABILITIES, GCD_MS, type AbilityId } from "@mmo/shared";
 
 export interface AbilityBarOptions {
   /** Called when a slot is clicked / tapped. */
@@ -17,6 +17,9 @@ export class AbilityBar {
   private readonly slots = new Map<AbilityId, HTMLDivElement>();
   private gcdUntil = 0;
   private readonly readyAt = new Map<AbilityId, number>();
+  private readonly row: HTMLDivElement;
+  /** The three slots shown — swapped when the equipped weapon class changes (P13). */
+  private kit: AbilityId[] = ["strike", "power_strike", "mend"];
 
   constructor(private readonly opts: AbilityBarOptions) {
     this.root.replaceChildren(); // rebuild cleanly across scene restarts
@@ -28,9 +31,24 @@ export class AbilityBar {
     energy.appendChild(this.energyFill);
     this.root.appendChild(energy);
 
-    const row = document.createElement("div");
-    row.className = "ability-row";
-    ABILITY_IDS.forEach((id, i) => {
+    this.row = document.createElement("div");
+    this.row.className = "ability-row";
+    this.buildSlots();
+    this.root.appendChild(this.row);
+    this.root.style.display = "flex";
+  }
+
+  /** Swap the bar to a weapon class's kit (no-op when unchanged). */
+  setKit(kit: AbilityId[]): void {
+    if (kit.length === this.kit.length && kit.every((id, i) => id === this.kit[i])) return;
+    this.kit = [...kit];
+    this.buildSlots();
+  }
+
+  private buildSlots(): void {
+    this.row.replaceChildren();
+    this.slots.clear();
+    this.kit.forEach((id, i) => {
       const def = ABILITIES[id];
       const slot = document.createElement("button");
       slot.type = "button";
@@ -47,11 +65,9 @@ export class AbilityBar {
 
       slot.append(cd, key, name);
       slot.addEventListener("click", () => this.opts.onUse(id));
-      row.appendChild(slot);
+      this.row.appendChild(slot);
       this.slots.set(id, cd);
     });
-    this.root.appendChild(row);
-    this.root.style.display = "flex";
   }
 
   /** True if the ability is off cooldown/GCD and the player can afford it. */

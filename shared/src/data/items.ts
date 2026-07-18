@@ -9,6 +9,8 @@
  * P3.2; drops wire these into mob loot tables in P3.3.
  */
 
+import type { WeaponType } from "../types";
+
 /** Quality tiers (GDD): Relics are server-news pre-Fall uniques. */
 export type ItemRarity = "common" | "fine" | "rare" | "relic";
 
@@ -53,6 +55,8 @@ export interface ItemDef {
   /** Max durability for equippable gear — wears with use, repaired for coins
    *  (P8). Omitted = the item never wears (currency, materials, consumables). */
   maxDurability?: number;
+  /** Weapon class (P13): decides the governing combat skill + usable kit. */
+  weaponType?: WeaponType;
   /** One-line tooltip flavor. */
   desc?: string;
 }
@@ -80,6 +84,7 @@ export const ITEMS: Record<string, ItemDef> = {
     equipSlot: "weapon",
     bonus: { attack: 3, strength: 4 },
     maxDurability: 120,
+    weaponType: "sword",
     desc: "A starter blade. Better than fists.",
   },
   iron_sword: {
@@ -91,7 +96,104 @@ export const ITEMS: Record<string, ItemDef> = {
     equipSlot: "weapon",
     bonus: { attack: 6, strength: 8 },
     maxDurability: 200,
+    weaponType: "sword",
     desc: "Forged steel with a keen edge.",
+  },
+  bronze_axe: {
+    id: "bronze_axe",
+    name: "Bronze Axe",
+    rarity: "common",
+    maxStack: 1,
+    value: 25,
+    equipSlot: "weapon",
+    bonus: { attack: 2, strength: 6 },
+    maxDurability: 120,
+    weaponType: "axe",
+    desc: "Heavy-headed. Swings wide, lands hard.",
+  },
+  iron_axe: {
+    id: "iron_axe",
+    name: "Iron Axe",
+    rarity: "fine",
+    maxStack: 1,
+    value: 120,
+    equipSlot: "weapon",
+    bonus: { attack: 4, strength: 12 },
+    maxDurability: 200,
+    weaponType: "axe",
+    desc: "A woodsman's answer to most problems.",
+  },
+  bronze_dagger: {
+    id: "bronze_dagger",
+    name: "Bronze Dagger",
+    rarity: "common",
+    maxStack: 1,
+    value: 25,
+    equipSlot: "weapon",
+    bonus: { attack: 5, strength: 2 },
+    maxDurability: 120,
+    weaponType: "dagger",
+    desc: "Quick and precise. Finds the gaps.",
+  },
+  iron_dagger: {
+    id: "iron_dagger",
+    name: "Iron Dagger",
+    rarity: "fine",
+    maxStack: 1,
+    value: 120,
+    equipSlot: "weapon",
+    bonus: { attack: 9, strength: 4 },
+    maxDurability: 200,
+    weaponType: "dagger",
+    desc: "Barely a whisper going in.",
+  },
+  shortbow: {
+    id: "shortbow",
+    name: "Shortbow",
+    rarity: "common",
+    maxStack: 1,
+    value: 25,
+    equipSlot: "weapon",
+    bonus: { attack: 3, strength: 4 },
+    maxDurability: 120,
+    weaponType: "bow",
+    desc: "Strung frontier yew. Trains the Ranged skill.",
+  },
+  hunter_longbow: {
+    id: "hunter_longbow",
+    name: "Hunter's Longbow",
+    rarity: "fine",
+    maxStack: 1,
+    value: 120,
+    equipSlot: "weapon",
+    bonus: { attack: 6, strength: 8 },
+    maxDurability: 200,
+    weaponType: "bow",
+    desc: "Tanglewood work — it remembers being a tree.",
+  },
+  ember_staff: {
+    id: "ember_staff",
+    name: "Ember Staff",
+    rarity: "common",
+    maxStack: 1,
+    value: 25,
+    equipSlot: "weapon",
+    bonus: { attack: 3, strength: 4 },
+    maxDurability: 120,
+    weaponType: "staff",
+    desc: "A kindling focus. Trains the Magic skill.",
+  },
+  cinder_staff: {
+    id: "cinder_staff",
+    name: "Cinder Staff",
+    rarity: "fine",
+    maxStack: 1,
+    value: 120,
+    equipSlot: "weapon",
+    bonus: { attack: 6, strength: 8 },
+    maxDurability: 200,
+    weaponType: "staff",
+    desc: "Cored with live cinder. It hums when the fen weeps.",
   },
 
   // --- armor ---
@@ -241,6 +343,7 @@ export const ITEMS: Record<string, ItemDef> = {
     equipSlot: "weapon",
     bonus: { attack: 14, strength: 16 },
     maxDurability: 400,
+    weaponType: "sword",
     desc: "Forged in the Molten Throne. One per throne-breaker, per week.",
   },
 

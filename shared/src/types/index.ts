@@ -13,8 +13,25 @@ export type ClassId = "Warrior" | "Ranger" | "Mage";
  * All ability ids, as a const tuple so the zod message schema
  * (`z.enum(ABILITY_IDS)`) and the `AbilityId` union can never drift.
  */
-export const ABILITY_IDS = ["strike", "power_strike", "mend"] as const;
+export const ABILITY_IDS = [
+  "strike",
+  "power_strike",
+  "mend",
+  "quick_shot",
+  "aimed_shot",
+  "cinderbolt",
+  "ember_burst",
+] as const;
 export type AbilityId = (typeof ABILITY_IDS)[number];
+
+/**
+ * Weapon classes (P13). A weapon's class decides which combat skill governs
+ * it (see systems/weapons.ts) and which abilities it can use. Movesets per
+ * class deepen in P13.2; P13.1 ships bows (Ranged) and staves (Magic) with
+ * their basic kits, plus axes/daggers as melee stat-spreads.
+ */
+export const WEAPON_TYPES = ["sword", "axe", "maul", "dagger", "bow", "staff"] as const;
+export type WeaponType = (typeof WEAPON_TYPES)[number];
 
 /** Server simulation tick rate (Hz) and the derived fixed step. */
 export const TICK_RATE = 20;
@@ -44,6 +61,11 @@ export const DEATH_DURABILITY_LOSS = 15;
 /** Default tab-target ability range, in world units. */
 export const ABILITY_RANGE = 150;
 
+/** Ranged/magic reach (P13): bows outrange staves outrange melee. */
+export const RANGED_RANGE = 320;
+export const RANGED_RANGE_LONG = 360; // Aimed Shot's extra reach
+export const MAGIC_RANGE = 280;
+
 /** Global cooldown shared by core abilities (FFXIV-style deliberate pacing). */
 export const GCD_MS = 1500;
 
@@ -58,8 +80,20 @@ export const BASE_MAX_HP = 100;
  * Launch skills. Melee drives attack/damage; Vitality, HP; Mining/Fishing
  * gather; Smithing/Cooking craft (smelt/forge gear, cook food).
  */
-export const SKILL_IDS = ["melee", "vitality", "mining", "fishing", "smithing", "cooking"] as const;
+export const SKILL_IDS = [
+  "melee",
+  "ranged",
+  "magic",
+  "vitality",
+  "mining",
+  "fishing",
+  "smithing",
+  "cooking",
+] as const;
 export type SkillId = (typeof SKILL_IDS)[number];
+
+/** Combat skills that can govern an attack (a weapon class picks one). */
+export type CombatSkill = "melee" | "ranged" | "magic";
 
 /** How close (world units) a player must be to a resource node to gather it. */
 export const GATHER_RANGE = 64;
@@ -170,6 +204,11 @@ export interface AbilityDef {
   strengthMul?: number;
   /** heal: HP restored to the caster. */
   heal?: number;
+  // --- P13 fields ---
+  /** Governing combat skill for stats + XP. Defaults to "melee". */
+  skill?: CombatSkill;
+  /** Weapon classes that can use it. Undefined = any melee weapon or unarmed. */
+  weaponTypes?: WeaponType[];
 }
 
 /**

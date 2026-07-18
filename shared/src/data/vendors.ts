@@ -25,7 +25,7 @@ export const VENDORS: Record<string, VendorDef> = {
     zone: "meadowbrook",
     x: 624,
     y: 432,
-    stock: ["health_potion", "shrimp", "bronze_helm", "leather_body", "bronze_sword"],
+    stock: ["health_potion", "shrimp", "bronze_helm", "leather_body", "bronze_sword", "shortbow", "ember_staff"],
     color: 0xd1b24f,
   },
 };

@@ -130,6 +130,8 @@ export interface MmoTestApi {
     name: string;
     level: number;
     meleeXp: number;
+    rangedXp: number;
+    magicXp: number;
     vitalityXp: number;
     miningXp: number;
     fishingXp: number;
