@@ -595,9 +595,19 @@ user decisions. The single-file solo build is the play-test channel.
   kits on weapon change (1/2/3 + Space follow); HUD/hiscores/quests know
   the new skills; full solo parity. 190 unit + targeted e2e 5/5 + solo
   probe (kit swap, gate refusal, ranged/melee XP split, persistence).
-- Next: **P13.2** weapon movesets + status effects (bleed/stagger/crit
-  windows) · **P13.3** Callings + big trees (replaces the 3-tier perks
-  as the identity endgame) · cap 50→60 with P14 zones.
+- **P13.2 (2026-07-18, commit 8d41afa)** — movesets + status effects:
+  pure `shared/systems/effects.ts` (applyEffect/tickEffects/moveMultOf,
+  1s DoT cadence, exact advertised totals, same-source refresh). Axe kit
+  = Strike/**Rend** (1.6× + 9 bleed over 6s); dagger = Strike/
+  **Hamstring** (1.3× + 40% slow 4s, scales mob chase speed); Ember
+  Burst burns (12 over 6s). Server ticks effects each sim step (DoT
+  CombatEvents = free floating numbers), died-block extracted into
+  killEnemy() so DoT deaths share exact kill credit/XP routing; PvP DoTs
+  land on players (slows deferred until player-speed scaling); solo
+  parity. 195 unit; e2e 6/6; probe: one Rend bled a wolf 35→29 with no
+  further attacks.
+- Next: **P13.3** Callings + big trees (replaces the 3-tier perks as
+  the identity endgame) · cap 50→60 with P14 zones.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
