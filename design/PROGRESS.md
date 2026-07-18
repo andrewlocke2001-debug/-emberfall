@@ -581,6 +581,24 @@ user decisions. The single-file solo build is the play-test channel.
   WHERE the money came from before tuning; ledger reasons would have
   shown it (economy dashboard exists — check it next time).**
 
+## P13 — combat expansion (WORLD.md Phase 2 lands in code)
+- **P13.1 (2026-07-17, commit 595d616)** — foundation: skills 6→8
+  (**Ranged**, **Magic**; migration `add_ranged_magic` APPLIED); weapon
+  classes via pure `shared/systems/weapons.ts` (governingSkill /
+  basicAbilityFor / abilityKitFor / canUseWithWeapon); 8 new weapons
+  (axes/daggers = melee stat spreads; shortbow/longbow; ember/cinder
+  staff) sourced from Bram (entry 25c), Tanglewood drops (fine 4–5%), and
+  new smithing recipes; 4 new abilities (quick/aimed shot, cinderbolt/
+  ember burst); server derives attack/strength from the governing skill
+  (defence stays melee-trained), routes kill XP per contributor by the
+  skill they last hit with, and weapon-gates UseAbility; client bar swaps
+  kits on weapon change (1/2/3 + Space follow); HUD/hiscores/quests know
+  the new skills; full solo parity. 190 unit + targeted e2e 5/5 + solo
+  probe (kit swap, gate refusal, ranged/melee XP split, persistence).
+- Next: **P13.2** weapon movesets + status effects (bleed/stagger/crit
+  windows) · **P13.3** Callings + big trees (replaces the 3-tier perks
+  as the identity endgame) · cap 50→60 with P14 zones.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
