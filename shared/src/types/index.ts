@@ -21,6 +21,8 @@ export const ABILITY_IDS = [
   "aimed_shot",
   "cinderbolt",
   "ember_burst",
+  "rend",
+  "hamstring",
 ] as const;
 export type AbilityId = (typeof ABILITY_IDS)[number];
 
@@ -209,6 +211,18 @@ export interface AbilityDef {
   skill?: CombatSkill;
   /** Weapon classes that can use it. Undefined = any melee weapon or unarmed. */
   weaponTypes?: WeaponType[];
+  /** Status effect applied to the target on a LANDED hit (P13.2). */
+  effect?: AbilityEffect;
+}
+
+/** A status effect carried by an ability (data) — see systems/effects.ts. */
+export interface AbilityEffect {
+  kind: "bleed" | "burn" | "slow";
+  /** Total damage over the duration (DoTs tick once per second). */
+  damage?: number;
+  /** Movement-speed multiplier while active (slows; 0.6 = 40% slower). */
+  moveMult?: number;
+  durationMs: number;
 }
 
 /**

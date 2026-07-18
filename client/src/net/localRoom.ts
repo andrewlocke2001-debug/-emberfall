@@ -99,6 +99,7 @@ import { parseCommand } from "@mmo/shared/systems/gm";
 import { rollHunt, recordHuntKill, type HuntTask } from "@mmo/shared/systems/hunts";
 import { RESPEC_COST } from "@mmo/shared/data/perks";
 import { governingSkill, canUseWithWeapon } from "@mmo/shared/systems/weapons";
+import { applyEffect, tickEffects, moveMultOf, type ActiveEffect } from "@mmo/shared/systems/effects";
 import {
   canChoosePerk,
   applyPerkStats,
@@ -211,6 +212,8 @@ export class SoloRoom {
     { homeX: number; homeY: number; target: string | null; lastAttackAt: number; teleReadyAt: number }
   >();
   private readonly tagged = new Set<string>(); // enemy ids this player has hit this life
+  /** Status effects (bleed/burn/slow) per enemy id (P13.2). */
+  private readonly activeEffects = new Map<string, ActiveEffect[]>();
   private readonly lootDespawn = new Map<string, number>();
   private gatherState: { nodeId: string; finishAt: number } | null = null;
   private deadUntil = 0;
@@ -605,20 +608,30 @@ export class SoloRoom {
       if (ls > 0 && dmg > 0 && p.alive) p.hp = Math.min(p.maxHp, p.hp + ls);
       this.wearGear(this.equipment.weapon); // a landing swing wears the weapon
       this.tagged.add(enemy.id);
-      this.emit(ServerMessage.CombatEvent, { attackerId: SOLO_ID, targetId: enemy.id, damage: dmg, targetDied: died });
-      if (died) {
-        enemy.alive = false;
-        enemy.respawnAt = now + mobDef(enemy.kind).respawnMs;
-        enemy.teleAt = 0;
-        enemy.teleRadius = 0;
-        this.awardKill(enemy, ability.skill ?? "melee");
+      if (ability.effect && !died) {
+        this.activeEffects.set(
+          enemy.id,
+          applyEffect(this.activeEffects.get(enemy.id) ?? [], ability.effect, SOLO_ID, ability.skill ?? "melee", now),
+        );
       }
+      this.emit(ServerMessage.CombatEvent, { attackerId: SOLO_ID, targetId: enemy.id, damage: dmg, targetDied: died });
+      if (died) this.killEnemy(enemy, now, ability.skill ?? "melee");
     }
   }
 
   private commitAbility(ability: { id: string; cooldownMs: number; onGcd?: boolean }, now: number): void {
     if (ability.onGcd ?? true) this.gcdUntil = now + perkGcdMs(this.chosenPerks, GCD_MS);
     if (ability.cooldownMs > 0) this.abilityCooldowns.set(ability.id, now + ability.cooldownMs);
+  }
+
+  /** A mob dies: stop it, clear its effects, schedule respawn, pay credit. */
+  private killEnemy(enemy: EnemySchema, now: number, skill: CombatSkill): void {
+    enemy.alive = false;
+    enemy.respawnAt = now + mobDef(enemy.kind).respawnMs;
+    enemy.teleAt = 0;
+    enemy.teleRadius = 0;
+    this.activeEffects.delete(enemy.id);
+    this.awardKill(enemy, skill);
   }
 
   private awardKill(enemy: EnemySchema, skill: CombatSkill = "melee"): void {
@@ -1280,6 +1293,30 @@ export class SoloRoom {
       if (e.alive) this.updateMob(e, dt, now);
     });
 
+    // Advance status effects: DoT ticks damage enemies, kills pay the
+    // applying skill (mirrors the server's tickActiveEffects).
+    this.activeEffects.forEach((list, id) => {
+      const { hits, remaining } = tickEffects(list, now);
+      if (remaining.length === 0) this.activeEffects.delete(id);
+      else this.activeEffects.set(id, remaining);
+      const enemy = this.state.enemies.get(id);
+      if (!enemy || !enemy.alive) return;
+      for (const hit of hits) {
+        enemy.hp = Math.max(0, enemy.hp - hit.damage);
+        this.emit(ServerMessage.CombatEvent, {
+          attackerId: SOLO_ID,
+          targetId: id,
+          damage: hit.damage,
+          targetDied: enemy.hp <= 0,
+        });
+        this.tagged.add(id);
+        if (enemy.hp <= 0) {
+          this.killEnemy(enemy, now, hit.skill);
+          break;
+        }
+      }
+    });
+
     // Respawn the player. Dying inside a dungeon/raid ejects to its overworld
     // gate (a boss camping the entry made respawning there an endless trap).
     if (!p.alive && this.deadUntil > 0 && now >= this.deadUntil) {
@@ -1304,6 +1341,7 @@ export class SoloRoom {
     this.state.enemies.forEach((e) => {
       const ai = this.enemyAI.get(e.id);
       if (!e.alive && e.respawnAt > 0 && now >= e.respawnAt && ai) {
+        this.activeEffects.delete(e.id);
         // Sandbox-spawned mobs don't respawn — they simply vanish.
         if (e.id.startsWith("sandbox-")) {
           this.state.enemies.delete(e.id);
@@ -1388,7 +1426,7 @@ export class SoloRoom {
       }
       const d = Math.hypot(e.x - target.x, e.y - target.y);
       if (d > def.attackRange) {
-        this.moveToward(e, target.x, target.y, def.moveSpeed, dt);
+        this.moveToward(e, target.x, target.y, def.moveSpeed * moveMultOf(this.activeEffects.get(e.id) ?? [], now), dt);
       } else if (now - ai.lastAttackAt >= def.attackCooldownMs) {
         ai.lastAttackAt = now;
         const result = resolveAttack(this.mobStats(e), this.playerStats());

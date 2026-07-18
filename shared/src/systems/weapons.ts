@@ -25,6 +25,8 @@ export function basicAbilityFor(weaponType: WeaponType | undefined): AbilityId {
 export function abilityKitFor(weaponType: WeaponType | undefined): AbilityId[] {
   if (weaponType === "bow") return ["quick_shot", "aimed_shot", "mend"];
   if (weaponType === "staff") return ["cinderbolt", "ember_burst", "mend"];
+  if (weaponType === "axe") return ["strike", "rend", "mend"];
+  if (weaponType === "dagger") return ["strike", "hamstring", "mend"];
   return ["strike", "power_strike", "mend"];
 }
 

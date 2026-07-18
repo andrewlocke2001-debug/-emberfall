@@ -69,6 +69,34 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
     weaponTypes: ["bow"],
   },
 
+  // --- Axe + dagger specials (melee movesets; the weapon IS the class) ---
+  rend: {
+    id: "rend",
+    name: "Rend",
+    kind: "attack",
+    damage: 0,
+    energyCost: 25,
+    cooldownMs: 8000,
+    onGcd: true,
+    range: ABILITY_RANGE,
+    strengthMul: 1.6,
+    weaponTypes: ["axe"],
+    effect: { kind: "bleed", damage: 9, durationMs: 6000 },
+  },
+  hamstring: {
+    id: "hamstring",
+    name: "Hamstring",
+    kind: "attack",
+    damage: 0,
+    energyCost: 20,
+    cooldownMs: 8000,
+    onGcd: true,
+    range: ABILITY_RANGE,
+    strengthMul: 1.3,
+    weaponTypes: ["dagger"],
+    effect: { kind: "slow", moveMult: 0.6, durationMs: 4000 },
+  },
+
   // --- Magic kit (staff required; governed by the Magic skill) ---
   cinderbolt: {
     id: "cinderbolt",
@@ -95,5 +123,6 @@ export const ABILITIES: Record<AbilityId, AbilityDef> = {
     strengthMul: 2.1,
     skill: "magic",
     weaponTypes: ["staff"],
+    effect: { kind: "burn", damage: 12, durationMs: 6000 },
   },
 };

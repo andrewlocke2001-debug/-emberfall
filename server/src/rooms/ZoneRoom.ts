@@ -157,6 +157,7 @@ import {
   executeAdjust,
 } from "@mmo/shared/systems/perks";
 import { governingSkill, canUseWithWeapon } from "@mmo/shared/systems/weapons";
+import { applyEffect, tickEffects, moveMultOf, type ActiveEffect } from "@mmo/shared/systems/effects";
 import {
   INVASION_INTERVAL_MS,
   INVASION_ESCORTS,
@@ -319,6 +320,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly mobContributors = new Map<string, Set<string>>();
   /** Which combat skill each contributor last hit with (XP routing, P13). */
   private readonly mobContributorSkill = new Map<string, Map<string, CombatSkill>>();
+  /** Status effects (bleed/burn/slow) per entity id — enemy id or session id. */
+  private readonly activeEffects = new Map<string, ActiveEffect[]>();
   /** Dead players → the server time at which they respawn. */
   private readonly deadUntil = new Map<string, number>();
   /** Per-session global-cooldown expiry (server time, ms). */
@@ -772,6 +775,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     });
     this.mobContributors.forEach((set) => set.delete(client.sessionId));
     this.mobContributorSkill.forEach((m) => m.delete(client.sessionId));
+    this.activeEffects.delete(client.sessionId);
     const inventory = this.inventories.get(client.sessionId) ?? [];
     const equipment = this.equipment.get(client.sessionId) ?? {};
     const durability = this.durability.get(client.sessionId) ?? {};
@@ -946,6 +950,12 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         const ls = perkLifesteal(myPerks);
         if (ls > 0 && dmg > 0 && player.alive) player.hp = Math.min(player.maxHp, player.hp + ls);
         this.wearGear(client, this.equipment.get(sessionId)?.weapon);
+        if (ability.effect && ability.effect.kind !== "slow" && !died) {
+          this.activeEffects.set(
+            msg.targetId,
+            applyEffect(this.activeEffects.get(msg.targetId) ?? [], ability.effect, sessionId, ability.skill ?? "melee", now),
+          );
+        }
         this.broadcast(ServerMessage.CombatEvent, {
           attackerId: sessionId,
           targetId: msg.targetId,
@@ -1011,6 +1021,12 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       const skillMap = this.mobContributorSkill.get(enemy.id) ?? new Map<string, CombatSkill>();
       skillMap.set(sessionId, ability.skill ?? "melee");
       this.mobContributorSkill.set(enemy.id, skillMap);
+      if (ability.effect && !died) {
+        this.activeEffects.set(
+          enemy.id,
+          applyEffect(this.activeEffects.get(enemy.id) ?? [], ability.effect, sessionId, ability.skill ?? "melee", now),
+        );
+      }
       const evt: CombatEventPayload = {
         attackerId: sessionId,
         targetId: enemy.id,
@@ -1018,15 +1034,61 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         targetDied: died,
       };
       this.broadcast(ServerMessage.CombatEvent, evt);
-      if (died) {
-        enemy.alive = false;
-        enemy.respawnAt = now + mobDef(enemy.kind).respawnMs;
-        // Cancel any in-flight telegraph so a dead boss can't slam.
-        enemy.teleAt = 0;
-        enemy.teleRadius = 0;
-        this.awardKill(enemy);
-      }
+      if (died) this.killEnemy(enemy, now);
     }
+  }
+
+  /** Advance all status effects: apply due DoT ticks, drop expired ones. */
+  private tickActiveEffects(now: number): void {
+    this.activeEffects.forEach((list, id) => {
+      const { hits, remaining } = tickEffects(list, now);
+      if (remaining.length === 0) this.activeEffects.delete(id);
+      else if (remaining !== list) this.activeEffects.set(id, remaining);
+      for (const hit of hits) {
+        const enemy = this.state.enemies.get(id);
+        if (enemy && enemy.alive) {
+          enemy.hp = Math.max(0, enemy.hp - hit.damage);
+          // DoT damage keeps kill credit + XP routing exact.
+          this.mobContributors.get(id)?.add(hit.appliedBy);
+          const sm = this.mobContributorSkill.get(id) ?? new Map<string, CombatSkill>();
+          sm.set(hit.appliedBy, hit.skill);
+          this.mobContributorSkill.set(id, sm);
+          this.broadcast(ServerMessage.CombatEvent, {
+            attackerId: hit.appliedBy,
+            targetId: id,
+            damage: hit.damage,
+            targetDied: enemy.hp <= 0,
+          });
+          if (enemy.hp <= 0) this.killEnemy(enemy, now);
+          continue;
+        }
+        const target = this.state.players.get(id);
+        if (target && target.alive) {
+          target.hp = Math.max(0, target.hp - hit.damage);
+          this.broadcast(ServerMessage.CombatEvent, {
+            attackerId: hit.appliedBy,
+            targetId: id,
+            damage: hit.damage,
+            targetDied: target.hp <= 0,
+          });
+          if (target.hp <= 0) {
+            // Attribute the kill by player DB id (loot ownership), like direct kills.
+            this.killPlayer(target, id, now, this.state.players.get(hit.appliedBy)?.id ?? "");
+          }
+        }
+      }
+    });
+  }
+
+  /** A mob dies: stop it, clear its effects, schedule respawn, pay credit. */
+  private killEnemy(enemy: EnemySchema, now: number): void {
+    enemy.alive = false;
+    enemy.respawnAt = now + mobDef(enemy.kind).respawnMs;
+    // Cancel any in-flight telegraph so a dead boss can't slam.
+    enemy.teleAt = 0;
+    enemy.teleRadius = 0;
+    this.activeEffects.delete(enemy.id);
+    this.awardKill(enemy);
   }
 
   /**
@@ -3239,6 +3301,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
   private update(deltaMs: number): void {
     const dt = deltaMs / 1000;
+    this.tickActiveEffects(Date.now());
 
     // Integrate movement + regen energy for every player.
     this.state.players.forEach((player, sessionId) => {
@@ -3339,6 +3402,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         enemy.alive = true;
         enemy.respawnAt = 0;
         this.mobContributors.get(enemy.id)?.clear(); // fresh life, fresh credit
+        this.activeEffects.delete(enemy.id);
         enemy.teleAt = 0;
         enemy.teleRadius = 0;
         const ai = this.enemyAI.get(enemy.id);
@@ -3458,8 +3522,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         return;
       }
       const d = Math.hypot(enemy.x - target.x, enemy.y - target.y);
+      const slowed = def.moveSpeed * moveMultOf(this.activeEffects.get(enemy.id) ?? [], now);
       if (d > def.attackRange) {
-        this.moveToward(enemy, target.x, target.y, def.moveSpeed, dt);
+        this.moveToward(enemy, target.x, target.y, slowed, dt);
       } else if (now - ai.lastAttackAt >= def.attackCooldownMs) {
         ai.lastAttackAt = now;
         const result = resolveAttack(mobCombatStats(enemy), this.playerStats(ai.target, target));
@@ -3518,6 +3583,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   /** Mark a player slain: stop them, schedule respawn, drop mob aggro on them.
    *  In a PvP zone, death also drops the most valuable items + coins (P9.2). */
   private killPlayer(player: PlayerSchema, sessionId: string, now: number, killerId = ""): void {
+    this.activeEffects.delete(sessionId); // death cleanses bleeds/burns
     player.alive = false;
     player.hp = 0;
     player.mounted = false; // a corpse doesn't ride
