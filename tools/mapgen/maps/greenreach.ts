@@ -21,6 +21,11 @@ function paint(): string[] {
   p.hline(2, 57, 29, ",").hline(2, 57, 30, ",");
   p.fillRect(0, 29, 1, 30, "E");
   p.fillRect(58, 29, 59, 30, "X");
+  // North gate to the Marrowgate Downs (P14.1): breach the forest at
+  // cols 29–30 and run a lane down to the main road.
+  p.fillRect(29, 0, 30, 1, "N");
+  p.vline(29, 2, 28, ",").vline(30, 2, 28, ",");
+
   // Road forks: north to the dummy glade, south toward the lake meadow.
   p.vline(40, 18, 29, ",").vline(41, 18, 29, ",");
   p.vline(40, 30, 44, ",").vline(41, 30, 44, ",");
@@ -65,6 +70,7 @@ function paint(): string[] {
   // Tanglewood) + default spawn near the west gate.
   p.set(4, 29, "1");
   p.set(55, 30, "2");
+  p.set(29, 3, "3");
   p.set(6, 31, "s");
 
   return p.rows();
@@ -76,7 +82,8 @@ export const greenreach: MapSource = {
   exits: {
     E: { to: "meadowbrook", entry: "east" },
     X: { to: "tanglewood", entry: "west" },
+    N: { to: "marrowgate_downs", entry: "south" },
   },
-  entries: { "1": "west", "2": "east" },
+  entries: { "1": "west", "2": "east", "3": "north" },
   ascii: paint(),
 };

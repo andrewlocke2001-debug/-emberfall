@@ -100,6 +100,14 @@ export const NODES: Partial<Record<ZoneId, ResourceNode[]>> = {
     { id: "iron-1", type: "iron_rock", x: 400, y: 360 },
     { id: "trout-1", type: "trout_spot", x: 240, y: 980 },
   ],
+  // Marrowgate Downs: iron among the barrows (the band matches mining 10)
+  // + cold-pond trout by the south-east shore.
+  marrowgate_downs: [
+    { id: "iron-1", type: "iron_rock", x: 464, y: 816 },
+    { id: "iron-2", type: "iron_rock", x: 1456, y: 752 },
+    { id: "copper-1", type: "copper_rock", x: 528, y: 1264 },
+    { id: "trout-1", type: "trout_spot", x: 1392, y: 1616 },
+  ],
   // Tanglewood: richer iron in the north glade + trout at the wraith pond
   // (the pond is guarded — better yield lives behind danger).
   tanglewood: [

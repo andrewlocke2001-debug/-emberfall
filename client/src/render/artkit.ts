@@ -76,6 +76,11 @@ const PALETTES: Record<string, ZonePalette> = {
     path: 0x4a3033, wall: 0x453238, water: 0xa14a1c, canopy: 0x33232a,
     canopyLit: 0x4a3038, floor: 0x4e3237,
   },
+  marrowgate_downs: {
+    grass: 0x47503e, grassDark: 0x3b4334, blade: 0x60694e, flower: 0xc9d4d8,
+    path: 0x6f6a58, wall: 0x8e979c, water: 0x24455c, canopy: 0x2f3f2b,
+    canopyLit: 0x43563c, floor: 0x635c4d,
+  },
   bg_arena: {
     grass: 0x33383f, grassDark: 0x2b3037, blade: 0x454c56, flower: 0x8fa3bd,
     path: 0x4a5058, wall: 0x555d68, water: 0x1d3f66, canopy: 0x2c3e35,
@@ -888,6 +893,48 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     finish("mob-ruin_sentinel");
   }
 
+  // The Unreturned (P14.1): lost heat walking — hooded, lantern-pale figures
+  // with a guttering inner light. One silhouette, three sizes/glows.
+  for (const [kind, w, h, robe, glow] of [
+    ["barrow_wisp", 26, 30, 0x9db8c4, 0xd9f2ff],
+    ["unreturned_wanderer", 30, 38, 0x8aa6b4, 0xc4e6f5],
+    ["marrow_warden", 36, 44, 0x7d9aab, 0xb5dced],
+  ] as const) {
+    ctx = canvas(`mob-${kind}`, w, h);
+    if (ctx) {
+      const cx = w / 2;
+      ctx.strokeStyle = "rgba(5,7,10,0.9)";
+      ctx.lineWidth = 2;
+      // Tattered robe: a tapering hooded teardrop that never touches ground.
+      ctx.fillStyle = css(mix(robe, 0x000000, 0.35));
+      ctx.beginPath();
+      ctx.moveTo(cx, 3);
+      ctx.quadraticCurveTo(w - 3, h * 0.35, w * 0.72, h - 6);
+      ctx.lineTo(w * 0.58, h - 10);
+      ctx.lineTo(cx, h - 4);
+      ctx.lineTo(w * 0.42, h - 10);
+      ctx.lineTo(w * 0.28, h - 6);
+      ctx.quadraticCurveTo(3, h * 0.35, cx, 3);
+      ctx.fill();
+      ctx.stroke();
+      // Hood shadow + the guttering spark where a face should be.
+      ctx.fillStyle = "rgba(5,7,10,0.85)";
+      ctx.beginPath();
+      ctx.ellipse(cx, h * 0.26, w * 0.22, h * 0.14, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = css(glow);
+      ctx.beginPath();
+      ctx.arc(cx, h * 0.27, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+      // A dim chest-ember (the spark that never made it home).
+      ctx.fillStyle = css(mix(glow, robe, 0.5));
+      ctx.beginPath();
+      ctx.arc(cx, h * 0.55, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+      finish(`mob-${kind}`);
+    }
+  }
+
   // Ember wraith: tattered translucent shade.
   ctx = canvas("mob-ember_wraith", 38, 46);
   if (ctx) {
@@ -1106,6 +1153,7 @@ const ATMOS: Record<string, Atmosphere> = {
   meadowbrook: { particle: { texture: "fx-soft", tint: 0xfff2b0, lifespan: 9000, speedY: [-6, 6], alpha: 0.16, freq: 900 }, vignette: 0.3, fog: 0xbfd6a8, fogAlpha: 0.035 },
   greenreach: { particle: { texture: "fx-soft", tint: 0xd7f0b0, lifespan: 9000, speedY: [-8, 4], alpha: 0.15, freq: 800 }, vignette: 0.32, fog: 0xa8d6b6, fogAlpha: 0.04 },
   tanglewood: { particle: { texture: "fx-leaf", tint: 0xffffff, lifespan: 8000, speedY: [12, 30], alpha: 0.5, freq: 700 }, vignette: 0.4, fog: 0x39543c, fogAlpha: 0.08 },
+  marrowgate_downs: { particle: { texture: "fx-soft", tint: 0xcfe3ee, lifespan: 9000, speedY: [8, 20], alpha: 0.28, freq: 900 }, vignette: 0.45, fog: 0x6f8290, fogAlpha: 0.1 },
   ashreach: { particle: { texture: "fx-soft", tint: 0xff9e5e, lifespan: 6000, speedY: [-30, -12], alpha: 0.35, freq: 350 }, vignette: 0.45, fog: 0x5e2f1e, fogAlpha: 0.09 },
   cinder_depths: { particle: { texture: "fx-soft", tint: 0xcabdd6, lifespan: 8000, speedY: [-10, 10], alpha: 0.12, freq: 900 }, vignette: 0.55, fog: 0x161320, fogAlpha: 0.14 },
   molten_throne: { particle: { texture: "fx-soft", tint: 0xffb066, lifespan: 5000, speedY: [-40, -18], alpha: 0.4, freq: 260 }, vignette: 0.5, fog: 0x571f14, fogAlpha: 0.1 },

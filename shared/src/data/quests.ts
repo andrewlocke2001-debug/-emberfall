@@ -33,6 +33,26 @@ export interface QuestDef {
 }
 
 export const QUESTS: Record<string, QuestDef> = {
+  // The Marrowgate Downs arc (P14.1) — the League's quarantine line.
+  the_quarantine_line: {
+    id: "the_quarantine_line",
+    name: "The Quarantine Line",
+    summary: "Put down 5 Unreturned Wanderers in the Marrowgate Downs.",
+    objectives: [
+      { type: "kill", mob: "unreturned_wanderer", count: 5, desc: "Put down 5 Unreturned Wanderers" },
+    ],
+    rewards: { coins: 60, xp: [{ skill: "melee", amount: 120 }] },
+    giver: "quartermaster_hale",
+  },
+  wax_for_the_wardens: {
+    id: "wax_for_the_wardens",
+    name: "Wax for the Wardens",
+    summary: "Gather 6 Grave Wax from the Unreturned for Quartermaster Hale.",
+    objectives: [{ type: "collect", itemId: "grave_wax", count: 6, desc: "Gather 6 Grave Wax" }],
+    rewards: { coins: 45, items: [{ itemId: "health_potion", qty: 2 }], xp: [{ skill: "vitality", amount: 80 }] },
+    requires: "the_quarantine_line",
+    giver: "quartermaster_hale",
+  },
   // First contact — meet the Hearthwarden who runs the gate.
   greet_mira: {
     id: "greet_mira",

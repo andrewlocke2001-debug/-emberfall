@@ -33,6 +33,17 @@ export const NPCS: Record<string, NpcDef> = {
     quests: ["greet_mira", "miners_welcome", "supper_for_the_inn", "thin_the_pack", "the_ember_scar"],
     color: 0x6fae8f,
   },
+  quartermaster_hale: {
+    id: "quartermaster_hale",
+    name: "Quartermaster Hale",
+    zone: "marrowgate_downs",
+    x: 752,
+    y: 1520,
+    greeting:
+      "Mind the lights, traveller — they were people once, and the cold hasn't finished with them. The League pays for anything that thins the barrows. It does not pay for questions about the town.",
+    quests: ["the_quarantine_line", "wax_for_the_wardens"],
+    color: 0x8fa3ae,
+  },
   huntmaster_veyra: {
     id: "huntmaster_veyra",
     name: "Huntmaster Veyra",

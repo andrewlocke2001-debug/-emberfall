@@ -273,6 +273,15 @@ export const ITEMS: Record<string, ItemDef> = {
     desc: "Cook it before eating.",
   },
 
+  grave_wax: {
+    id: "grave_wax",
+    name: "Grave Wax",
+    rarity: "common",
+    maxStack: STACK_MAX,
+    value: 5,
+    desc: "Cold tallow scraped from barrow-lights. Burns without heat.",
+  },
+
   // --- smithing bars (Smelting output; forge into gear) ---
   bronze_bar: {
     id: "bronze_bar",
