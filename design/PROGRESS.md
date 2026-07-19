@@ -606,8 +606,20 @@ user decisions. The single-file solo build is the play-test channel.
   land on players (slows deferred until player-speed scaling); solo
   parity. 195 unit; e2e 6/6; probe: one Rend bled a wolf 35→29 with no
   further attacks.
-- Next: **P13.3** Callings + big trees (replaces the 3-tier perks as
-  the identity endgame) · cap 50→60 with P14 zones.
+- **P13.3 (2026-07-19, commit 4830335)** — **Callings**: six class trees
+  (Warden/Reaver/Strider/Cinderwright/Hearthmender/Ashwalker) on the
+  classless chassis. 72 data nodes (12/calling, 24 ranks/tree), tier
+  gates every 3 spent points, points = 40% of highest combat level (20
+  at cap — trees can't be maxed, choices compete). Pure
+  `systems/callings.ts` appliers: stat %, flat HP, GCD, lifesteal,
+  execute, **crit (1.5×, capped 50%)**, energy cost, heal power — wired
+  at the same server+solo seams as the perk trunk (which survives below
+  the tree as the Fighter's Trunk). Choose free once; abandoning costs
+  500c (ledger `calling_respec`). Migration `add_callings` APPLIED. K
+  panel = calling cards → three-column tree w/ rank pips + tier
+  tooltips. 203 unit; probe verified choose-via-real-click, rank cap,
+  tier gate, instant +8 maxHp, exact 500c respec, reload persistence.
+- Next: cap 50→60 with P14 zones (Marrowgate Downs first).
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
