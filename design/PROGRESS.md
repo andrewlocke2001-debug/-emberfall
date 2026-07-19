@@ -633,7 +633,7 @@ user decisions. The single-file solo build is the play-test channel.
   hooded-ghost silhouettes ×3. maps.test auto-covers the JSON. 207 unit;
   e2e 4/4 targeted; probe: spawn/farm/quest/gate-walk with screenshot-
   verified render on BOTH sides of the transfer. PROBE GOTCHA (relearned):
-  boot zone lives in localStorage , not just the solo save.
+  boot zone lives in localStorage "mmo:zone", not just the solo save.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
