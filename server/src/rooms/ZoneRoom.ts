@@ -74,6 +74,9 @@ import {
   type MountPayload,
   type FastTravelPayload,
   type ChoosePerkPayload,
+  type ChooseCallingPayload,
+  type SpendTalentPayload,
+  type CallingPayload,
   type PerksPayload,
   FRIENDS_MAX,
   PARTY_MAX,
@@ -157,6 +160,21 @@ import {
   executeAdjust,
 } from "@mmo/shared/systems/perks";
 import { governingSkill, canUseWithWeapon } from "@mmo/shared/systems/weapons";
+import { CALLING_IDS, CALLING_RESPEC_COST, type CallingId } from "@mmo/shared/data/callings";
+import {
+  talentPointsFor,
+  canSpendTalent,
+  applyTalentStats,
+  talentMaxHpBonus,
+  talentGcdMs,
+  talentLifesteal,
+  talentExecuteAdjust,
+  talentCritChance,
+  talentEnergyCostMul,
+  talentHealMul,
+  CRIT_MULT,
+  type Talents,
+} from "@mmo/shared/systems/callings";
 import { applyEffect, tickEffects, moveMultOf, type ActiveEffect } from "@mmo/shared/systems/effects";
 import {
   INVASION_INTERVAL_MS,
@@ -200,6 +218,8 @@ import {
   SetTitleSchema,
   FastTravelSchema,
   ChoosePerkSchema,
+  ChooseCallingSchema,
+  SpendTalentSchema,
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
@@ -340,6 +360,9 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private readonly raidLocks = new Map<string, number>();
   /** Chosen Melee perks per session (the skill tree; persisted). */
   private readonly perks = new Map<string, string[]>();
+  /** Calling + spent talents per session (P13.3). */
+  private readonly callings = new Map<string, CallingId | "">();
+  private readonly talents = new Map<string, Talents>();
   /** Battleground match state (only used when this room IS the arena). */
   private readonly bgScore: Record<BgTeam, number> = { red: 0, blue: 0 };
   private bgOver = false;
@@ -447,6 +470,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.sendHunt(client); // the onJoin push can lose the handler race too
       this.sendMount(client);
       this.sendPerks(client);
+      this.sendCalling(client);
     });
 
     this.onMessage(ClientMessage.Equip, EquipSchema, (client, msg: EquipPayload) => {
@@ -539,6 +563,14 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     });
     this.onMessage(ClientMessage.RespecPerks, (client) => this.handleRespecPerks(client));
     this.onMessage(ClientMessage.RequestPerks, (client) => this.sendPerks(client));
+    this.onMessage(ClientMessage.ChooseCalling, ChooseCallingSchema, (client, msg: ChooseCallingPayload) => {
+      this.handleChooseCalling(client, msg);
+    });
+    this.onMessage(ClientMessage.SpendTalent, SpendTalentSchema, (client, msg: SpendTalentPayload) => {
+      this.handleSpendTalent(client, msg);
+    });
+    this.onMessage(ClientMessage.RespecCalling, (client) => this.handleRespecCalling(client));
+    this.onMessage(ClientMessage.RequestCalling, (client) => this.sendCalling(client));
 
     this.onMessage(ClientMessage.QuestAccept, QuestActionSchema, (client, msg: QuestActionPayload) => {
       this.handleQuestAccept(client, msg);
@@ -722,6 +754,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     if (saved.hasMount) this.mounts.add(client.sessionId);
     this.raidLocks.set(client.sessionId, saved.raidLockUntil);
     this.perks.set(client.sessionId, saved.perks);
+    this.callings.set(client.sessionId, (CALLING_IDS as readonly string[]).includes(saved.calling) ? (saved.calling as CallingId) : "");
+    this.talents.set(client.sessionId, saved.talents);
     // Battleground: pin the matchmaker's team on the synced schema.
     if (this.map.id === BG_ZONE) player.team = battleground.teamOf(options?.ticket ?? "", name);
     this.guildCache.set(
@@ -770,6 +804,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.raidLocks.delete(client.sessionId);
     const myPerks = this.perks.get(client.sessionId) ?? [];
     this.perks.delete(client.sessionId);
+    const myCalling = this.callings.get(client.sessionId) ?? "";
+    this.callings.delete(client.sessionId);
+    const myTalentMap = this.talents.get(client.sessionId) ?? {};
+    this.talents.delete(client.sessionId);
     this.enemyAI.forEach((ai) => {
       if (ai.target === client.sessionId) ai.target = null;
     });
@@ -803,7 +841,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     battleground.dequeue(player.name); // never leave a ghost in the BG queue
 
     const snapshot = this.finalizeSnapshot(
-      toSaved(player, this.map.id, inventory, equipment, durability, bank, quests, friends, hunt, huntPts, title, hasMount, raidLock, myPerks),
+      toSaved(player, this.map.id, inventory, equipment, durability, bank, quests, friends, hunt, huntPts, title, hasMount, raidLock, myPerks, myCalling, myTalentMap),
     );
     this.state.players.delete(client.sessionId);
     try {
@@ -876,12 +914,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const onGcd = ability.onGcd ?? true;
     if (onGcd && now < (this.gcdUntil.get(sessionId) ?? 0)) return;
     if (now < (this.abilityCooldowns.get(sessionId)?.get(ability.id) ?? 0)) return;
-    const cost = ability.energyCost ?? 0;
+    const cost = Math.round((ability.energyCost ?? 0) * talentEnergyCostMul(this.talents.get(sessionId) ?? {}));
     if (player.energy < cost) return;
 
     if (ability.kind === "heal") {
       const before = player.hp;
-      player.hp = Math.min(player.maxHp, player.hp + (ability.heal ?? 0));
+      const healed = Math.round((ability.heal ?? 0) * talentHealMul(this.talents.get(sessionId) ?? {}));
+      player.hp = Math.min(player.maxHp, player.hp + healed);
       this.commitAbility(sessionId, ability, now);
       player.energy -= cost;
       const restored = player.hp - before;
@@ -943,11 +982,14 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       }
       if (result.hit) {
         const myPerks = this.perks.get(sessionId) ?? [];
-        const dmg = executeAdjust(result.damage, foe.hp, foe.maxHp, myPerks);
+        const myTalents = this.talents.get(sessionId) ?? {};
+        let dmg = executeAdjust(result.damage, foe.hp, foe.maxHp, myPerks);
+        dmg = talentExecuteAdjust(dmg, foe.hp, foe.maxHp, myTalents);
+        if (dmg > 0 && Math.random() < talentCritChance(myTalents)) dmg = Math.round(dmg * CRIT_MULT);
         const hpAfter = Math.max(0, foe.hp - dmg);
         const died = hpAfter <= 0;
         foe.hp = hpAfter;
-        const ls = perkLifesteal(myPerks);
+        const ls = perkLifesteal(myPerks) + talentLifesteal(myTalents);
         if (ls > 0 && dmg > 0 && player.alive) player.hp = Math.min(player.maxHp, player.hp + ls);
         this.wearGear(client, this.equipment.get(sessionId)?.weapon);
         if (ability.effect && ability.effect.kind !== "slow" && !died) {
@@ -1008,11 +1050,14 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       // The skill tree hooks in here: Executioner boosts low-HP damage,
       // Vampiric heals on landed strikes.
       const myPerks = this.perks.get(sessionId) ?? [];
-      const dmg = executeAdjust(result.damage, enemy.hp, enemy.maxHp, myPerks);
+      const myTalents = this.talents.get(sessionId) ?? {};
+      let dmg = executeAdjust(result.damage, enemy.hp, enemy.maxHp, myPerks);
+      dmg = talentExecuteAdjust(dmg, enemy.hp, enemy.maxHp, myTalents);
+      if (dmg > 0 && Math.random() < talentCritChance(myTalents)) dmg = Math.round(dmg * CRIT_MULT);
       const hpAfter = Math.max(0, enemy.hp - dmg);
       const died = hpAfter <= 0;
       enemy.hp = hpAfter;
-      const ls = perkLifesteal(myPerks);
+      const ls = perkLifesteal(myPerks) + talentLifesteal(myTalents);
       if (ls > 0 && dmg > 0 && player.alive) player.hp = Math.min(player.maxHp, player.hp + ls);
       // A landing swing wears the weapon (P8 durability).
       this.wearGear(client, this.equipment.get(sessionId)?.weapon);
@@ -1281,7 +1326,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private commitAbility(sessionId: string, ability: { id: string; cooldownMs: number; onGcd?: boolean }, now: number): void {
     if (ability.onGcd ?? true) {
       // Quickblade shortens the GCD (server-authoritative pacing).
-      this.gcdUntil.set(sessionId, now + perkGcdMs(this.perks.get(sessionId) ?? [], GCD_MS));
+      this.gcdUntil.set(
+      sessionId,
+      now + talentGcdMs(this.talents.get(sessionId) ?? {}, perkGcdMs(this.perks.get(sessionId) ?? [], GCD_MS)),
+    );
     }
     if (ability.cooldownMs > 0) {
       let cds = this.abilityCooldowns.get(sessionId);
@@ -1780,6 +1828,68 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   }
 
   // --- the Melee skill tree (perks) ---------------------------------------------
+
+  private sendCalling(client: Client): void {
+    const payload: CallingPayload = {
+      calling: this.callings.get(client.sessionId) ?? "",
+      talents: this.talents.get(client.sessionId) ?? {},
+    };
+    client.send(ServerMessage.Calling, payload);
+  }
+
+  /** Pick a Calling. Free while unchosen; switching requires a respec. */
+  private handleChooseCalling(client: Client, msg: ChooseCallingPayload): void {
+    const sessionId = client.sessionId;
+    if (!(CALLING_IDS as readonly string[]).includes(msg.id)) return;
+    const current = this.callings.get(sessionId) ?? "";
+    if (current === msg.id) return;
+    if (current !== "") {
+      this.systemTo(client, "Abandon your current Calling first (respec).");
+      return;
+    }
+    this.callings.set(sessionId, msg.id as CallingId);
+    this.sendCalling(client);
+    this.systemTo(client, "Your Calling is chosen. Press K to shape it.");
+  }
+
+  /** Buy one rank of a talent — validated by the same shared rules the UI shows. */
+  private handleSpendTalent(client: Client, msg: SpendTalentPayload): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+    const calling = this.callings.get(sessionId) ?? "";
+    const talents = this.talents.get(sessionId) ?? {};
+    const points = talentPointsFor(player.level, levelForXp(player.rangedXp), levelForXp(player.magicXp));
+    if (!canSpendTalent(calling, talents, msg.id, points)) {
+      this.systemTo(client, "You can't take that talent yet.");
+      return;
+    }
+    talents[msg.id] = (talents[msg.id] ?? 0) + 1;
+    this.talents.set(sessionId, talents);
+    this.applyMaxHp(sessionId, player); // flat-HP talents apply immediately
+    this.sendCalling(client);
+  }
+
+  /** Burn the fee, clear the Calling + talents (a deliberate gold sink). */
+  private handleRespecCalling(client: Client): void {
+    const sessionId = client.sessionId;
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+    if ((this.callings.get(sessionId) ?? "") === "") return;
+    const inv = this.inventories.get(sessionId) ?? [];
+    if (countItem(inv, "coins") < CALLING_RESPEC_COST) {
+      this.systemTo(client, "Abandoning a Calling costs " + CALLING_RESPEC_COST + " coins.");
+      return;
+    }
+    this.inventories.set(sessionId, removeItem(inv, "coins", CALLING_RESPEC_COST).inventory);
+    void recordLedger({ account: player.id, itemId: "coins", delta: -CALLING_RESPEC_COST, reason: "calling_respec" });
+    this.callings.set(sessionId, "");
+    this.talents.set(sessionId, {});
+    this.applyMaxHp(sessionId, player);
+    this.sendInventory(client);
+    this.sendCalling(client);
+    this.systemTo(client, "Your Calling is forgotten. The roads are open again.");
+  }
 
   private sendPerks(client: Client): void {
     const payload: PerksPayload = { chosen: this.perks.get(client.sessionId) ?? [] };
@@ -3261,7 +3371,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     base.strength += bonus.strength;
     base.defence += bonus.defence;
     // The skill tree adjusts the finished sheet (Berserker/Guardian).
-    return applyPerkStats(base, this.perks.get(sessionId) ?? []);
+    return applyTalentStats(
+      applyPerkStats(base, this.perks.get(sessionId) ?? []),
+      this.talents.get(sessionId) ?? {},
+    );
   }
 
   /** The weapon class in hand (undefined = bare fists or a broken weapon). */
@@ -3275,7 +3388,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     return (
       maxHpForVitality(levelForXp(player.vitalityXp)) +
       equipmentBonus(this.effectiveGear(sessionId), itemDef).maxHp +
-      perkMaxHpBonus(this.perks.get(sessionId) ?? [])
+      perkMaxHpBonus(this.perks.get(sessionId) ?? []) +
+      talentMaxHpBonus(this.talents.get(sessionId) ?? {})
     );
   }
 
@@ -3656,6 +3770,8 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         this.mounts.has(sessionId),
         this.raidLocks.get(sessionId) ?? 0,
         this.perks.get(sessionId) ?? [],
+        this.callings.get(sessionId) ?? "",
+        this.talents.get(sessionId) ?? {},
       ),
     );
   }
@@ -3702,6 +3818,8 @@ function toSaved(
   hasMount: boolean,
   raidLockUntil: number,
   perks: string[],
+  calling: string,
+  talents: Talents,
 ): SavedCharacter {
   return {
     playerId: p.id,
@@ -3733,5 +3851,7 @@ function toSaved(
     hasMount,
     raidLockUntil,
     perks,
+    calling,
+    talents,
   };
 }

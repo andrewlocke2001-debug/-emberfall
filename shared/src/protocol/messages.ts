@@ -97,6 +97,10 @@ export const ClientMessage = {
   RespecPerks: "respecPerks",
   /** Ask for my chosen perks. */
   RequestPerks: "requestPerks",
+  ChooseCalling: "chooseCalling",
+  SpendTalent: "spendTalent",
+  RespecCalling: "respecCalling",
+  RequestCalling: "requestCalling",
   /** Accept an available quest. */
   QuestAccept: "questAccept",
   /** Turn in a quest whose objectives are met. */
@@ -163,6 +167,7 @@ export const ServerMessage = {
   Mount: "mount",
   /** The owner's chosen Melee perks. */
   Perks: "perks",
+  Calling: "calling",
 } as const;
 
 /** Continuous movement intent; dx/dy in [-1, 1]. */
@@ -437,6 +442,20 @@ export interface ChoosePerkPayload {
 /** Server → client: the owner's chosen perk ids. */
 export interface PerksPayload {
   chosen: string[];
+}
+
+/** Client → server: pick a Calling / buy one talent rank (P13.3). */
+export interface ChooseCallingPayload {
+  id: string;
+}
+export interface SpendTalentPayload {
+  id: string;
+}
+
+/** Server → client: the owner's Calling + spent talents. */
+export interface CallingPayload {
+  calling: string;
+  talents: Record<string, number>;
 }
 
 /** Client → server: fast-travel to the waystone with this id. */

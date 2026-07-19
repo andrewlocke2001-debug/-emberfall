@@ -11,6 +11,7 @@ import {
   type ChatBroadcastPayload,
   type LevelUpPayload,
   type InventoryPayload,
+  type CallingPayload,
   type EquipmentPayload,
   type BankPayload,
   PICKUP_RANGE,
@@ -171,6 +172,7 @@ export class ZoneScene extends Phaser.Scene {
   /** The Melee skill tree (toggle K) + last-known chosen perks. */
   private perksPanel?: PerksPanel;
   private chosenPerks: string[] = [];
+  private callingState: CallingPayload = { calling: "", talents: {} };
 
   /** The current zone's map; resolved from server state on the first frame. */
   private map: ZoneMap | undefined = undefined;
@@ -396,7 +398,13 @@ export class ZoneScene extends Phaser.Scene {
     this.perksPanel = new PerksPanel({
       onChoose: (id) => this.connection.room.send(ClientMessage.ChoosePerk, { id }),
       onRespec: () => this.connection.room.send(ClientMessage.RespecPerks),
-      onRefresh: () => this.connection.room.send(ClientMessage.RequestPerks),
+      onChooseCalling: (id) => this.connection.room.send(ClientMessage.ChooseCalling, { id }),
+      onSpendTalent: (id) => this.connection.room.send(ClientMessage.SpendTalent, { id }),
+      onRespecCalling: () => this.connection.room.send(ClientMessage.RespecCalling),
+      onRefresh: () => {
+        this.connection.room.send(ClientMessage.RequestPerks);
+        this.connection.room.send(ClientMessage.RequestCalling);
+      },
     });
     this.events.once("shutdown", () => this.perksPanel?.destroy());
 
@@ -616,7 +624,9 @@ export class ZoneScene extends Phaser.Scene {
       this.connection.room.send(ClientMessage.ToggleMount);
     }
     if (Phaser.Input.Keyboard.JustDown(this.keys[bind.skills]!)) this.perksPanel?.toggle();
-    this.perksPanel?.setMeleeLevel(self?.level ?? 1);
+if (me) {
+      this.perksPanel?.setCombatLevels(me.level, levelForXp(me.rangedXp), levelForXp(me.magicXp));
+    }
 
     // Crafting panel (C); refresh its skill gates from live XP while open.
     if (Phaser.Input.Keyboard.JustDown(this.keys[bind.craft]!)) this.craftPanel?.toggle();
@@ -836,6 +846,10 @@ export class ZoneScene extends Phaser.Scene {
     this.connection.room.onMessage(ServerMessage.Perks, (p: PerksPayload) => {
       this.chosenPerks = p.chosen;
       this.perksPanel?.setPerks(p.chosen);
+    });
+    this.connection.room.onMessage(ServerMessage.Calling, (p: CallingPayload) => {
+      this.callingState = p;
+      this.perksPanel?.setCalling(p);
     });
     this.connection.room.onMessage(ServerMessage.Equipment, (p: EquipmentPayload) => {
       this.equipmentSlots = p.equipment;
@@ -1295,6 +1309,12 @@ export class ZoneScene extends Phaser.Scene {
       requestMount: () => room.send(ClientMessage.RequestMount),
       fastTravel: (to: string) => room.send(ClientMessage.FastTravel, { to }),
       perks: () => this.chosenPerks,
+      calling: () => this.callingState.calling,
+      talents: () => ({ ...this.callingState.talents }),
+      chooseCalling: (id: string) => room.send(ClientMessage.ChooseCalling, { id }),
+      spendTalent: (id: string) => room.send(ClientMessage.SpendTalent, { id }),
+      respecCalling: () => room.send(ClientMessage.RespecCalling),
+      requestCalling: () => room.send(ClientMessage.RequestCalling),
       choosePerk: (id: string) => room.send(ClientMessage.ChoosePerk, { id }),
       respecPerks: () => room.send(ClientMessage.RespecPerks),
       requestPerks: () => room.send(ClientMessage.RequestPerks),

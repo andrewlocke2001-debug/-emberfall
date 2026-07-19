@@ -59,6 +59,8 @@ export interface SavedCharacter {
   raidLockUntil: number;
   /** Chosen Melee perk ids (the skill tree). */
   perks: string[];
+  calling: string;
+  talents: Record<string, number>;
   /** Guild membership at load time (written ONLY by persistence/guilds.ts —
    *  save() never touches it, so snapshots can't clobber a kick/promotion;
    *  optional because room snapshots don't carry it). */
@@ -270,6 +272,8 @@ class CharacterStore {
       hasMount: c.hasMount,
       raidLockUntil: c.raidLockUntil,
       perks: asJson(c.perks),
+      calling: c.calling,
+      talents: asJson(c.talents),
     };
     await prisma.player.upsert({
       where: { id: c.playerId },
@@ -277,6 +281,17 @@ class CharacterStore {
       create: { id: c.playerId, ...data },
     });
   }
+}
+
+/** Parse a persisted talent map (JSONB may arrive as a string). */
+function parseTalents(raw: unknown): Record<string, number> {
+  const val = typeof raw === "string" ? (JSON.parse(raw) as unknown) : raw;
+  if (!val || typeof val !== "object" || Array.isArray(val)) return {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+    if (typeof v === "number" && v > 0) out[k] = Math.floor(v);
+  }
+  return out;
 }
 
 function toSavedCharacter(row: {
@@ -309,6 +324,8 @@ function toSavedCharacter(row: {
   hasMount: boolean;
   raidLockUntil: number;
   perks: unknown;
+  calling: string;
+  talents: unknown;
   guildId: string | null;
   guildRank: string | null;
 }): SavedCharacter {
@@ -341,7 +358,9 @@ function toSavedCharacter(row: {
     title: row.title,
     hasMount: row.hasMount,
     raidLockUntil: row.raidLockUntil,
-    perks: parseNames(row.perks), // defensive string-array coercion (like friends)
+    perks: parseNames(row.perks),
+    calling: row.calling,
+    talents: parseTalents(row.talents), // defensive string-array coercion (like friends)
     guildId: row.guildId,
     guildRank: row.guildRank,
   };

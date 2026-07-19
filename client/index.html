@@ -152,6 +152,23 @@
       .craft-row:hover:enabled { border-color: #3b82f6; }
       .craft-row:disabled { opacity: 0.5; filter: grayscale(0.35); cursor: not-allowed; }
       .craft-missing { color: #f87171; }
+
+      /* — Callings + talent tree (P13.3) — */
+      .calling-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .calling-card { text-align: left; padding: 10px 12px; border: 1px solid #2a3142;
+        background: linear-gradient(180deg, #1b2231 0%, #151a27 100%); color: #e6e6e6;
+        border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+      .calling-card:hover { border-color: var(--ember, #f59e0b); }
+      .talent-tree { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+        max-height: 46vh; overflow-y: auto; }
+      .talent-branch { display: flex; flex-direction: column; gap: 6px; }
+      .talent-node { position: relative; text-align: left; padding: 8px 10px 8px 10px;
+        border: 1px solid #2a3142; background: #161c2a; color: #e6e6e6; border-radius: 8px;
+        cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
+      .talent-node:hover:not(.locked):not(.maxed) { border-color: var(--ember, #f59e0b); }
+      .talent-node.maxed { border-color: #4ade80; cursor: default; }
+      .talent-node.locked { opacity: 0.45; cursor: not-allowed; }
+      .talent-rank { position: absolute; top: 6px; right: 8px; font-size: 11px; color: #ffd34d; }
       .craft-row .craft-title { font-size: 13px; }
       .craft-row .craft-detail { font-size: 11px; color: #8893a7; }
 

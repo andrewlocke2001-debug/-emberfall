@@ -98,6 +98,21 @@ import { exitAt, type ZoneMap } from "@mmo/shared/systems/zonemap";
 import { parseCommand } from "@mmo/shared/systems/gm";
 import { rollHunt, recordHuntKill, type HuntTask } from "@mmo/shared/systems/hunts";
 import { RESPEC_COST } from "@mmo/shared/data/perks";
+import { CALLING_IDS, CALLING_RESPEC_COST, type CallingId } from "@mmo/shared/data/callings";
+import {
+  talentPointsFor,
+  canSpendTalent,
+  applyTalentStats,
+  talentMaxHpBonus,
+  talentGcdMs,
+  talentLifesteal,
+  talentExecuteAdjust,
+  talentCritChance,
+  talentEnergyCostMul,
+  talentHealMul,
+  CRIT_MULT,
+  type Talents,
+} from "@mmo/shared/systems/callings";
 import { governingSkill, canUseWithWeapon } from "@mmo/shared/systems/weapons";
 import { applyEffect, tickEffects, moveMultOf, type ActiveEffect } from "@mmo/shared/systems/effects";
 import {
@@ -147,6 +162,8 @@ export interface SoloSave {
   hasMount: boolean;
   raidLockUntil: number;
   perks: string[];
+  calling: string;
+  talents: Record<string, number>;
   lastSeen: number;
 }
 
@@ -176,6 +193,8 @@ function defaultSave(): SoloSave {
     hasMount: false,
     raidLockUntil: 0,
     perks: [],
+    calling: "",
+    talents: {},
     lastSeen: Date.now(),
   };
 }
@@ -235,6 +254,8 @@ export class SoloRoom {
   private hasMount: boolean;
   private raidLock: number;
   private chosenPerks: string[];
+  private calling: CallingId | "";
+  private talents: Talents;
   private invasionActive = false;
   private nextInvasionAt = Date.now() + INVASION_INTERVAL_MS;
 
@@ -255,6 +276,8 @@ export class SoloRoom {
     this.hasMount = save.hasMount ?? false;
     this.raidLock = save.raidLockUntil ?? 0;
     this.chosenPerks = save.perks ?? [];
+    this.calling = (CALLING_IDS as readonly string[]).includes(save.calling) ? (save.calling as CallingId) : "";
+    this.talents = save.talents ?? {};
 
     // Offline rested-XP accrual (mirrors the server's load path).
     save.restedXp = restedAccrual(Date.now() - save.lastSeen, save.restedXp);
@@ -414,6 +437,7 @@ export class SoloRoom {
         this.pushHunt();
         this.pushMount();
         this.pushPerks();
+        this.pushCalling();
         this.pushEmptySocial();
         break;
       case ClientMessage.Equip:
@@ -467,6 +491,18 @@ export class SoloRoom {
         break;
       case ClientMessage.RequestPerks:
         this.pushPerks();
+        break;
+      case ClientMessage.ChooseCalling:
+        this.doChooseCalling(msg.id);
+        break;
+      case ClientMessage.SpendTalent:
+        this.doSpendTalent(msg.id);
+        break;
+      case ClientMessage.RespecCalling:
+        this.doRespecCalling();
+        break;
+      case ClientMessage.RequestCalling:
+        this.pushCalling();
         break;
       case ClientMessage.ExchangePost:
         // Single-player: no market without other players.
@@ -541,7 +577,7 @@ export class SoloRoom {
     base.attack += bonus.attack;
     base.strength += bonus.strength;
     base.defence += bonus.defence;
-    return applyPerkStats(base, this.chosenPerks);
+    return applyTalentStats(applyPerkStats(base, this.chosenPerks), this.talents);
   }
 
   /** The weapon class in hand (undefined = bare fists or a broken weapon). */
@@ -571,12 +607,12 @@ export class SoloRoom {
     const onGcd = ability.onGcd ?? true;
     if (onGcd && now < this.gcdUntil) return;
     if (now < (this.abilityCooldowns.get(ability.id) ?? 0)) return;
-    const cost = ability.energyCost ?? 0;
+    const cost = Math.round((ability.energyCost ?? 0) * talentEnergyCostMul(this.talents));
     if (p.energy < cost) return;
 
     if (ability.kind === "heal") {
       const before = p.hp;
-      p.hp = Math.min(p.maxHp, p.hp + (ability.heal ?? 0));
+      p.hp = Math.min(p.maxHp, p.hp + Math.round((ability.heal ?? 0) * talentHealMul(this.talents)));
       this.commitAbility(ability, now);
       p.energy -= cost;
       const restored = p.hp - before;
@@ -600,11 +636,13 @@ export class SoloRoom {
       this.emit(ServerMessage.CombatEvent, { attackerId: SOLO_ID, targetId: enemy.id, damage: 0, targetDied: false, miss: true });
     }
     if (result.hit) {
-      const dmg = executeAdjust(result.damage, enemy.hp, enemy.maxHp, this.chosenPerks);
+      let dmg = executeAdjust(result.damage, enemy.hp, enemy.maxHp, this.chosenPerks);
+      dmg = talentExecuteAdjust(dmg, enemy.hp, enemy.maxHp, this.talents);
+      if (dmg > 0 && Math.random() < talentCritChance(this.talents)) dmg = Math.round(dmg * CRIT_MULT);
       const hpAfter = Math.max(0, enemy.hp - dmg);
       const died = hpAfter <= 0;
       enemy.hp = hpAfter;
-      const ls = perkLifesteal(this.chosenPerks);
+      const ls = perkLifesteal(this.chosenPerks) + talentLifesteal(this.talents);
       if (ls > 0 && dmg > 0 && p.alive) p.hp = Math.min(p.maxHp, p.hp + ls);
       this.wearGear(this.equipment.weapon); // a landing swing wears the weapon
       this.tagged.add(enemy.id);
@@ -620,7 +658,7 @@ export class SoloRoom {
   }
 
   private commitAbility(ability: { id: string; cooldownMs: number; onGcd?: boolean }, now: number): void {
-    if (ability.onGcd ?? true) this.gcdUntil = now + perkGcdMs(this.chosenPerks, GCD_MS);
+    if (ability.onGcd ?? true) this.gcdUntil = now + talentGcdMs(this.talents, perkGcdMs(this.chosenPerks, GCD_MS));
     if (ability.cooldownMs > 0) this.abilityCooldowns.set(ability.id, now + ability.cooldownMs);
   }
 
@@ -771,7 +809,8 @@ export class SoloRoom {
     const newMax =
       maxHpForVitality(levelForXp(p.vitalityXp)) +
       equipmentBonus(this.effectiveGear(), itemDef).maxHp +
-      perkMaxHpBonus(this.chosenPerks);
+      perkMaxHpBonus(this.chosenPerks) +
+      talentMaxHpBonus(this.talents);
     if (newMax === p.maxHp) return;
     p.maxHp = newMax;
     if (p.hp > newMax) p.hp = newMax;
@@ -1073,6 +1112,45 @@ export class SoloRoom {
   }
 
   // --- perks (PT.5 skill tree; mirrors ZoneRoom) -------------------------------
+
+  private pushCalling(): void {
+    this.emit(ServerMessage.Calling, { calling: this.calling, talents: { ...this.talents } });
+  }
+
+  private doChooseCalling(id: unknown): void {
+    if (typeof id !== "string" || !(CALLING_IDS as readonly string[]).includes(id)) return;
+    if (this.calling === id) return;
+    if (this.calling !== "") return this.system("Abandon your current Calling first (respec).");
+    this.calling = id as CallingId;
+    this.pushCalling();
+    this.system("Your Calling is chosen. Press K to shape it.");
+  }
+
+  private doSpendTalent(id: unknown): void {
+    if (typeof id !== "string") return;
+    const pl = this.player();
+    const points = talentPointsFor(pl.level, levelForXp(pl.rangedXp), levelForXp(pl.magicXp));
+    if (!canSpendTalent(this.calling, this.talents, id, points)) {
+      return this.system("You can't take that talent yet.");
+    }
+    this.talents[id] = (this.talents[id] ?? 0) + 1;
+    this.applyMaxHp();
+    this.pushCalling();
+  }
+
+  private doRespecCalling(): void {
+    if (this.calling === "") return this.system("You have no Calling to abandon.");
+    if (countItem(this.inventory, "coins") < CALLING_RESPEC_COST) {
+      return this.system("Abandoning a Calling costs " + CALLING_RESPEC_COST + " coins.");
+    }
+    this.inventory = removeItem(this.inventory, "coins", CALLING_RESPEC_COST).inventory;
+    this.calling = "";
+    this.talents = {};
+    this.applyMaxHp();
+    this.pushInventory();
+    this.pushCalling();
+    this.system("Your Calling is forgotten. The roads are open again.");
+  }
 
   private pushPerks(): void {
     this.emit(ServerMessage.Perks, { chosen: [...this.chosenPerks] });
@@ -1517,6 +1595,8 @@ export class SoloRoom {
       hasMount: this.hasMount,
       raidLockUntil: this.raidLock,
       perks: this.chosenPerks,
+      calling: this.calling,
+      talents: this.talents,
       lastSeen: Date.now(),
     };
     // A dungeon/raid is not a safe resume point — store the overworld the

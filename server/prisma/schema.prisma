@@ -77,6 +77,8 @@ model Player {
   raidLockUntil Float @default(0)
   // Chosen Melee perk ids as a JSON string array (the skill tree).
   perks      Json     @default("[]")
+  calling    String   @default("")
+  talents    Json     @default("{}")
   // Guild membership (loose reference, consistent with the id conventions).
   guildId    String?
   guildRank  String?

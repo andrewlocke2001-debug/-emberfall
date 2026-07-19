@@ -111,6 +111,12 @@ export interface MmoTestApi {
   requestMount(): void;
   fastTravel(to: string): void;
   perks(): string[];
+  calling(): string;
+  talents(): Record<string, number>;
+  chooseCalling(id: string): void;
+  spendTalent(id: string): void;
+  respecCalling(): void;
+  requestCalling(): void;
   choosePerk(id: string): void;
   respecPerks(): void;
   requestPerks(): void;
