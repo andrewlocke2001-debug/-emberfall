@@ -619,7 +619,21 @@ user decisions. The single-file solo build is the play-test channel.
   panel = calling cards → three-column tree w/ rank pips + tier
   tooltips. 203 unit; probe verified choose-via-real-click, rank cap,
   tier gate, instant +8 maxHp, exact 500c respec, reload persistence.
-- Next: cap 50→60 with P14 zones (Marrowgate Downs first).
+- Next: cap 50→60 once high-band P14 zones exist.
+
+## P14 — the continent grows (WORLD.md Phase 3 lands in code)
+- **P14.1 (2026-07-19, commit 0663f18)** — **The Marrowgate Downs** (10–18):
+  first new overworld zone. 60×60 chalk barrow-downs north of Greenreach
+  (new north gate + lane); sealed ghost-town landmark (gates barred from
+  the inside — dungeon reserved for P14.2); the **Unreturned** mob family
+  (Barrow Wisp 9 / Unreturned Wanderer 13 / Marrow Warden 17 w/ rare
+  iron-dagger) + grave_wax material; Quartermaster Hale + 2-quest arc
+  (quest count 6→8); two iron rocks (band matches mining 10), copper,
+  trout, waystone; chalk palette + cold ash-snow atmosphere + authored
+  hooded-ghost silhouettes ×3. maps.test auto-covers the JSON. 207 unit;
+  e2e 4/4 targeted; probe: spawn/farm/quest/gate-walk with screenshot-
+  verified render on BOTH sides of the transfer. PROBE GOTCHA (relearned):
+  boot zone lives in localStorage , not just the solo save.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
