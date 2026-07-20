@@ -44,6 +44,15 @@ export const QUESTS: Record<string, QuestDef> = {
     rewards: { coins: 60, xp: [{ skill: "melee", amount: 120 }] },
     giver: "quartermaster_hale",
   },
+  the_barred_door: {
+    id: "the_barred_door",
+    name: "The Barred Door",
+    summary: "Descend the opened barrow and put the Gatewright to rest.",
+    objectives: [{ type: "kill", mob: "gatewright", count: 1, desc: "Slay the Gatewright in the Refused Column" }],
+    rewards: { coins: 120, xp: [{ skill: "melee", amount: 200 }] },
+    requires: "wax_for_the_wardens",
+    giver: "quartermaster_hale",
+  },
   wax_for_the_wardens: {
     id: "wax_for_the_wardens",
     name: "Wax for the Wardens",

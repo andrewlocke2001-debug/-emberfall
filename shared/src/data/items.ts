@@ -273,6 +273,16 @@ export const ITEMS: Record<string, ItemDef> = {
     desc: "Cook it before eating.",
   },
 
+  barrow_lantern: {
+    id: "barrow_lantern",
+    name: "Barrow Lantern",
+    rarity: "rare",
+    maxStack: 1,
+    value: 90,
+    equipSlot: "amulet",
+    bonus: { defence: 2, maxHp: 12 },
+    desc: "The Gatewright's lamp. It shines, but casts no warmth — and no shadow.",
+  },
   grave_wax: {
     id: "grave_wax",
     name: "Grave Wax",

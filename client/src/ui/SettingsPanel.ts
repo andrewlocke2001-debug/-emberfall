@@ -13,6 +13,8 @@ export interface SettingsPanelOptions {
   onChange: (s: Settings) => void;
   /** Replay the tutorial from step one. */
   onReplayTutorial: () => void;
+  /** Playtest cheats (single-player only): runs a sandbox slash-command. */
+  cheats?: { run: (cmd: string) => void };
 }
 
 const KEY_LABELS: Record<keyof KeyBinds, string> = {
@@ -115,6 +117,62 @@ export class SettingsPanel {
       this.settings.particles = v;
       this.commit();
     });
+
+    // Playtest cheats — single-player only (the server never honors these).
+    if (this.opts.cheats) {
+      const { run } = this.opts.cheats;
+      section("Playtest cheats");
+      const grid = document.createElement("div");
+      grid.className = "cheat-grid";
+      const btn = (label: string, cmds: string[]): void => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "cheat-btn";
+        b.textContent = label;
+        b.addEventListener("click", () => {
+          for (const c of cmds) run(c);
+          b.blur(); // Space (attack) must never re-fire a cheat
+        });
+        grid.appendChild(b);
+      };
+      btn("Max all skills", ["/maxme"]);
+      btn("+1,000 coins", ["/give coins 1000"]);
+      btn("Iron weapon kit", [
+        "/give iron_sword 1",
+        "/give iron_axe 1",
+        "/give iron_dagger 1",
+        "/give hunter_longbow 1",
+        "/give cinder_staff 1",
+      ]);
+      btn("Own a mount", ["/mount"]);
+      btn("Full heal", ["/heal"]);
+      btn("Reset raid lockout", ["/raidreset"]);
+      this.body.appendChild(grid);
+
+      const travel = document.createElement("div");
+      travel.className = "cheat-grid";
+      for (const [label, id] of [
+        ["→ Meadowbrook", "meadowbrook"],
+        ["→ Greenreach", "greenreach"],
+        ["→ Marrowgate Downs", "marrowgate_downs"],
+        ["→ Tanglewood", "tanglewood"],
+        ["→ Ashreach (PvP)", "ashreach"],
+        ["→ Refused Column", "refused_column"],
+        ["→ Cinder Depths", "cinder_depths"],
+        ["→ Molten Throne (raid)", "molten_throne"],
+      ] as const) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "cheat-btn";
+        b.textContent = label;
+        b.addEventListener("click", () => {
+          this.toggle(false); // close before the zone reboots the scene
+          run(`/goto ${id}`);
+        });
+        travel.appendChild(b);
+      }
+      this.body.appendChild(travel);
+    }
 
     const note = document.createElement("div");
     note.className = "set-row";

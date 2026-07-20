@@ -75,6 +75,7 @@ import { TutorialGuide } from "../ui/TutorialGuide";
 import { SettingsPanel } from "../ui/SettingsPanel";
 import { PerksPanel } from "../ui/PerksPanel";
 import { loadSettings, type Settings } from "../settings";
+import { SOLO } from "../net/mode";
 
 const RECONCILE_SNAP = 64; // px of drift beyond which we hard-snap the local player
 const REMOTE_LERP = 0.25; // interpolation factor for remote entities
@@ -425,6 +426,16 @@ export class ZoneScene extends Phaser.Scene {
         }
       },
       onReplayTutorial: () => this.tutorial?.maybeShow(true),
+      // Playtest cheats ride the sandbox slash-command path — solo builds only
+      // (multiplayer servers refuse them; GMs have their own commands).
+      ...(SOLO
+        ? {
+            cheats: {
+              run: (cmd: string) =>
+                this.connection.room.send(ClientMessage.Chat, { channel: "zone", text: cmd }),
+            },
+          }
+        : {}),
     });
     const gear = document.getElementById("settings-gear");
     if (gear) {

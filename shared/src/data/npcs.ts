@@ -41,7 +41,7 @@ export const NPCS: Record<string, NpcDef> = {
     y: 1520,
     greeting:
       "Mind the lights, traveller — they were people once, and the cold hasn't finished with them. The League pays for anything that thins the barrows. It does not pay for questions about the town.",
-    quests: ["the_quarantine_line", "wax_for_the_wardens"],
+    quests: ["the_quarantine_line", "wax_for_the_wardens", "the_barred_door"],
     color: 0x8fa3ae,
   },
   huntmaster_veyra: {

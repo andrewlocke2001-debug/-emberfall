@@ -24,6 +24,9 @@ import {
   TICK_MS,
   GCD_MS,
   PLAYER_ACCURACY_BONUS,
+  BG_ZONE,
+  SKILL_IDS,
+  LEVEL_CAP,
   ENERGY_REGEN_PER_SEC,
   PICKUP_RANGE,
   LOOT_OWNERSHIP_MS,
@@ -88,11 +91,12 @@ import {
   combatStatsFromLevel,
   gainXp,
   levelForXp,
+  xpForLevel,
   maxHpForVitality,
   restedBonus,
   restedAccrual,
 } from "@mmo/shared/systems/progression";
-import { mapForId, DEFAULT_ZONE } from "@mmo/shared/data/zones";
+import { mapForId, isDungeonId, DEFAULT_ZONE } from "@mmo/shared/data/zones";
 import { mobDef, type TelegraphDef } from "@mmo/shared/data/mobs";
 import { exitAt, type ZoneMap } from "@mmo/shared/systems/zonemap";
 import { parseCommand } from "@mmo/shared/systems/gm";
@@ -1324,6 +1328,70 @@ export class SoloRoom {
         p.hp = p.maxHp;
         p.energy = p.maxEnergy;
         break;
+      case "setlevel": {
+        const lvl = Math.max(1, Math.min(LEVEL_CAP, Number(args[0]) | 0));
+        p.meleeXp = xpForLevel(lvl);
+        p.level = lvl;
+        this.system("Melee level set to " + lvl + ".");
+        break;
+      }
+      case "setskill": {
+        const skill = String(args[0] ?? "");
+        const lvl = Math.max(1, Math.min(LEVEL_CAP, Number(args[1]) | 0));
+        if (!(SKILL_IDS as readonly string[]).includes(skill)) {
+          this.system("Usage: /setskill <" + SKILL_IDS.join("|") + "> <level>");
+          break;
+        }
+        const xp = xpForLevel(lvl);
+        if (skill === "melee") { p.meleeXp = xp; p.level = lvl; }
+        else if (skill === "ranged") p.rangedXp = xp;
+        else if (skill === "magic") p.magicXp = xp;
+        else if (skill === "vitality") { p.vitalityXp = xp; this.applyMaxHp(); }
+        else if (skill === "mining") p.miningXp = xp;
+        else if (skill === "fishing") p.fishingXp = xp;
+        else if (skill === "smithing") p.smithingXp = xp;
+        else if (skill === "cooking") p.cookingXp = xp;
+        this.system(skill + " set to level " + lvl + ".");
+        break;
+      }
+      case "maxme": {
+        const xp = xpForLevel(LEVEL_CAP);
+        p.meleeXp = xp;
+        p.level = LEVEL_CAP;
+        p.rangedXp = xp;
+        p.magicXp = xp;
+        p.vitalityXp = xp;
+        p.miningXp = xp;
+        p.fishingXp = xp;
+        p.smithingXp = xp;
+        p.cookingXp = xp;
+        this.applyMaxHp();
+        p.hp = p.maxHp;
+        p.energy = p.maxEnergy;
+        this.system("Every skill raised to " + LEVEL_CAP + ". Go break something.");
+        break;
+      }
+      case "goto": {
+        const id = String(args[0] ?? "");
+        if (!mapForId(id)) {
+          this.system("Unknown place. Try: meadowbrook, greenreach, marrowgate_downs, tanglewood, ashreach, cinder_depths, refused_column, molten_throne.");
+          break;
+        }
+        if (this.transferring) break;
+        this.transferring = true;
+        this.persist();
+        this.emit(ServerMessage.Transfer, { zone: id, entry: "default" });
+        break;
+      }
+      case "raidreset":
+        this.raidLock = 0;
+        this.system("Raid lockout cleared.");
+        break;
+      case "mount":
+        this.hasMount = true;
+        this.pushMount();
+        this.system("A spectral elk answers. Press M to ride.");
+        break;
       case "invasion":
         if (!INVASION_ZONES.has(this.map.id)) this.system("This zone is never invaded.");
         else if (this.invasionActive) this.system("An invasion is already underway.");
@@ -1403,7 +1471,7 @@ export class SoloRoom {
       p.energy = p.maxEnergy;
       p.alive = true;
       const back = mapForId(this.map.id)?.exits[0]?.to;
-      if ((this.map.id === "cinder_depths" || this.map.id === RAID_ZONE) && back && !this.transferring) {
+      if (isDungeonId(this.map.id) && this.map.id !== BG_ZONE && back && !this.transferring) {
         this.system("You fell — the wardens dragged you back outside.");
         this.transferring = true;
         this.persist();

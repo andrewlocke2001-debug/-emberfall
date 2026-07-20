@@ -44,6 +44,14 @@ function paint(): string[] {
   p.fillRect(8, 47, 10, 48, "#");
   p.fillRect(50, 44, 52, 45, "#");
 
+  // The opened barrow (south-west): a dug-out mound whose stair leads down to
+  // the Refused Column (P14.2 dungeon). The mouth faces south; the gate tile
+  // sits just inside it.
+  p.fillRect(6, 42, 9, 44, "#");
+  p.set(7, 44, ","); // the dug-open mouth
+  p.set(7, 43, "B"); // dungeon gate down into the barrow-road
+  p.set(7, 45, "2"); // return pad — where the wardens drag you back out
+
   // The cold pond (south-east) — trout under still water.
   p.fillRect(44, 48, 52, 53, "~");
   p.fillRect(46, 46, 50, 54, "~");
@@ -86,7 +94,8 @@ export const marrowgateDowns: MapSource = {
   displayName: "The Marrowgate Downs",
   exits: {
     S: { to: "greenreach", entry: "north" },
+    B: { to: "refused_column", entry: "gate" },
   },
-  entries: { "1": "south" },
+  entries: { "1": "south", "2": "barrow" },
   ascii: paint(),
 };

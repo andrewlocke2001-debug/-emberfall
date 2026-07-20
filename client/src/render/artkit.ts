@@ -81,6 +81,11 @@ const PALETTES: Record<string, ZonePalette> = {
     path: 0x6f6a58, wall: 0x8e979c, water: 0x24455c, canopy: 0x2f3f2b,
     canopyLit: 0x43563c, floor: 0x635c4d,
   },
+  refused_column: {
+    grass: 0x2e3134, grassDark: 0x27292c, blade: 0x3f434a, flower: 0x9fb4bd,
+    path: 0x4a4a44, wall: 0x5a6165, water: 0x1d3346, canopy: 0x2b3236,
+    canopyLit: 0x3b444a, floor: 0x565149,
+  },
   bg_arena: {
     grass: 0x33383f, grassDark: 0x2b3037, blade: 0x454c56, flower: 0x8fa3bd,
     path: 0x4a5058, wall: 0x555d68, water: 0x1d3f66, canopy: 0x2c3e35,
@@ -899,6 +904,7 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     ["barrow_wisp", 26, 30, 0x9db8c4, 0xd9f2ff],
     ["unreturned_wanderer", 30, 38, 0x8aa6b4, 0xc4e6f5],
     ["marrow_warden", 36, 44, 0x7d9aab, 0xb5dced],
+    ["gatewright", 46, 54, 0x6e8fa2, 0xe8fbff],
   ] as const) {
     ctx = canvas(`mob-${kind}`, w, h);
     if (ctx) {
@@ -1153,6 +1159,7 @@ const ATMOS: Record<string, Atmosphere> = {
   meadowbrook: { particle: { texture: "fx-soft", tint: 0xfff2b0, lifespan: 9000, speedY: [-6, 6], alpha: 0.16, freq: 900 }, vignette: 0.3, fog: 0xbfd6a8, fogAlpha: 0.035 },
   greenreach: { particle: { texture: "fx-soft", tint: 0xd7f0b0, lifespan: 9000, speedY: [-8, 4], alpha: 0.15, freq: 800 }, vignette: 0.32, fog: 0xa8d6b6, fogAlpha: 0.04 },
   tanglewood: { particle: { texture: "fx-leaf", tint: 0xffffff, lifespan: 8000, speedY: [12, 30], alpha: 0.5, freq: 700 }, vignette: 0.4, fog: 0x39543c, fogAlpha: 0.08 },
+  refused_column: { particle: { texture: "fx-soft", tint: 0xb8d4e2, lifespan: 10000, speedY: [4, 12], alpha: 0.22, freq: 1100 }, vignette: 0.55, fog: 0x54646e, fogAlpha: 0.14 },
   marrowgate_downs: { particle: { texture: "fx-soft", tint: 0xcfe3ee, lifespan: 9000, speedY: [8, 20], alpha: 0.28, freq: 900 }, vignette: 0.45, fog: 0x6f8290, fogAlpha: 0.1 },
   ashreach: { particle: { texture: "fx-soft", tint: 0xff9e5e, lifespan: 6000, speedY: [-30, -12], alpha: 0.35, freq: 350 }, vignette: 0.45, fog: 0x5e2f1e, fogAlpha: 0.09 },
   cinder_depths: { particle: { texture: "fx-soft", tint: 0xcabdd6, lifespan: 8000, speedY: [-10, 10], alpha: 0.12, freq: 900 }, vignette: 0.55, fog: 0x161320, fogAlpha: 0.14 },

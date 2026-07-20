@@ -168,6 +168,11 @@
       .talent-node:hover:not(.locked):not(.maxed) { border-color: var(--ember, #f59e0b); }
       .talent-node.maxed { border-color: #4ade80; cursor: default; }
       .talent-node.locked { opacity: 0.45; cursor: not-allowed; }
+      .cheat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin: 6px 0; }
+      .cheat-btn { padding: 7px 8px; border: 1px solid #2a3142; border-radius: 8px;
+        background: linear-gradient(180deg, #1b2231 0%, #151a27 100%); color: #e6e6e6;
+        cursor: pointer; font-size: 12px; text-align: left; }
+      .cheat-btn:hover { border-color: var(--ember, #f59e0b); }
       .talent-rank { position: absolute; top: 6px; right: 8px; font-size: 11px; color: #ffd34d; }
       .craft-row .craft-title { font-size: 13px; }
       .craft-row .craft-detail { font-size: 11px; color: #8893a7; }
