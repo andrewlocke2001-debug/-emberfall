@@ -647,6 +647,17 @@ user decisions. The single-file solo build is the play-test channel.
   ONLY in localRoom. 211 unit; probe via real clicks: cheats land, travel
   into the dungeon, boss down w/ telegraph damage taken, gate back out.
 
+- **P14.3 (2026-07-19, commit 0300980)** - **The Vossmere** (18-26):
+  the drowned Vossari coast south of Tanglewood (new south gate). The Oar
+  Wall landmark stands unreachable in open water; stilt-city platform +
+  plank bridges to the salvage flats. Mobs: Quenchclaw Crab / Salt-Shade /
+  Wreck-Looter. Cooking gets crab meat -> Dressed Crab (heal 55, first new
+  recipe since P4). Charterwright Essa + 2 quests (11 total). Two trout
+  runs + shrimp + iron/tin + waystone; brine palette + sea mist; cheats
+  travel grid updated. Sunken Pyre dungeon reserved for a later slice.
+  215 unit; probe: cheat-travel in, crab->meat->cooked, Essa quest, gate
+  walk to Tanglewood rendered both sides.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
