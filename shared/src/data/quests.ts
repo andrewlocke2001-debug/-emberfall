@@ -62,6 +62,24 @@ export const QUESTS: Record<string, QuestDef> = {
     requires: "the_quarantine_line",
     giver: "quartermaster_hale",
   },
+  // The Vossmere arc (P14.3) — the Shoremade charter.
+  planks_over_water: {
+    id: "planks_over_water",
+    name: "Planks Over Water",
+    summary: "Cull 6 Quenchclaw Crabs before they chew through the stilt-city's pilings.",
+    objectives: [{ type: "kill", mob: "quenchclaw", count: 6, desc: "Cull 6 Quenchclaw Crabs" }],
+    rewards: { coins: 70, xp: [{ skill: "melee", amount: 150 }] },
+    giver: "charterwright_essa",
+  },
+  the_wake_paid: {
+    id: "the_wake_paid",
+    name: "The Wake, Paid",
+    summary: "Gather 8 Sea Wrack for the anchorage's Wake-Paying rites.",
+    objectives: [{ type: "collect", itemId: "sea_wrack", count: 8, desc: "Gather 8 Sea Wrack" }],
+    rewards: { coins: 60, items: [{ itemId: "dressed_crab", qty: 2 }], xp: [{ skill: "cooking", amount: 100 }] },
+    requires: "planks_over_water",
+    giver: "charterwright_essa",
+  },
   // First contact — meet the Hearthwarden who runs the gate.
   greet_mira: {
     id: "greet_mira",

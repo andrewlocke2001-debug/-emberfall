@@ -108,6 +108,15 @@ export const RECIPES: Record<string, RecipeDef> = {
     xp: 6,
     levelReq: 1,
   },
+  cook_crab: {
+    id: "cook_crab",
+    skill: "cooking",
+    name: "Dressed Crab",
+    inputs: [{ itemId: "crab_meat", qty: 1 }],
+    output: { itemId: "dressed_crab", qty: 1 },
+    xp: 20,
+    levelReq: 15,
+  },
   cook_trout: {
     id: "cook_trout",
     skill: "cooking",

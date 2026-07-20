@@ -44,6 +44,17 @@ export const NPCS: Record<string, NpcDef> = {
     quests: ["the_quarantine_line", "wax_for_the_wardens", "the_barred_door"],
     color: 0x8fa3ae,
   },
+  charterwright_essa: {
+    id: "charterwright_essa",
+    name: "Charterwright Essa",
+    zone: "vossmere",
+    x: 880,
+    y: 1360,
+    greeting:
+      "Welcome to the wet end of the world. The Shoremade are building something here — planks, charters, a future — and the sea keeps sending crabs, shades and thieves to eat it. Care to earn your keep?",
+    quests: ["planks_over_water", "the_wake_paid"],
+    color: 0x6f9aa8,
+  },
   huntmaster_veyra: {
     id: "huntmaster_veyra",
     name: "Huntmaster Veyra",

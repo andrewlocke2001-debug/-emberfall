@@ -273,6 +273,31 @@ export const ITEMS: Record<string, ItemDef> = {
     desc: "Cook it before eating.",
   },
 
+  crab_meat: {
+    id: "crab_meat",
+    name: "Crab Meat",
+    rarity: "common",
+    maxStack: 2_147_483_647,
+    value: 5,
+    desc: "Sweet, cold-water crab. Cook it before eating.",
+  },
+  dressed_crab: {
+    id: "dressed_crab",
+    name: "Dressed Crab",
+    rarity: "common",
+    maxStack: 20,
+    value: 14,
+    heal: 55,
+    desc: "Restores 55 HP. A Vossari dockside delicacy.",
+  },
+  sea_wrack: {
+    id: "sea_wrack",
+    name: "Sea Wrack",
+    rarity: "common",
+    maxStack: 2_147_483_647,
+    value: 6,
+    desc: "Salt-heavy weed. Burned in Wake-Paying rites; good in a crab boil.",
+  },
   barrow_lantern: {
     id: "barrow_lantern",
     name: "Barrow Lantern",

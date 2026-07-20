@@ -108,6 +108,15 @@ export const NODES: Partial<Record<ZoneId, ResourceNode[]>> = {
     { id: "copper-1", type: "copper_rock", x: 528, y: 1264 },
     { id: "trout-1", type: "trout_spot", x: 1392, y: 1616 },
   ],
+  // The Vossmere: the fishing capital (two trout runs + shrimp) with a
+  // little metal on the high ground.
+  vossmere: [
+    { id: "trout-1", type: "trout_spot", x: 400, y: 1504 },
+    { id: "trout-2", type: "trout_spot", x: 1424, y: 1552 },
+    { id: "shrimp-1", type: "shrimp_spot", x: 1072, y: 1408 },
+    { id: "iron-1", type: "iron_rock", x: 1616, y: 784 },
+    { id: "tin-1", type: "tin_rock", x: 400, y: 656 },
+  ],
   // Tanglewood: richer iron in the north glade + trout at the wraith pond
   // (the pond is guarded — better yield lives behind danger).
   tanglewood: [
