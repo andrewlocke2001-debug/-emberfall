@@ -635,6 +635,18 @@ user decisions. The single-file solo build is the play-test channel.
   verified render on BOTH sides of the transfer. PROBE GOTCHA (relearned):
   boot zone lives in localStorage "mmo:zone", not just the solo save.
 
+- **P14.2 (2026-07-19, commit 989446d)** - **The Refused Column** dungeon
+  (10-18) + **solo playtest cheats**. 30x50 carved barrow-road under
+  Marrowgate (entry via a newly opened barrow in the Downs SW); boss the
+  **Gatewright** (lvl 19, telegraphed slam, drops the Barrow Lantern rare
+  amulet); third Hale quest completes the arc (9 quests). Solo dungeon
+  eject generalized to isDungeonId (was hardcoded cinder_depths||RAID).
+  Cheats: Settings gains a solo-only section (max skills / coins / kit /
+  mount / heal / raid reset + one-click travel everywhere) on new sandbox
+  commands (/maxme /setlevel /setskill /goto /raidreset /mount) that live
+  ONLY in localRoom. 211 unit; probe via real clicks: cheats land, travel
+  into the dungeon, boss down w/ telegraph damage taken, gate back out.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
