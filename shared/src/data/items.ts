@@ -298,6 +298,14 @@ export const ITEMS: Record<string, ItemDef> = {
     value: 6,
     desc: "Salt-heavy weed. Burned in Wake-Paying rites; good in a crab boil.",
   },
+  fen_amber: {
+    id: "fen_amber",
+    name: "Fen Amber",
+    rarity: "common",
+    maxStack: 2_147_483_647,
+    value: 9,
+    desc: "Vitrified sap from the scar-fen. Warm long after dark.",
+  },
   barrow_lantern: {
     id: "barrow_lantern",
     name: "Barrow Lantern",

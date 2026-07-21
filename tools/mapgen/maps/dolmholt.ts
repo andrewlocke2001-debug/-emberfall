@@ -29,6 +29,11 @@ function paint(): string[] {
   p.hline(4, 24, 36, "#").hline(31, 55, 36, "#");
   p.hline(4, 24, 20, "#").hline(31, 55, 20, "#");
 
+  // The fen road (P14.5): east along the middle terrace to the Cinderfen.
+  p.hline(28, 57, 30, ",").hline(28, 57, 31, ",");
+  p.fillRect(58, 30, 59, 31, "F");
+  p.set(55, 32, "2");
+
   // The hold (middle terrace, east of the road): floors + corner posts.
   p.fillRect(31, 38, 42, 43, "=");
   p.set(31, 38, "#").set(42, 38, "#").set(31, 43, "#").set(42, 43, "#");
@@ -75,7 +80,8 @@ export const dolmholt: MapSource = {
   displayName: "The Dolmholt",
   exits: {
     X: { to: "tanglewood", entry: "north" },
+    F: { to: "cinderfen", entry: "west" },
   },
-  entries: { "1": "south" },
+  entries: { "1": "south", "2": "east" },
   ascii: paint(),
 };

@@ -128,6 +128,13 @@ export const NODES: Partial<Record<ZoneId, ResourceNode[]>> = {
     { id: "tin-1", type: "tin_rock", x: 1424, y: 1552 },
     { id: "trout-1", type: "trout_spot", x: 1392, y: 816 },
   ],
+  // The Cinderfen: scar-rich iron and a warm pool the trout inexplicably love.
+  cinderfen: [
+    { id: "iron-1", type: "iron_rock", x: 1104, y: 1104 },
+    { id: "iron-2", type: "iron_rock", x: 1680, y: 1040 },
+    { id: "copper-1", type: "copper_rock", x: 336, y: 1360 },
+    { id: "trout-1", type: "trout_spot", x: 688, y: 720 },
+  ],
   // Tanglewood: richer iron in the north glade + trout at the wraith pond
   // (the pond is guarded — better yield lives behind danger).
   tanglewood: [

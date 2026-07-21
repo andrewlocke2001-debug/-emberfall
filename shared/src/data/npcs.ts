@@ -66,6 +66,17 @@ export const NPCS: Record<string, NpcDef> = {
     quests: ["the_unlawful_cut", "ore_for_the_asking"],
     color: 0x9aa3a8,
   },
+  tender_ilse: {
+    id: "tender_ilse",
+    name: "Tender Ilse",
+    zone: "cinderfen",
+    x: 528,
+    y: 1552,
+    greeting:
+      "Feel the ground? Warm. The fen weeps at night and the Order calls it yield. We call it a wound. Help the tending and I'll pay you — with coin, since the Ember can't thank you itself. Yet.",
+    quests: ["the_fen_bleeds", "amber_for_the_tending"],
+    color: 0x7fae8e,
+  },
   huntmaster_veyra: {
     id: "huntmaster_veyra",
     name: "Huntmaster Veyra",

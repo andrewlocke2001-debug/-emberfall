@@ -98,6 +98,24 @@ export const QUESTS: Record<string, QuestDef> = {
     requires: "the_unlawful_cut",
     giver: "rite_keeper_brunna",
   },
+  // The Cinderfen arc (P14.5) — the tending against the harvest.
+  the_fen_bleeds: {
+    id: "the_fen_bleeds",
+    name: "The Fen Bleeds",
+    summary: "Put down 6 Fen Creepers — kindling without a steward, boiling out of the wound.",
+    objectives: [{ type: "kill", mob: "fen_creeper", count: 6, desc: "Put down 6 Fen Creepers" }],
+    rewards: { coins: 110, xp: [{ skill: "melee", amount: 260 }] },
+    giver: "tender_ilse",
+  },
+  amber_for_the_tending: {
+    id: "amber_for_the_tending",
+    name: "Amber for the Tending",
+    summary: "Gather 6 Fen Amber — the tenders burn it back into the ground at night.",
+    objectives: [{ type: "collect", itemId: "fen_amber", count: 6, desc: "Gather 6 Fen Amber" }],
+    rewards: { coins: 100, items: [{ itemId: "health_potion", qty: 2 }], xp: [{ skill: "vitality", amount: 150 }] },
+    requires: "the_fen_bleeds",
+    giver: "tender_ilse",
+  },
   // First contact — meet the Hearthwarden who runs the gate.
   greet_mira: {
     id: "greet_mira",

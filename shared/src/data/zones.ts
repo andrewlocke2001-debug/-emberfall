@@ -9,6 +9,7 @@ import marrowgateDownsJson from "./maps/marrowgate_downs.json";
 import refusedColumnJson from "./maps/refused_column.json";
 import vossmereJson from "./maps/vossmere.json";
 import dolmholtJson from "./maps/dolmholt.json";
+import cinderfenJson from "./maps/cinderfen.json";
 import { loadZoneMap, type TiledMap, type ZoneMap } from "../systems/zonemap";
 
 /**
@@ -20,7 +21,7 @@ import { loadZoneMap, type TiledMap, type ZoneMap } from "../systems/zonemap";
  * DUNGEON_IDS are instanced maps (one room PER RUN, matched by party) — they
  * deliberately stay out of ZONE_IDS so nothing treats them as overworld.
  */
-export const ZONE_IDS = ["meadowbrook", "greenreach", "marrowgate_downs", "tanglewood", "vossmere", "dolmholt", "ashreach"] as const;
+export const ZONE_IDS = ["meadowbrook", "greenreach", "marrowgate_downs", "tanglewood", "vossmere", "dolmholt", "cinderfen", "ashreach"] as const;
 export type ZoneId = (typeof ZONE_IDS)[number];
 
 /** Zones where open PvP (with anti-grief rules) is enabled — the risk zones. */
@@ -37,6 +38,7 @@ export const ZONES: Record<ZoneId, ZoneMap> = {
   marrowgate_downs: loadZoneMap("marrowgate_downs", marrowgateDownsJson as unknown as TiledMap),
   vossmere: loadZoneMap("vossmere", vossmereJson as unknown as TiledMap),
   dolmholt: loadZoneMap("dolmholt", dolmholtJson as unknown as TiledMap),
+  cinderfen: loadZoneMap("cinderfen", cinderfenJson as unknown as TiledMap),
 };
 
 export const DUNGEONS: Record<DungeonId, ZoneMap> = {

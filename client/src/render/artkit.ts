@@ -96,6 +96,11 @@ const PALETTES: Record<string, ZonePalette> = {
     path: 0x5c5648, wall: 0x6b6f78, water: 0x1d3c50, canopy: 0x263528,
     canopyLit: 0x374b39, floor: 0x5e564a,
   },
+  cinderfen: {
+    grass: 0x414a3a, grassDark: 0x373f31, blade: 0x59654c, flower: 0xd08a4e,
+    path: 0x574f3e, wall: 0x707a6c, water: 0x3a5a52, canopy: 0x33452f,
+    canopyLit: 0x49603f, floor: 0x5e5744,
+  },
   bg_arena: {
     grass: 0x33383f, grassDark: 0x2b3037, blade: 0x454c56, flower: 0x8fa3bd,
     path: 0x4a5058, wall: 0x555d68, water: 0x1d3f66, canopy: 0x2c3e35,
@@ -908,6 +913,89 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     finish("mob-ruin_sentinel");
   }
 
+  // Fen Creeper (P14.5): a bog mound that stood up, ember eyes in the moss.
+  ctx = canvas("mob-fen_creeper", 40, 34);
+  if (ctx) {
+    const moss = 0x5b6a4a;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    ctx.fillStyle = css(mix(moss, 0x000000, 0.3));
+    ctx.beginPath();
+    ctx.ellipse(20, 20, 16, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = css(moss);
+    ctx.beginPath();
+    ctx.ellipse(20, 18, 13, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Dripping arms + two ember eyes.
+    ctx.fillStyle = css(mix(moss, 0x000000, 0.2));
+    ctx.fillRect(5, 20, 4, 9);
+    ctx.fillRect(31, 21, 4, 8);
+    ctx.fillStyle = css(0xffa04d);
+    ctx.beginPath();
+    ctx.arc(15, 16, 1.8, 0, Math.PI * 2);
+    ctx.arc(24, 16, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+    finish("mob-fen_creeper");
+  }
+
+  // Glass Stalker (P14.5): angular vitrified legs under a thin bright body.
+  ctx = canvas("mob-glass_stalker", 44, 34);
+  if (ctx) {
+    const glass = 0xa8c9c2;
+    ctx.strokeStyle = css(mix(glass, 0x000000, 0.45));
+    ctx.lineWidth = 2.4;
+    ctx.beginPath(); // four bent legs
+    ctx.moveTo(8, 30); ctx.lineTo(15, 18); ctx.lineTo(19, 24);
+    ctx.moveTo(14, 31); ctx.lineTo(19, 20);
+    ctx.moveTo(36, 30); ctx.lineTo(29, 18); ctx.lineTo(25, 24);
+    ctx.moveTo(30, 31); ctx.lineTo(25, 20);
+    ctx.stroke();
+    ctx.fillStyle = css(glass);
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(22, 16, 11, 5.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = css(0xe8fff8);
+    ctx.beginPath();
+    ctx.arc(22, 15, 2, 0, Math.PI * 2);
+    ctx.fill();
+    finish("mob-glass_stalker");
+  }
+
+  // Harvest Enforcer (P14.5): the Order's muscle — slate-blue hood, no pick.
+  ctx = canvas("mob-harvest_enforcer", 36, 42);
+  if (ctx) {
+    const cloth = 0x4e5c78;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    ctx.fillStyle = css(mix(cloth, 0x000000, 0.3));
+    ctx.beginPath();
+    ctx.moveTo(7, 38);
+    ctx.quadraticCurveTo(5, 18, 18, 12);
+    ctx.quadraticCurveTo(31, 18, 29, 38);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = css(cloth);
+    ctx.beginPath();
+    ctx.moveTo(9, 36);
+    ctx.quadraticCurveTo(8, 19, 18, 13);
+    ctx.quadraticCurveTo(28, 19, 27, 36);
+    ctx.closePath();
+    ctx.fill();
+    // The Order's lamp-sigil at the chest.
+    ctx.fillStyle = css(0xffd34d);
+    ctx.fillRect(16, 22, 4, 6);
+    ctx.strokeStyle = css(0x2a2f3a);
+    ctx.lineWidth = 1.4;
+    ctx.strokeRect(16, 22, 4, 6);
+    finish("mob-harvest_enforcer");
+  }
+
   // Open-Vein Cutter (P14.4): a hooded digger, slate-clothed, pick on back.
   ctx = canvas("mob-open_vein_cutter", 36, 42);
   if (ctx) {
@@ -1237,6 +1325,7 @@ const ATMOS: Record<string, Atmosphere> = {
   refused_column: { particle: { texture: "fx-soft", tint: 0xb8d4e2, lifespan: 10000, speedY: [4, 12], alpha: 0.22, freq: 1100 }, vignette: 0.55, fog: 0x54646e, fogAlpha: 0.14 },
   vossmere: { particle: { texture: "fx-soft", tint: 0xa9d2d9, lifespan: 8000, speedY: [-16, -6], alpha: 0.24, freq: 800 }, vignette: 0.42, fog: 0x4e6d74, fogAlpha: 0.11 },
   dolmholt: { particle: { texture: "fx-soft", tint: 0xe8f2f8, lifespan: 9000, speedY: [10, 24], alpha: 0.3, freq: 750 }, vignette: 0.44, fog: 0x707c88, fogAlpha: 0.09 },
+  cinderfen: { particle: { texture: "fx-soft", tint: 0xd8e8dc, lifespan: 7000, speedY: [-24, -10], alpha: 0.26, freq: 500 }, vignette: 0.46, fog: 0x4e6455, fogAlpha: 0.12 },
   marrowgate_downs: { particle: { texture: "fx-soft", tint: 0xcfe3ee, lifespan: 9000, speedY: [8, 20], alpha: 0.28, freq: 900 }, vignette: 0.45, fog: 0x6f8290, fogAlpha: 0.1 },
   ashreach: { particle: { texture: "fx-soft", tint: 0xff9e5e, lifespan: 6000, speedY: [-30, -12], alpha: 0.35, freq: 350 }, vignette: 0.45, fog: 0x5e2f1e, fogAlpha: 0.09 },
   cinder_depths: { particle: { texture: "fx-soft", tint: 0xcabdd6, lifespan: 8000, speedY: [-10, 10], alpha: 0.12, freq: 900 }, vignette: 0.55, fog: 0x161320, fogAlpha: 0.14 },

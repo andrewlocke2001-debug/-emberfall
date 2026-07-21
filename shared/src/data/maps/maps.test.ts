@@ -10,6 +10,7 @@ import marrowgateDowns from "./marrowgate_downs.json";
 import refusedColumn from "./refused_column.json";
 import vossmere from "./vossmere.json";
 import dolmholt from "./dolmholt.json";
+import cinderfen from "./cinderfen.json";
 
 interface TiledObject {
   name: string;
@@ -34,6 +35,7 @@ const maps: Record<string, TiledMap> = {
   refused_column: refusedColumn as unknown as TiledMap,
   vossmere: vossmere as unknown as TiledMap,
   dolmholt: dolmholt as unknown as TiledMap,
+  cinderfen: cinderfen as unknown as TiledMap,
   tanglewood: tanglewood as unknown as TiledMap,
   cinder_depths: cinderDepths as unknown as TiledMap,
   ashreach: ashreach as unknown as TiledMap,
