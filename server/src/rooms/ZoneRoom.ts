@@ -370,6 +370,11 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   private invasionActive = false;
   /** Monotonic counter for unique GM-spawned mob ids. */
   private gmSpawnCount = 0;
+  /** Per-boss fight state (P15.1): fired add-waves, blink + volley timers. */
+  private readonly bossState = new Map<string, { firedAdds: Set<number>; lastBlinkAt: number; volleyLeft: number }>();
+  /** Adds queued during the enemies pass (spawning mid-iteration is unsafe). */
+  private pendingAdds: { kind: string; x: number; y: number; id: string }[] = [];
+  private addSeq = 0;
   /** Monotonic counter for unique ground-loot ids. */
   private lootSeq = 0;
   /** Ground-loot id → server time (ms) at which it despawns (server-only). */
@@ -1133,7 +1138,16 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     enemy.teleAt = 0;
     enemy.teleRadius = 0;
     this.activeEffects.delete(enemy.id);
+    this.bossState.delete(enemy.id);
     this.awardKill(enemy);
+    // Boss adds belong to the fight, not the zone — they die for good.
+    if (enemy.id.startsWith("add-")) {
+      const id = enemy.id;
+      this.state.enemies.delete(id);
+      this.enemyAI.delete(id);
+      this.mobContributors.delete(id);
+      this.mobContributorSkill.delete(id);
+    }
   }
 
   /**
@@ -3464,6 +3478,10 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (!enemy.alive) return;
       this.updateMob(enemy, dt, now);
     });
+    if (this.pendingAdds.length > 0) {
+      for (const a of this.pendingAdds) this.addEnemy(a.kind, a.x, a.y, a.id);
+      this.pendingAdds = [];
+    }
 
     // Respawn dead players at their zone's default entry.
     this.state.players.forEach((player, sessionId) => {
@@ -3517,6 +3535,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         enemy.respawnAt = 0;
         this.mobContributors.get(enemy.id)?.clear(); // fresh life, fresh credit
         this.activeEffects.delete(enemy.id);
+        this.bossState.delete(enemy.id);
         enemy.teleAt = 0;
         enemy.teleRadius = 0;
         const ai = this.enemyAI.get(enemy.id);
@@ -3592,9 +3611,52 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     if (def.telegraph && enemy.teleAt > 0) {
       if (now >= enemy.teleAt) {
         this.resolveTelegraph(enemy, def.telegraph, now);
-        ai.teleReadyAt = now + def.telegraph.cooldownMs;
+        const vs = this.bossState.get(enemy.id);
+        const chase = ai.target ? this.state.players.get(ai.target) : undefined;
+        if (vs && vs.volleyLeft > 0 && chase?.alive) {
+          // Volley: the next slam winds up immediately, chasing the target.
+          vs.volleyLeft--;
+          enemy.teleX = chase.x;
+          enemy.teleY = chase.y;
+          enemy.teleRadius = def.telegraph.radius;
+          enemy.teleAt = now + Math.round(def.telegraph.windupMs * 0.75);
+        } else {
+          ai.teleReadyAt = now + def.telegraph.cooldownMs;
+        }
       }
       return;
+    }
+
+    // Boss mechanics (P15.1): threshold add-waves fire exactly once each.
+    const mech = def.mechanics;
+    let bs = this.bossState.get(enemy.id);
+    if (mech && !bs) {
+      bs = { firedAdds: new Set<number>(), lastBlinkAt: now, volleyLeft: 0 };
+      this.bossState.set(enemy.id, bs);
+    }
+    if (mech?.addsAtHpPct && bs) {
+      for (const wave of mech.addsAtHpPct) {
+        if (enemy.hp <= enemy.maxHp * wave.pct && !bs.firedAdds.has(wave.pct)) {
+          bs.firedAdds.add(wave.pct);
+          for (let i = 0; i < wave.count; i++) {
+            const ang = (Math.PI * 2 * i) / wave.count;
+            this.pendingAdds.push({
+              kind: wave.kind,
+              x: enemy.x + Math.cos(ang) * 64,
+              y: enemy.y + Math.sin(ang) * 64,
+              id: `add-${enemy.id}-${++this.addSeq}`,
+            });
+          }
+          const call: ChatBroadcastPayload = {
+            channel: "zone",
+            from: "System",
+            zone: this.map.id,
+            text: `${enemy.name} calls for aid!`,
+            at: now,
+          };
+          this.broadcast(ServerMessage.Chat, call);
+        }
+      }
     }
 
     const homeDist = Math.hypot(enemy.x - ai.homeX, enemy.y - ai.homeY);
@@ -3626,24 +3688,40 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     }
 
     if (target && ai.target) {
+      // The Shade's blink: appear beside the target on a fixed cadence.
+      if (mech?.blinkEveryMs && bs && now - bs.lastBlinkAt >= mech.blinkEveryMs) {
+        bs.lastBlinkAt = now;
+        enemy.x = target.x + (enemy.x >= target.x ? 44 : -44);
+        enemy.y = target.y;
+      }
       // Boss: begin a telegraphed slam centered on the target when it's ready,
       // then root (return) for the wind-up. It slams from any range — get out.
       if (def.telegraph && now >= ai.teleReadyAt) {
+        if (bs) bs.volleyLeft = (mech?.telegraphVolley ?? 1) - 1;
         enemy.teleX = target.x;
         enemy.teleY = target.y;
         enemy.teleRadius = def.telegraph.radius;
         enemy.teleAt = now + def.telegraph.windupMs;
         return;
       }
+      // Enrage: past the threshold the boss swings and moves faster.
+      const enraged = mech?.enrage && enemy.hp <= enemy.maxHp * mech.enrage.pct ? mech.enrage : undefined;
       const d = Math.hypot(enemy.x - target.x, enemy.y - target.y);
-      const slowed = def.moveSpeed * moveMultOf(this.activeEffects.get(enemy.id) ?? [], now);
+      const slowed =
+        def.moveSpeed * (enraged?.moveMult ?? 1) * moveMultOf(this.activeEffects.get(enemy.id) ?? [], now);
       if (d > def.attackRange) {
         this.moveToward(enemy, target.x, target.y, slowed, dt);
-      } else if (now - ai.lastAttackAt >= def.attackCooldownMs) {
+      } else if (now - ai.lastAttackAt >= def.attackCooldownMs * (enraged?.cooldownMult ?? 1)) {
         ai.lastAttackAt = now;
         const result = resolveAttack(mobCombatStats(enemy), this.playerStats(ai.target, target));
         if (result.hit) {
           target.hp = result.targetHpAfter;
+          if (mech?.onHitEffect && !result.targetDied) {
+            this.activeEffects.set(
+              ai.target,
+              applyEffect(this.activeEffects.get(ai.target) ?? [], mech.onHitEffect, enemy.id, "melee", now),
+            );
+          }
           this.wearRandomArmor(ai.target); // taking a hit wears armor (P8)
           const evt: CombatEventPayload = {
             attackerId: enemy.id,

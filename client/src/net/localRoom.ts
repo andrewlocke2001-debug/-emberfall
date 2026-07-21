@@ -237,6 +237,11 @@ export class SoloRoom {
   private readonly tagged = new Set<string>(); // enemy ids this player has hit this life
   /** Status effects (bleed/burn/slow) per enemy id (P13.2). */
   private readonly activeEffects = new Map<string, ActiveEffect[]>();
+  /** Per-boss fight state (P15.1): fired add-waves, blink + volley timers. */
+  private readonly bossState = new Map<string, { firedAdds: Set<number>; lastBlinkAt: number; volleyLeft: number }>();
+  /** Adds queued during the enemies pass (spawning mid-iteration is unsafe). */
+  private pendingAdds: { kind: string; x: number; y: number; id: string }[] = [];
+  private addSeq = 0;
   private readonly lootDespawn = new Map<string, number>();
   private gatherState: { nodeId: string; finishAt: number } | null = null;
   private deadUntil = 0;
@@ -673,7 +678,14 @@ export class SoloRoom {
     enemy.teleAt = 0;
     enemy.teleRadius = 0;
     this.activeEffects.delete(enemy.id);
+    this.bossState.delete(enemy.id);
     this.awardKill(enemy, skill);
+    if (enemy.id.startsWith("add-")) {
+      const id = enemy.id;
+      this.state.enemies.delete(id);
+      this.enemyAI.delete(id);
+      this.fire("enemies", "remove", undefined, id);
+    }
   }
 
   private awardKill(enemy: EnemySchema, skill: CombatSkill = "melee"): void {
@@ -1383,6 +1395,19 @@ export class SoloRoom {
         this.emit(ServerMessage.Transfer, { zone: id, entry: "default" });
         break;
       }
+      case "weaken": {
+        // Playtest hook: drop every living enemy to N% of max HP (default 25)
+        // so boss thresholds (add waves, enrage) can be tested without the grind.
+        const pct = Math.max(1, Math.min(100, Number(args[0]) | 0 || 25));
+        let hit = 0;
+        this.state.enemies.forEach((e) => {
+          if (!e.alive) return;
+          e.hp = Math.max(1, Math.floor((e.maxHp * pct) / 100));
+          hit++;
+        });
+        this.system("Weakened " + hit + " foes to " + pct + "% HP.");
+        break;
+      }
       case "raidreset":
         this.raidLock = 0;
         this.system("Raid lockout cleared.");
@@ -1445,6 +1470,20 @@ export class SoloRoom {
       const { hits, remaining } = tickEffects(list, now);
       if (remaining.length === 0) this.activeEffects.delete(id);
       else this.activeEffects.set(id, remaining);
+      if (id === SOLO_ID) {
+        for (const hit of hits) {
+          if (!p.alive) break;
+          p.hp = Math.max(0, p.hp - hit.damage);
+          this.emit(ServerMessage.CombatEvent, {
+            attackerId: hit.appliedBy,
+            targetId: SOLO_ID,
+            damage: hit.damage,
+            targetDied: p.hp <= 0,
+          });
+          if (p.hp <= 0) this.killPlayer(now);
+        }
+        return;
+      }
       const enemy = this.state.enemies.get(id);
       if (!enemy || !enemy.alive) return;
       for (const hit of hits) {
@@ -1488,6 +1527,7 @@ export class SoloRoom {
       const ai = this.enemyAI.get(e.id);
       if (!e.alive && e.respawnAt > 0 && now >= e.respawnAt && ai) {
         this.activeEffects.delete(e.id);
+        this.bossState.delete(e.id);
         // Sandbox-spawned mobs don't respawn — they simply vanish.
         if (e.id.startsWith("sandbox-")) {
           this.state.enemies.delete(e.id);
@@ -1507,6 +1547,11 @@ export class SoloRoom {
         ai.teleReadyAt = 0;
       }
     });
+
+    if (this.pendingAdds.length > 0) {
+      for (const a of this.pendingAdds) this.addEnemy(a.kind, a.x, a.y, a.id);
+      this.pendingAdds = [];
+    }
 
     // Despawn ground loot.
     this.state.loot.forEach((_l, id) => {
@@ -1546,9 +1591,43 @@ export class SoloRoom {
     if (def.telegraph && e.teleAt > 0) {
       if (now >= e.teleAt) {
         this.resolveTelegraph(e, def.telegraph, now);
-        ai.teleReadyAt = now + def.telegraph.cooldownMs;
+        const vs = this.bossState.get(e.id);
+        if (vs && vs.volleyLeft > 0 && p.alive && ai.target) {
+          vs.volleyLeft--;
+          e.teleX = p.x;
+          e.teleY = p.y;
+          e.teleRadius = def.telegraph.radius;
+          e.teleAt = now + Math.round(def.telegraph.windupMs * 0.75);
+        } else {
+          ai.teleReadyAt = now + def.telegraph.cooldownMs;
+        }
       }
       return;
+    }
+
+    // Boss mechanics (P15.1) — mirrors the server exactly.
+    const mech = def.mechanics;
+    let bs = this.bossState.get(e.id);
+    if (mech && !bs) {
+      bs = { firedAdds: new Set<number>(), lastBlinkAt: now, volleyLeft: 0 };
+      this.bossState.set(e.id, bs);
+    }
+    if (mech?.addsAtHpPct && bs) {
+      for (const wave of mech.addsAtHpPct) {
+        if (e.hp <= e.maxHp * wave.pct && !bs.firedAdds.has(wave.pct)) {
+          bs.firedAdds.add(wave.pct);
+          for (let i = 0; i < wave.count; i++) {
+            const ang = (Math.PI * 2 * i) / wave.count;
+            this.pendingAdds.push({
+              kind: wave.kind,
+              x: e.x + Math.cos(ang) * 64,
+              y: e.y + Math.sin(ang) * 64,
+              id: `add-${e.id}-${++this.addSeq}`,
+            });
+          }
+          this.system(`${e.name} calls for aid!`);
+        }
+      }
     }
 
     const homeDist = Math.hypot(e.x - ai.homeX, e.y - ai.homeY);
@@ -1563,21 +1642,40 @@ export class SoloRoom {
     }
 
     if (target && ai.target) {
+      if (mech?.blinkEveryMs && bs && now - bs.lastBlinkAt >= mech.blinkEveryMs) {
+        bs.lastBlinkAt = now;
+        e.x = target.x + (e.x >= target.x ? 44 : -44);
+        e.y = target.y;
+      }
       if (def.telegraph && now >= ai.teleReadyAt) {
+        if (bs) bs.volleyLeft = (mech?.telegraphVolley ?? 1) - 1;
         e.teleX = target.x;
         e.teleY = target.y;
         e.teleRadius = def.telegraph.radius;
         e.teleAt = now + def.telegraph.windupMs;
         return;
       }
+      const enraged = mech?.enrage && e.hp <= e.maxHp * mech.enrage.pct ? mech.enrage : undefined;
       const d = Math.hypot(e.x - target.x, e.y - target.y);
       if (d > def.attackRange) {
-        this.moveToward(e, target.x, target.y, def.moveSpeed * moveMultOf(this.activeEffects.get(e.id) ?? [], now), dt);
-      } else if (now - ai.lastAttackAt >= def.attackCooldownMs) {
+        this.moveToward(
+          e,
+          target.x,
+          target.y,
+          def.moveSpeed * (enraged?.moveMult ?? 1) * moveMultOf(this.activeEffects.get(e.id) ?? [], now),
+          dt,
+        );
+      } else if (now - ai.lastAttackAt >= def.attackCooldownMs * (enraged?.cooldownMult ?? 1)) {
         ai.lastAttackAt = now;
         const result = resolveAttack(this.mobStats(e), this.playerStats());
         if (result.hit) {
           target.hp = result.targetHpAfter;
+          if (mech?.onHitEffect && !result.targetDied) {
+            this.activeEffects.set(
+              SOLO_ID,
+              applyEffect(this.activeEffects.get(SOLO_ID) ?? [], mech.onHitEffect, e.id, "melee", now),
+            );
+          }
           this.wearRandomArmor(); // taking a hit wears armor
           this.emit(ServerMessage.CombatEvent, { attackerId: e.id, targetId: ai.target, damage: result.damage, targetDied: result.targetDied });
           if (result.targetDied) this.killPlayer(now);

@@ -147,6 +147,7 @@ export class SettingsPanel {
       btn("Own a mount", ["/mount"]);
       btn("Full heal", ["/heal"]);
       btn("Reset raid lockout", ["/raidreset"]);
+      btn("Weaken foes to 25%", ["/weaken 25"]);
       this.body.appendChild(grid);
 
       const travel = document.createElement("div");

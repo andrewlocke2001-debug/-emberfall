@@ -7,6 +7,7 @@
  * attacks, only takes hits.
  */
 import type { DropEntry } from "../systems/loot";
+import type { AbilityEffect } from "../types";
 
 /**
  * A telegraphed area attack (bosses). The boss winds up for `windupMs`,
@@ -19,6 +20,23 @@ export interface TelegraphDef {
   radius: number;
   damage: number;
   cooldownMs: number;
+}
+
+/**
+ * Boss-fight mechanics (P15.1) — optional and data-driven, so every boss can
+ * fight differently without touching AI code. Rooms interpret these.
+ */
+export interface BossMechanics {
+  /** Spawn adds the first time HP drops below each fraction of maxHp. */
+  addsAtHpPct?: { pct: number; kind: string; count: number }[];
+  /** Below this HP fraction the boss enrages (faster swings + movement). */
+  enrage?: { pct: number; cooldownMult: number; moveMult: number };
+  /** Teleport beside its target on this cadence (the Shade's blink). */
+  blinkEveryMs?: number;
+  /** A landed melee hit leaves this effect on the victim (burning touch). */
+  onHitEffect?: AbilityEffect;
+  /** The telegraph fires this many slams back-to-back, chasing the target. */
+  telegraphVolley?: number;
 }
 
 export interface MobDef {
@@ -49,6 +67,8 @@ export interface MobDef {
   color: number;
   /** Optional telegraphed AoE attack (bosses only). */
   telegraph?: TelegraphDef;
+  /** Boss-fight mechanics (P15.1) — see BossMechanics. */
+  mechanics?: BossMechanics;
   /** Marks a dungeon boss (bigger nameplate, arena guardian). */
   boss?: boolean;
 }
@@ -227,6 +247,7 @@ export const MOBS: Record<string, MobDef> = {
     ],
     color: 0x6e8fa2,
     telegraph: { windupMs: 1500, radius: 120, damage: 34, cooldownMs: 8000 },
+    mechanics: { addsAtHpPct: [{ pct: 0.5, kind: "barrow_wisp", count: 2 }], telegraphVolley: 2 },
   },
   quenchclaw: {
     kind: "quenchclaw",
@@ -521,6 +542,7 @@ export const MOBS: Record<string, MobDef> = {
     boss: true,
     // Slow, heavy, dodgeable: a 1.6s wind-up cinder slam every ~7s.
     telegraph: { windupMs: 1600, radius: 140, damage: 55, cooldownMs: 7000 },
+    mechanics: { addsAtHpPct: [{ pct: 0.5, kind: "ember_wraith", count: 2 }] },
   },
 
   // --- World-event herald (P12.3): leads the scheduled zone invasions. ---
@@ -571,6 +593,7 @@ export const MOBS: Record<string, MobDef> = {
     color: 0xe25822,
     boss: true,
     telegraph: { windupMs: 1500, radius: 130, damage: 50, cooldownMs: 7000 },
+    mechanics: { addsAtHpPct: [{ pct: 0.66, kind: "emberling", count: 3 }, { pct: 0.33, kind: "emberling", count: 3 }] },
   },
   obsidian_colossus: {
     kind: "obsidian_colossus",
@@ -591,6 +614,7 @@ export const MOBS: Record<string, MobDef> = {
     color: 0x3f3f46,
     boss: true,
     telegraph: { windupMs: 1800, radius: 160, damage: 62, cooldownMs: 8000 },
+    mechanics: { enrage: { pct: 0.3, cooldownMult: 0.55, moveMult: 1.5 }, telegraphVolley: 2 },
   },
   pyre_shade: {
     kind: "pyre_shade",
@@ -614,6 +638,7 @@ export const MOBS: Record<string, MobDef> = {
     color: 0xa855f7,
     boss: true,
     telegraph: { windupMs: 1300, radius: 120, damage: 58, cooldownMs: 6000 },
+    mechanics: { blinkEveryMs: 6000, onHitEffect: { kind: "burn", damage: 12, durationMs: 6000 } },
   },
   herald_of_cinders: {
     kind: "herald_of_cinders",
@@ -637,6 +662,7 @@ export const MOBS: Record<string, MobDef> = {
     color: 0xfacc15,
     boss: true,
     telegraph: { windupMs: 1600, radius: 150, damage: 66, cooldownMs: 7000 },
+    mechanics: { addsAtHpPct: [{ pct: 0.5, kind: "ember_wraith", count: 2 }], telegraphVolley: 2 },
   },
   molten_king: {
     kind: "molten_king",
@@ -659,6 +685,7 @@ export const MOBS: Record<string, MobDef> = {
     color: 0xdc2626,
     boss: true,
     telegraph: { windupMs: 2000, radius: 180, damage: 80, cooldownMs: 8000 },
+    mechanics: { telegraphVolley: 3, enrage: { pct: 0.25, cooldownMult: 0.7, moveMult: 1.3 }, onHitEffect: { kind: "burn", damage: 15, durationMs: 6000 } },
   },
 };
 

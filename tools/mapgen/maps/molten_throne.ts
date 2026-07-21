@@ -11,8 +11,12 @@ import type { MapSource } from "../types";
 function paint(): string[] {
   const p = new Painter(30, 70, "#"); // solid rock; arenas are carved out
 
-  // Entry hall (south).
+  // Entry hall (south), and the doorway up into the nest — this connector
+  // was MISSING since P12.1 (row 63 was solid rock): players were sealed in
+  // the entry and could only fight the Broodmother through the wall. Found
+  // by a real play-tester; e2e always teleported past it.
   p.fillRect(11, 64, 18, 67, "=");
+  p.fillRect(13, 62, 16, 64, "=");
   // Arena 1 — the Broodmother's nest.
   p.fillRect(5, 54, 24, 62, "=");
   p.fillRect(13, 50, 16, 54, "=");
