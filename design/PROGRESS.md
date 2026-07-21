@@ -691,8 +691,18 @@ user decisions. The single-file solo build is the play-test channel.
   mechanics.test.ts guards the content. Solo /weaken [pct] + cheat button
   for threshold testing. FINDING for P15.5: bare-cap DPS ~6/GCD vs a
   2000 HP raid boss — endgame numbers genuinely mis-scaled.
-- Remaining P15: .2 PoE-style passive web (many nodes, per-Calling
-  starts) · .3 gear expansion (fill legs/hands/feet/ring, varied
+- **P15.2 (2026-07-21, commit 573ff03)** — PASSIVE WEB: PoE-style shared
+  graph (~100 nodes, data/web.ts) replaces the six siloed Calling trees.
+  Six sectors + center ring + rim links = one connected web; each Calling
+  enters at a distinct gate (WEB_STARTS); allocate any node adjacent to an
+  owned one. Allocation moved to adjacency (systems/callings.ts
+  isReachable), canSpendTalent signature kept so NO netcode/persistence
+  changed; pruneToWeb drops stale ids on load; all combat-seam appliers
+  unchanged. K panel is a pannable SVG (drag/click), gold=owned blue=open
+  grey=distant, keystones/notables labeled; Calling offered from level 1.
+  Old 72-node tiered TALENTS retired. 226 unit; probe: allocate/adjacency/
+  effects/respec/persist + screenshot.
+- Remaining P15: .3 gear expansion (fill legs/hands/feet/ring, varied
   acquisition) · .4 AOE abilities + 4-slot bar · .5 endgame damage pass.
 
 ## Known follow-ups (deferred, not blocking)
