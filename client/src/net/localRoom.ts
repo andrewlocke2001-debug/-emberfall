@@ -106,6 +106,7 @@ import { CALLING_IDS, CALLING_RESPEC_COST, type CallingId } from "@mmo/shared/da
 import {
   talentPointsFor,
   canSpendTalent,
+  pruneToWeb,
   applyTalentStats,
   talentMaxHpBonus,
   talentGcdMs,
@@ -286,7 +287,7 @@ export class SoloRoom {
     this.raidLock = save.raidLockUntil ?? 0;
     this.chosenPerks = save.perks ?? [];
     this.calling = (CALLING_IDS as readonly string[]).includes(save.calling) ? (save.calling as CallingId) : "";
-    this.talents = save.talents ?? {};
+    this.talents = pruneToWeb(save.talents ?? {});
 
     // Offline rested-XP accrual (mirrors the server's load path).
     save.restedXp = restedAccrual(Date.now() - save.lastSeen, save.restedXp);

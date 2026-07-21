@@ -164,6 +164,7 @@ import { CALLING_IDS, CALLING_RESPEC_COST, type CallingId } from "@mmo/shared/da
 import {
   talentPointsFor,
   canSpendTalent,
+  pruneToWeb,
   applyTalentStats,
   talentMaxHpBonus,
   talentGcdMs,
@@ -760,7 +761,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     this.raidLocks.set(client.sessionId, saved.raidLockUntil);
     this.perks.set(client.sessionId, saved.perks);
     this.callings.set(client.sessionId, (CALLING_IDS as readonly string[]).includes(saved.calling) ? (saved.calling as CallingId) : "");
-    this.talents.set(client.sessionId, saved.talents);
+    this.talents.set(client.sessionId, pruneToWeb(saved.talents));
     // Battleground: pin the matchmaker's team on the synced schema.
     if (this.map.id === BG_ZONE) player.team = battleground.teamOf(options?.ticket ?? "", name);
     this.guildCache.set(

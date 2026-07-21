@@ -174,6 +174,26 @@
         cursor: pointer; font-size: 12px; text-align: left; }
       .cheat-btn:hover { border-color: var(--ember, #f59e0b); }
       .talent-rank { position: absolute; top: 6px; right: 8px; font-size: 11px; color: #ffd34d; }
+      /* — Passive web (P15.2): pannable SVG graph — */
+      .web-viewport { width: 100%; height: 52vh; flex: none; overflow: hidden; cursor: grab;
+        border: 1px solid #2a3142; border-radius: 10px; background:
+        radial-gradient(circle at 50% 45%, #161d2b 0%, #0f131d 70%); touch-action: none; }
+      .web-viewport:active { cursor: grabbing; }
+      .web-svg { display: block; }
+      .web-edge { stroke: #2b3446; stroke-width: 2; }
+      .web-edge.lit { stroke: #d9822b; stroke-width: 3; }
+      .web-node circle { stroke: #10131a; stroke-width: 2; transition: r .1s; }
+      .web-node.small circle { fill: #3a4358; }
+      .web-node.notable circle { fill: #4a5570; }
+      .web-node.keystone circle { fill: #6a5570; }
+      .web-node.owned circle { fill: #f59e0b; stroke: #ffe9b0; }
+      .web-node.owned.keystone circle { fill: #ffcf4d; }
+      .web-node.open circle { fill: #2f6fe0; stroke: #9bd1ff; cursor: pointer; }
+      .web-node.open:hover circle { fill: #4a8bf5; }
+      .web-node.locked circle { opacity: 0.55; }
+      .web-label { fill: #cdd6e6; font-size: 11px; text-anchor: middle;
+        pointer-events: none; paint-order: stroke; stroke: #10131a; stroke-width: 3px; }
+      .web-node.owned .web-label { fill: #ffe9b0; }
       .craft-row .craft-title { font-size: 13px; }
       .craft-row .craft-detail { font-size: 11px; color: #8893a7; }
 
@@ -502,7 +522,7 @@
       /* — Skill tree (perks) — */
       #perks { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
         z-index: 9; display: none; flex-direction: column; gap: 8px; padding: 12px;
-        width: 420px; background: rgba(13,16,24,0.98); border: 1px solid var(--line);
+        width: min(800px, 92vw); background: rgba(13,16,24,0.98); border: 1px solid var(--line);
         border-radius: 12px; }
       #perks-body { display: flex; flex-direction: column; gap: 8px; max-height: 66vh;
         overflow-y: auto; }

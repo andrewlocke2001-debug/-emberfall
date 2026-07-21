@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   talentPointsFor,
   pointsSpent,
+  pruneToWeb,
+  isReachable,
   canSpendTalent,
   applyTalentStats,
   talentMaxHpBonus,
@@ -12,35 +14,45 @@ import {
   talentEnergyCostMul,
   talentHealMul,
 } from "./callings";
-import { CALLING_IDS, CALLINGS, TALENTS, TALENT_TIER_STEP, talentsOf } from "../data/callings";
+import { CALLING_IDS } from "../data/callings";
+import { WEB_NODES, WEB_EDGES, WEB_ADJACENCY, WEB_STARTS, webNode } from "../data/web";
 
 const stats = { attack: 50, strength: 50, defence: 50, hp: 100, maxHp: 100, alive: true };
 
-describe("talent content", () => {
-  it("every calling has three branches with four tiers and unique node ids", () => {
-    const ids = new Set<string>();
-    for (const c of CALLING_IDS) {
-      const nodes = talentsOf(c);
-      expect(nodes.length).toBe(12);
-      for (const branch of CALLINGS[c].branches) {
-        const tiers = nodes.filter((n) => n.branch === branch).map((n) => n.tier).sort();
-        expect(tiers).toEqual([0, 1, 2, 3]);
-      }
-      for (const n of nodes) {
-        expect(ids.has(n.id)).toBe(false);
-        ids.add(n.id);
-        expect(n.ranks).toBeGreaterThanOrEqual(1);
-        expect(Object.keys(n.effects).length).toBeGreaterThan(0);
+describe("passive web content", () => {
+  it("is one connected graph with a distinct start per Calling", () => {
+    // Every Calling has a start node, and they're all different.
+    const starts = CALLING_IDS.map((c) => WEB_STARTS[c]);
+    expect(new Set(starts).size).toBe(CALLING_IDS.length);
+    for (const s of starts) expect(webNode(s)).toBeDefined();
+
+    // Many nodes (the ask): a big web, all with effects and valid positions.
+    expect(Object.keys(WEB_NODES).length).toBeGreaterThan(90);
+    for (const n of Object.values(WEB_NODES)) {
+      expect(Object.keys(n.effects).length).toBeGreaterThan(0);
+      expect(Number.isFinite(n.x) && Number.isFinite(n.y)).toBe(true);
+    }
+
+    // Edges reference real nodes; the whole graph is one connected component
+    // reachable from any start (so cross-class travel is always possible).
+    for (const [a, b] of WEB_EDGES) {
+      expect(webNode(a), `edge from unknown ${a}`).toBeDefined();
+      expect(webNode(b), `edge to unknown ${b}`).toBeDefined();
+    }
+    const seen = new Set<string>([WEB_STARTS.warden]);
+    const stack = [WEB_STARTS.warden];
+    while (stack.length) {
+      for (const n of WEB_ADJACENCY[stack.pop()!] ?? []) {
+        if (!seen.has(n)) { seen.add(n); stack.push(n); }
       }
     }
-    expect(TALENTS.length).toBe(72);
+    expect(seen.size).toBe(Object.keys(WEB_NODES).length);
   });
 
-  it("a full tree costs more points than the cap grants (choices matter)", () => {
-    for (const c of CALLING_IDS) {
-      const totalRanks = talentsOf(c).reduce((n, t) => n + t.ranks, 0);
-      expect(totalRanks).toBeGreaterThanOrEqual(talentPointsFor(50, 1, 1));
-    }
+  it("keystones exist and are far from the center", () => {
+    const keys = Object.values(WEB_NODES).filter((n) => n.kind === "keystone");
+    expect(keys.length).toBe(CALLING_IDS.length);
+    for (const k of keys) expect(Math.hypot(k.x, k.y)).toBeGreaterThan(380);
   });
 });
 
@@ -53,48 +65,71 @@ describe("talentPointsFor", () => {
   });
 });
 
-describe("canSpendTalent", () => {
-  const t0 = "warden_braced_stance"; // tier 0, 3 ranks
-  const t1 = "warden_shield_discipline"; // tier 1 → needs 3 spent
-  it("gates on calling, ranks, points, and tier", () => {
-    expect(canSpendTalent("warden", {}, t0, 5)).toBe(true);
-    expect(canSpendTalent("reaver", {}, t0, 5)).toBe(false); // wrong calling
-    expect(canSpendTalent("", {}, t0, 5)).toBe(false); // no calling chosen
-    expect(canSpendTalent("warden", { [t0]: 3 }, t0, 9)).toBe(false); // max ranks
-    expect(canSpendTalent("warden", {}, t0, 0)).toBe(false); // no points
-    expect(canSpendTalent("warden", {}, t1, 9)).toBe(false); // tier locked
-    expect(canSpendTalent("warden", { [t0]: TALENT_TIER_STEP }, t1, 9)).toBe(true);
+describe("web allocation (canSpendTalent / isReachable)", () => {
+  const gate = WEB_STARTS.warden;
+  const nextToGate = (WEB_ADJACENCY[gate] ?? [])[0]!;
+
+  it("only allocates nodes adjacent to owned ones, gated by calling + points", () => {
+    // A node next to the free gate is reachable from an empty allocation.
+    expect(isReachable("warden", {}, nextToGate)).toBe(true);
+    expect(canSpendTalent("warden", {}, nextToGate, 5)).toBe(true);
+    // No calling → nothing allocatable.
+    expect(canSpendTalent("", {}, nextToGate, 5)).toBe(false);
+    // Out of points.
+    expect(canSpendTalent("warden", {}, nextToGate, 0)).toBe(false);
+    // The gate itself is already owned — can't re-allocate.
+    expect(isReachable("warden", {}, gate)).toBe(false);
+    // A far node (a different Calling's keystone) is not adjacent to the gate.
+    expect(isReachable("warden", {}, WEB_STARTS.reaver)).toBe(false);
+  });
+
+  it("allocation opens up new neighbors (the web grows outward)", () => {
+    const owned = { [nextToGate]: 1 };
+    const beyond = (WEB_ADJACENCY[nextToGate] ?? []).find((n) => n !== gate)!;
+    expect(isReachable("warden", owned, beyond)).toBe(true);
+  });
+
+  it("pruneToWeb drops stale (non-web) allocations", () => {
+    const pruned = pruneToWeb({ [nextToGate]: 1, warden_old_dead_talent: 3 });
+    expect(pruned[nextToGate]).toBe(1);
+    expect(pruned.warden_old_dead_talent).toBeUndefined();
+    expect(pointsSpent(pruned)).toBe(1);
   });
 });
 
-describe("talent application", () => {
-  it("percentage stats round and stack across nodes", () => {
-    // 3 ranks Braced Stance (+12% def) + capstone Living Rampart (+12% def, +20 hp)
-    const talents = { warden_braced_stance: 3, warden_living_rampart: 1 };
+describe("effect application reads web nodes", () => {
+  it("sums the allocated nodes' effects onto the sheet", () => {
+    // Allocate the warden keystone (defence + HP) and check it lands.
+    const key = Object.values(WEB_NODES).find((n) => n.name === "The Thousand Hearths")!;
+    const talents = { [key.id]: 1 };
     const out = applyTalentStats(stats, talents);
-    expect(out.defence).toBe(62); // 50 * 1.24
-    expect(out.attack).toBe(50); // untouched
-    expect(talentMaxHpBonus(talents)).toBe(20);
+    expect(out.defence).toBe(Math.round(50 * (1 + (key.effects.defencePct ?? 0) / 100)));
+    expect(talentMaxHpBonus(talents)).toBe(key.effects.maxHpFlat ?? 0);
     expect(stats.defence).toBe(50); // pure — input untouched
   });
 
-  it("gcd, lifesteal, execute, crit, energy, heal knobs all read their fields", () => {
-    expect(talentGcdMs({ reaver_frenzy: 2 }, 1500)).toBe(1410); // -6%
-    expect(talentLifesteal({ reaver_pain_is_fuel: 3 })).toBe(3);
-    expect(talentExecuteAdjust(100, 29, 100, { reaver_scent_of_blood: 3 })).toBe(112);
-    expect(talentExecuteAdjust(100, 31, 100, { reaver_scent_of_blood: 3 })).toBe(100);
-    expect(talentCritChance({ ashwalker_find_the_gap: 3 })).toBeCloseTo(0.12);
-    expect(talentEnergyCostMul({ strider_light_pack: 3 })).toBeCloseTo(0.88);
-    expect(talentHealMul({ hearthmender_gentle_coals: 3 })).toBeCloseTo(1.15);
+  it("every knob reads its field", () => {
+    const crit = Object.values(WEB_NODES).find((n) => n.effects.critChance)!;
+    expect(talentCritChance({ [crit.id]: 1 })).toBeCloseTo((crit.effects.critChance ?? 0) / 100);
+    const gcd = Object.values(WEB_NODES).find((n) => n.effects.gcdPct)!;
+    expect(talentGcdMs({ [gcd.id]: 1 }, 1500)).toBe(Math.round(1500 * (1 - (gcd.effects.gcdPct ?? 0) / 100)));
+    const life = Object.values(WEB_NODES).find((n) => n.effects.lifesteal);
+    if (life) expect(talentLifesteal({ [life.id]: 1 })).toBe(life.effects.lifesteal);
+    const energy = Object.values(WEB_NODES).find((n) => n.effects.energyCostPct)!;
+    expect(talentEnergyCostMul({ [energy.id]: 1 })).toBeCloseTo(1 - (energy.effects.energyCostPct ?? 0) / 100);
+    const heal = Object.values(WEB_NODES).find((n) => n.effects.healPowerPct)!;
+    expect(talentHealMul({ [heal.id]: 1 })).toBeCloseTo(1 + (heal.effects.healPowerPct ?? 0) / 100);
+    const exec = Object.values(WEB_NODES).find((n) => n.effects.executePct)!;
+    expect(talentExecuteAdjust(100, 29, 100, { [exec.id]: 1 })).toBe(
+      Math.round(100 * (1 + (exec.effects.executePct ?? 0) / 100)),
+    );
+    expect(talentExecuteAdjust(100, 31, 100, { [exec.id]: 1 })).toBe(100); // above 30% HP
   });
 
   it("crit chance is capped at 50%", () => {
-    // Cross-calling stacking is impossible in game; here it just exercises the clamp.
-    const stacked = { ashwalker_find_the_gap: 3, ashwalker_pulse_point: 2, ashwalker_warmth_seeker: 1, ashwalker_the_cold_falling: 1, cinderwright_flashover: 2, cinderwright_emberfall: 1 };
-    expect(talentCritChance(stacked)).toBe(0.5);
-  });
-
-  it("pointsSpent sums ranks", () => {
-    expect(pointsSpent({ a: 3, b: 2 })).toBe(5);
+    const critNodes = Object.values(WEB_NODES).filter((n) => n.effects.critChance);
+    const stacked: Record<string, number> = {};
+    for (const n of critNodes) stacked[n.id] = 1;
+    expect(talentCritChance(stacked)).toBeLessThanOrEqual(0.5);
   });
 });

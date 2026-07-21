@@ -1,28 +1,57 @@
 import type { CombatStats } from "./combatmath";
-import { TALENT_TIER_STEP, talentDef, type CallingId, type TalentEffects } from "../data/callings";
+import type { CallingId, TalentEffects } from "../data/callings";
+import { WEB_STARTS, WEB_ADJACENCY, webNode } from "../data/web";
 
 /**
- * Calling talents (P13.3, pure). A player's spent talents are a plain
- * `Record<talentId, ranks>` — validated here, applied here, persisted as
- * JSON. Rooms wire these to the same combat seams the perk trunk uses.
+ * Passive-web allocation (P15.2, pure). A player's allocation is a plain
+ * `Record<nodeId, 1>` — every web node is rank 1 (the build is the SHAPE of
+ * what you allocate). Reachability is adjacency: a node is allocatable if it
+ * is adjacent to a node you already own, seeded by your Calling's gate.
+ * Validated + applied here, persisted as JSON; rooms wire the effects to the
+ * exact same combat seams the perk trunk uses. Field/function names are kept
+ * from the P13.3 tree so no netcode or persistence changed.
  */
 
-/** Talent points earned: 40% of your highest combat skill level — a full
- * tree costs 24 ranks, so even at cap (20 pts) you choose what to master. */
+export type Talents = Record<string, number>;
+
+/** Passive points earned: 40% of your highest combat skill level (as before). */
 export function talentPointsFor(meleeLvl: number, rangedLvl: number, magicLvl: number): number {
   return Math.floor((Math.max(meleeLvl, rangedLvl, magicLvl) * 2) / 5);
 }
 
-export type Talents = Record<string, number>;
-
+/** Nodes allocated. Each web node is one point; the Calling gate is free. */
 export function pointsSpent(talents: Talents): number {
-  return Object.values(talents).reduce((n, r) => n + r, 0);
+  let n = 0;
+  for (const id of Object.keys(talents)) if (webNode(id)) n++;
+  return n;
+}
+
+/** Drop any allocated id that isn't a real web node (migration / safety). */
+export function pruneToWeb(talents: Talents): Talents {
+  const out: Talents = {};
+  for (const id of Object.keys(talents)) if (webNode(id)) out[id] = 1;
+  return out;
+}
+
+/** The set of nodes that count as owned for reachability (adds the free gate). */
+function ownedSet(calling: CallingId | "", talents: Talents): Set<string> {
+  const owned = new Set<string>();
+  for (const id of Object.keys(talents)) if (webNode(id)) owned.add(id);
+  if (calling && WEB_STARTS[calling as CallingId]) owned.add(WEB_STARTS[calling as CallingId]);
+  return owned;
+}
+
+/** Is `nodeId` reachable — the gate, or adjacent to an already-owned node? */
+export function isReachable(calling: CallingId | "", talents: Talents, nodeId: string): boolean {
+  if (!webNode(nodeId)) return false;
+  const owned = ownedSet(calling, talents);
+  if (owned.has(nodeId)) return false; // already allocated (gate counts as owned)
+  return (WEB_ADJACENCY[nodeId] ?? []).some((n) => owned.has(n));
 }
 
 /**
- * May one more rank of `talentId` be bought? Checks: node belongs to the
- * player's calling, rank room left, a point is available, and the tier is
- * unlocked (tier * TALENT_TIER_STEP points already spent).
+ * May `talentId` be allocated? Requires a Calling, a spare point, and web
+ * reachability. (Signature kept from P13.3 so callsites don't change.)
  */
 export function canSpendTalent(
   calling: CallingId | "",
@@ -30,21 +59,17 @@ export function canSpendTalent(
   talentId: string,
   availablePoints: number,
 ): boolean {
-  const def = talentDef(talentId);
-  if (!def || def.calling !== calling) return false;
-  if ((talents[talentId] ?? 0) >= def.ranks) return false;
-  const spent = pointsSpent(talents);
-  if (spent >= availablePoints) return false;
-  return spent >= def.tier * TALENT_TIER_STEP;
+  if (!calling) return false;
+  if (pointsSpent(talents) >= availablePoints) return false;
+  return isReachable(calling, talents, talentId);
 }
 
-/** Sum an effect field across all spent ranks. */
+/** Sum an effect field across all allocated web nodes. */
 function total(talents: Talents, field: keyof TalentEffects): number {
   let sum = 0;
-  for (const [id, ranks] of Object.entries(talents)) {
-    const def = talentDef(id);
-    const per = def?.effects[field];
-    if (def && per) sum += per * Math.min(ranks, def.ranks);
+  for (const id of Object.keys(talents)) {
+    const per = webNode(id)?.effects[field];
+    if (per) sum += per;
   }
   return sum;
 }
