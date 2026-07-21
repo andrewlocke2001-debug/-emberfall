@@ -117,6 +117,17 @@ export const NODES: Partial<Record<ZoneId, ResourceNode[]>> = {
     { id: "iron-1", type: "iron_rock", x: 1616, y: 784 },
     { id: "tin-1", type: "tin_rock", x: 400, y: 656 },
   ],
+  // The Dolmholt: the mining capital — three iron seams, copper, tin, and
+  // one cold tarn for the patient.
+  dolmholt: [
+    { id: "iron-1", type: "iron_rock", x: 592, y: 528 },
+    { id: "iron-2", type: "iron_rock", x: 1168, y: 784 },
+    { id: "iron-3", type: "iron_rock", x: 400, y: 1616 },
+    { id: "copper-1", type: "copper_rock", x: 1680, y: 976 },
+    { id: "copper-2", type: "copper_rock", x: 720, y: 784 },
+    { id: "tin-1", type: "tin_rock", x: 1424, y: 1552 },
+    { id: "trout-1", type: "trout_spot", x: 1392, y: 816 },
+  ],
   // Tanglewood: richer iron in the north glade + trout at the wraith pond
   // (the pond is guarded — better yield lives behind danger).
   tanglewood: [

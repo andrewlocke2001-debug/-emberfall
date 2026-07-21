@@ -23,6 +23,11 @@ function paint(): string[] {
   p.fillRect(0, 29, 1, 30, "X");
   // North fork to the iron glade; south fork to the wraith grove.
   p.vline(26, 12, 29, ",").vline(27, 12, 29, ",");
+  // The mountain road (P14.4): its own lane up to the Dolmholt — the north
+  // fork's border breach belongs to the Ashreach gate (cols 26–27).
+  p.vline(32, 2, 28, ",").vline(33, 2, 28, ",");
+  p.fillRect(32, 0, 33, 1, "M");
+  p.set(34, 3, "5");
   p.vline(30, 30, 46, ",").vline(31, 30, 46, ",");
   // The coast road (P14.3): the south fork continues down to the Vossmere.
   p.vline(30, 47, 57, ",").vline(31, 47, 57, ",");
@@ -113,7 +118,8 @@ export const tanglewood: MapSource = {
     C: { to: "cinder_depths", entry: "default" },
     A: { to: "ashreach", entry: "south" },
     V: { to: "vossmere", entry: "north" },
+    M: { to: "dolmholt", entry: "south" },
   },
-  entries: { "1": "west", "2": "depths", "3": "ash", "4": "south" },
+  entries: { "1": "west", "2": "depths", "3": "ash", "4": "south", "5": "north" },
   ascii: paint(),
 };

@@ -80,6 +80,24 @@ export const QUESTS: Record<string, QuestDef> = {
     requires: "planks_over_water",
     giver: "charterwright_essa",
   },
+  // The Dolmholt arc (P14.4) — the Rite-keepers vs the Open-Vein.
+  the_unlawful_cut: {
+    id: "the_unlawful_cut",
+    name: "The Unlawful Cut",
+    summary: "Drive 6 Open-Vein Cutters off the pithead they never asked to dig.",
+    objectives: [{ type: "kill", mob: "open_vein_cutter", count: 6, desc: "Drive off 6 Open-Vein Cutters" }],
+    rewards: { coins: 90, xp: [{ skill: "melee", amount: 220 }] },
+    giver: "rite_keeper_brunna",
+  },
+  ore_for_the_asking: {
+    id: "ore_for_the_asking",
+    name: "Ore for the Asking",
+    summary: "Mine 10 Iron Ore the proper way — with the asking done — for the hold.",
+    objectives: [{ type: "collect", itemId: "iron_ore", count: 10, desc: "Bring 10 Iron Ore" }],
+    rewards: { coins: 80, xp: [{ skill: "mining", amount: 200 }] },
+    requires: "the_unlawful_cut",
+    giver: "rite_keeper_brunna",
+  },
   // First contact — meet the Hearthwarden who runs the gate.
   greet_mira: {
     id: "greet_mira",

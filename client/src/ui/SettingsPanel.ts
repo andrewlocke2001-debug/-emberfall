@@ -157,6 +157,7 @@ export class SettingsPanel {
         ["→ Marrowgate Downs", "marrowgate_downs"],
         ["→ Tanglewood", "tanglewood"],
         ["→ Vossmere", "vossmere"],
+        ["→ Dolmholt", "dolmholt"],
         ["→ Ashreach (PvP)", "ashreach"],
         ["→ Refused Column", "refused_column"],
         ["→ Cinder Depths", "cinder_depths"],

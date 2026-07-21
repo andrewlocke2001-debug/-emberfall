@@ -11,6 +11,8 @@ import type { ZoneId } from "./zones";
  */
 export const BANKS: Partial<Record<ZoneId, Vec2[]>> = {
   meadowbrook: [{ x: 656, y: 432 }],
+  // The Dolm hold's vault (P14.4) — the mining capital banks its own ore.
+  dolmholt: [{ x: 1072, y: 1296 }],
 };
 
 /** Is (x,y) within range of any bank in the given zone? */

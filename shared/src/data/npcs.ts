@@ -55,6 +55,17 @@ export const NPCS: Record<string, NpcDef> = {
     quests: ["planks_over_water", "the_wake_paid"],
     color: 0x6f9aa8,
   },
+  rite_keeper_brunna: {
+    id: "rite_keeper_brunna",
+    name: "Rite-Keeper Brunna",
+    zone: "dolmholt",
+    x: 1168,
+    y: 1296,
+    greeting:
+      "Ask first. Cut second. The Open-Vein skip the asking, and now the deep is answering — you hear it too, don't pretend otherwise. The hold pays for order, stranger, and carves what it owes.",
+    quests: ["the_unlawful_cut", "ore_for_the_asking"],
+    color: 0x9aa3a8,
+  },
   huntmaster_veyra: {
     id: "huntmaster_veyra",
     name: "Huntmaster Veyra",

@@ -91,6 +91,11 @@ const PALETTES: Record<string, ZonePalette> = {
     path: 0x6d6350, wall: 0x33363b, water: 0x1e4a56, canopy: 0x27402f,
     canopyLit: 0x3a5843, floor: 0x6a5a44,
   },
+  dolmholt: {
+    grass: 0x3c4038, grassDark: 0x33362f, blade: 0x525748, flower: 0xb9c4c9,
+    path: 0x5c5648, wall: 0x6b6f78, water: 0x1d3c50, canopy: 0x263528,
+    canopyLit: 0x374b39, floor: 0x5e564a,
+  },
   bg_arena: {
     grass: 0x33383f, grassDark: 0x2b3037, blade: 0x454c56, flower: 0x8fa3bd,
     path: 0x4a5058, wall: 0x555d68, water: 0x1d3f66, canopy: 0x2c3e35,
@@ -903,6 +908,70 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     finish("mob-ruin_sentinel");
   }
 
+  // Open-Vein Cutter (P14.4): a hooded digger, slate-clothed, pick on back.
+  ctx = canvas("mob-open_vein_cutter", 36, 42);
+  if (ctx) {
+    const cloth = 0x5c584e;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    ctx.fillStyle = css(mix(cloth, 0x000000, 0.3));
+    ctx.beginPath();
+    ctx.moveTo(7, 38);
+    ctx.quadraticCurveTo(5, 18, 18, 12);
+    ctx.quadraticCurveTo(31, 18, 29, 38);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = css(cloth);
+    ctx.beginPath();
+    ctx.moveTo(9, 36);
+    ctx.quadraticCurveTo(8, 19, 18, 13);
+    ctx.quadraticCurveTo(28, 19, 27, 36);
+    ctx.closePath();
+    ctx.fill();
+    // The pick haft over the shoulder + a lamp at the belt.
+    ctx.strokeStyle = css(0x3a332b);
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(24, 10);
+    ctx.lineTo(31, 26);
+    ctx.stroke();
+    ctx.fillStyle = css(0xffd34d);
+    ctx.beginPath();
+    ctx.arc(12, 30, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    finish("mob-open_vein_cutter");
+  }
+
+  // Deep Echo (P14.4): a cracked stone slab walking, ember light in the seams.
+  ctx = canvas("mob-deep_echo", 38, 46);
+  if (ctx) {
+    const stone = 0x77705f;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    ctx.fillStyle = css(mix(stone, 0x000000, 0.25));
+    ctx.fillRect(7, 8, 24, 34);
+    ctx.strokeRect(7, 8, 24, 34);
+    ctx.fillStyle = css(stone);
+    ctx.fillRect(9, 10, 20, 30);
+    // Ember veins — the cracked seam's light leaking through.
+    ctx.strokeStyle = css(0xff8a3c);
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(14, 12);
+    ctx.lineTo(17, 22);
+    ctx.lineTo(13, 30);
+    ctx.moveTo(24, 14);
+    ctx.lineTo(21, 24);
+    ctx.lineTo(25, 34);
+    ctx.stroke();
+    ctx.fillStyle = css(0xffb066);
+    ctx.beginPath();
+    ctx.arc(19, 18, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    finish("mob-deep_echo");
+  }
+
   // The Unreturned (P14.1): lost heat walking — hooded, lantern-pale figures
   // with a guttering inner light. One silhouette, three sizes/glows.
   for (const [kind, w, h, robe, glow] of [
@@ -1167,6 +1236,7 @@ const ATMOS: Record<string, Atmosphere> = {
   tanglewood: { particle: { texture: "fx-leaf", tint: 0xffffff, lifespan: 8000, speedY: [12, 30], alpha: 0.5, freq: 700 }, vignette: 0.4, fog: 0x39543c, fogAlpha: 0.08 },
   refused_column: { particle: { texture: "fx-soft", tint: 0xb8d4e2, lifespan: 10000, speedY: [4, 12], alpha: 0.22, freq: 1100 }, vignette: 0.55, fog: 0x54646e, fogAlpha: 0.14 },
   vossmere: { particle: { texture: "fx-soft", tint: 0xa9d2d9, lifespan: 8000, speedY: [-16, -6], alpha: 0.24, freq: 800 }, vignette: 0.42, fog: 0x4e6d74, fogAlpha: 0.11 },
+  dolmholt: { particle: { texture: "fx-soft", tint: 0xe8f2f8, lifespan: 9000, speedY: [10, 24], alpha: 0.3, freq: 750 }, vignette: 0.44, fog: 0x707c88, fogAlpha: 0.09 },
   marrowgate_downs: { particle: { texture: "fx-soft", tint: 0xcfe3ee, lifespan: 9000, speedY: [8, 20], alpha: 0.28, freq: 900 }, vignette: 0.45, fog: 0x6f8290, fogAlpha: 0.1 },
   ashreach: { particle: { texture: "fx-soft", tint: 0xff9e5e, lifespan: 6000, speedY: [-30, -12], alpha: 0.35, freq: 350 }, vignette: 0.45, fog: 0x5e2f1e, fogAlpha: 0.09 },
   cinder_depths: { particle: { texture: "fx-soft", tint: 0xcabdd6, lifespan: 8000, speedY: [-10, 10], alpha: 0.12, freq: 900 }, vignette: 0.55, fog: 0x161320, fogAlpha: 0.14 },
