@@ -658,6 +658,18 @@ user decisions. The single-file solo build is the play-test channel.
   215 unit; probe: cheat-travel in, crab->meat->cooked, Essa quest, gate
   walk to Tanglewood rendered both sides.
 
+- **P14.4 (2026-07-21, commit a26de55)** - **The Dolmholt** (26-34):
+  Dolm mountain holds north of Tanglewood (own lane at cols 32-33 - the
+  first gate attempt collided with the Ashreach breach at 26-27, caught by
+  the mapgen validator). Terraces climb to the Doors of the Sealed Shift
+  (walk-in alcove landmark; dungeon later). Mobs: Scree Hound / Open-Vein
+  Cutter / Deep Echo. THE SECOND BANK (the hold vault - one banks.ts data
+  line). Rite-Keeper Brunna + 2 quests (13 total). Mining capital: 3 iron
+  + 2 copper + tin + tarn trout; waystone; granite palette + snowfall;
+  cutter/echo silhouettes. Full e2e sweep 42/42 BEFORE this zone. 219
+  unit; probe: cheat-travel, bank round-trip, cutter kill, quest, gate
+  descent rendered both sides.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
