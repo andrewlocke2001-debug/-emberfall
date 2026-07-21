@@ -680,6 +680,21 @@ user decisions. The single-file solo build is the play-test channel.
   cheat-travel, creeper kill + pickup, quest, west-gate crossing rendered
   both sides.
 
+## P15 — combat depth (play-test round 4: bosses, tree, gear, AOE, numbers)
+- **P15.1 (2026-07-21, commit c901471)** — RAID TRAP FIX: the Molten
+  Throne entry hall was never connected to Arena 1 (row 63 solid since
+  P12.1; players fought the Broodmother through the wall). Doorway added;
+  LESSON: probes must WALK new instanced maps, never tp. BOSS MECHANICS:
+  data-driven BossMechanics on MobDef (add waves / enrage / blink /
+  burning touch / telegraph volleys) interpreted by server + solo; all 7
+  telegraph bosses assigned distinct kits; boss adds die for good;
+  mechanics.test.ts guards the content. Solo /weaken [pct] + cheat button
+  for threshold testing. FINDING for P15.5: bare-cap DPS ~6/GCD vs a
+  2000 HP raid boss — endgame numbers genuinely mis-scaled.
+- Remaining P15: .2 PoE-style passive web (many nodes, per-Calling
+  starts) · .3 gear expansion (fill legs/hands/feet/ring, varied
+  acquisition) · .4 AOE abilities + 4-slot bar · .5 endgame damage pass.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
