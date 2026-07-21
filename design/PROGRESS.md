@@ -670,6 +670,16 @@ user decisions. The single-file solo build is the play-test channel.
   unit; probe: cheat-travel, bank round-trip, cutter kill, quest, gate
   descent rendered both sides.
 
+- **P14.5 (2026-07-21, commit 264f808)** - **The Cinderfen** (30-38):
+  the steam-fen scar east of the Dolmholt. Glass Willow walk-in landmark;
+  sealed Bleedworks (dungeon later - the faction collision point). Mobs:
+  Fen Creeper / Glass Stalker / Harvest Enforcer (Order muscle). Fen
+  Amber material; Tender Ilse + 2 quests (15 total); 2 scar-iron + copper
+  + warm trout pool; waystone; sick-green palette + RISING steam; three
+  authored silhouettes; travel cheat updated. 223 unit; probe:
+  cheat-travel, creeper kill + pickup, quest, west-gate crossing rendered
+  both sides.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
