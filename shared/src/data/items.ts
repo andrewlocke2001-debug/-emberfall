@@ -220,6 +220,114 @@ export const ITEMS: Record<string, ItemDef> = {
     desc: "Dented, but it does the job.",
   },
 
+
+  // --- P15.3 armour: fill legs/hands/feet/ring across the tiers ---
+  // Leather set (beast drops + quest — NOT crafted; no leatherworking skill).
+  leather_legs: {
+    id: "leather_legs", name: "Leather Legs", rarity: "common", maxStack: 1, value: 24,
+    equipSlot: "legs", bonus: { defence: 3, maxHp: 4 }, maxDurability: 150,
+    desc: "Boiled-hide leggings. Beast-drop leather.",
+  },
+  leather_gloves: {
+    id: "leather_gloves", name: "Leather Gloves", rarity: "common", maxStack: 1, value: 16,
+    equipSlot: "hands", bonus: { defence: 2 }, maxDurability: 120,
+    desc: "Supple and quiet. Keeps the cold off your fingers.",
+  },
+  leather_boots: {
+    id: "leather_boots", name: "Leather Boots", rarity: "common", maxStack: 1, value: 16,
+    equipSlot: "feet", bonus: { defence: 2, maxHp: 2 }, maxDurability: 120,
+    desc: "Sturdy frontier boots.",
+  },
+  // Iron set (smithing + humanoid drops).
+  iron_helm: {
+    id: "iron_helm", name: "Iron Helm", rarity: "fine", maxStack: 1, value: 90,
+    equipSlot: "head", bonus: { defence: 6, maxHp: 4 }, maxDurability: 200,
+    desc: "Full iron. Rings when struck.",
+  },
+  iron_platebody: {
+    id: "iron_platebody", name: "Iron Platebody", rarity: "fine", maxStack: 1, value: 200,
+    equipSlot: "body", bonus: { defence: 10, maxHp: 14 }, maxDurability: 220,
+    desc: "A smith's proudest plate.",
+  },
+  iron_legs: {
+    id: "iron_legs", name: "Iron Legs", rarity: "fine", maxStack: 1, value: 140,
+    equipSlot: "legs", bonus: { defence: 7, maxHp: 6 }, maxDurability: 200,
+    desc: "Plated greaves. Heavy, but they hold.",
+  },
+  iron_gauntlets: {
+    id: "iron_gauntlets", name: "Iron Gauntlets", rarity: "fine", maxStack: 1, value: 80,
+    equipSlot: "hands", bonus: { defence: 5, strength: 2 }, maxDurability: 180,
+    desc: "A closed fist of iron.",
+  },
+  iron_boots: {
+    id: "iron_boots", name: "Iron Boots", rarity: "fine", maxStack: 1, value: 80,
+    equipSlot: "feet", bonus: { defence: 4, maxHp: 4 }, maxDurability: 180,
+    desc: "Iron-shod. You will not be moved.",
+  },
+  // Mauls (fills the unused maul weapon class; smithing).
+  bronze_maul: {
+    id: "bronze_maul", name: "Bronze Maul", rarity: "common", maxStack: 1, value: 30,
+    equipSlot: "weapon", bonus: { attack: 1, strength: 8 }, maxDurability: 120,
+    weaponType: "maul", desc: "All head, no finesse. Trains Melee.",
+  },
+  iron_maul: {
+    id: "iron_maul", name: "Iron Maul", rarity: "fine", maxStack: 1, value: 130,
+    equipSlot: "weapon", bonus: { attack: 2, strength: 16 }, maxDurability: 200,
+    weaponType: "maul", desc: "A door in one hand, a wall in the other.",
+  },
+  // Rings (drops + hunt shop + quest; jewelry never wears).
+  copper_ring: {
+    id: "copper_ring", name: "Copper Ring", rarity: "common", maxStack: 1, value: 30,
+    equipSlot: "ring", bonus: { strength: 2 }, desc: "A plain band with a warm sheen.",
+  },
+  iron_ring: {
+    id: "iron_ring", name: "Iron Ring", rarity: "fine", maxStack: 1, value: 80,
+    equipSlot: "ring", bonus: { strength: 3, defence: 2 }, desc: "Simple, solid, dependable.",
+  },
+  band_of_embers: {
+    id: "band_of_embers", name: "Band of Embers", rarity: "rare", maxStack: 1, value: 200,
+    equipSlot: "ring", bonus: { attack: 4, strength: 4 }, desc: "It stays warm even in the Graywastes.",
+  },
+
+  // --- P15.3 boss uniques: one per boss, endgame-chunky (feeds P15.5) ---
+  broodmother_carapace: {
+    id: "broodmother_carapace", name: "Broodmother's Carapace", rarity: "rare", maxStack: 1, value: 800,
+    equipSlot: "body", bonus: { defence: 16, maxHp: 45 }, maxDurability: 400,
+    desc: "Chitin still warm from the nest. Turns blades.",
+  },
+  colossus_greaves: {
+    id: "colossus_greaves", name: "Colossus Greaves", rarity: "rare", maxStack: 1, value: 800,
+    equipSlot: "legs", bonus: { defence: 14, strength: 6, maxHp: 30 }, maxDurability: 400,
+    desc: "Obsidian slabs bound to the leg. You do not stagger.",
+  },
+  shadestep_boots: {
+    id: "shadestep_boots", name: "Shade-Step Boots", rarity: "rare", maxStack: 1, value: 700,
+    equipSlot: "feet", bonus: { attack: 6, strength: 8, maxHp: 15 }, maxDurability: 350,
+    desc: "You arrive from the cold side of the fire.",
+  },
+  heralds_gauntlets: {
+    id: "heralds_gauntlets", name: "Herald's Gauntlets", rarity: "rare", maxStack: 1, value: 750,
+    equipSlot: "hands", bonus: { attack: 8, strength: 10 }, maxDurability: 350,
+    desc: "Every blow you land carries the Herald's call.",
+  },
+  molten_crown: {
+    id: "molten_crown", name: "Crown of the Molten King", rarity: "relic", maxStack: 1, value: 2000,
+    equipSlot: "head", bonus: { attack: 6, strength: 8, defence: 10, maxHp: 40 }, maxDurability: 500,
+    desc: "It sits warm on the brow, and dreams of a kingdom that never had a hard winter.",
+  },
+  cinderheart_signet: {
+    id: "cinderheart_signet", name: "Cinderheart Signet", rarity: "rare", maxStack: 1, value: 600,
+    equipSlot: "ring", bonus: { attack: 5, strength: 5, defence: 3 }, desc: "The Warden's seal. It beats when you fight.",
+  },
+  gatewright_keyring: {
+    id: "gatewright_keyring", name: "Gatewright's Keyring", rarity: "rare", maxStack: 1, value: 300,
+    equipSlot: "ring", bonus: { defence: 6, maxHp: 20 }, desc: "Keys to doors that were barred from the inside.",
+  },
+  deepdelver_band: {
+    id: "deepdelver_band", name: "Deepdelver Band", rarity: "rare", maxStack: 1, value: 260,
+    equipSlot: "ring", bonus: { strength: 6, maxHp: 12 }, desc: "Carved by a hand that asked the stone first.",
+  },
+
   // --- consumables ---
   health_potion: {
     id: "health_potion",

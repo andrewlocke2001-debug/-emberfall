@@ -131,6 +131,7 @@ export const MOBS: Record<string, MobDef> = {
     drops: [
       { itemId: "coins", min: 1, max: 4, chance: 1 },
       { itemId: "ash_pelt", min: 1, max: 1, chance: 0.6 },
+      { itemId: "leather_boots", min: 1, max: 1, chance: 0.04 },
     ],
     color: 0x9e9e9e,
   },
@@ -151,6 +152,7 @@ export const MOBS: Record<string, MobDef> = {
     xpReward: 35,
     drops: [
       { itemId: "coins", min: 2, max: 6, chance: 1 },
+      { itemId: "copper_ring", min: 1, max: 1, chance: 0.03 },
       { itemId: "health_potion", min: 1, max: 1, chance: 0.25 },
       { itemId: "bronze_sword", min: 1, max: 1, chance: 0.1 },
     ],
@@ -243,6 +245,7 @@ export const MOBS: Record<string, MobDef> = {
       { itemId: "coins", min: 60, max: 120, chance: 1 },
       { itemId: "grave_wax", min: 2, max: 4, chance: 1 },
       { itemId: "barrow_lantern", min: 1, max: 1, chance: 0.35 },
+      { itemId: "gatewright_keyring", min: 1, max: 1, chance: 0.25 },
       { itemId: "health_potion", min: 1, max: 1, chance: 0.5 },
     ],
     color: 0x6e8fa2,
@@ -313,6 +316,7 @@ export const MOBS: Record<string, MobDef> = {
       { itemId: "iron_bar", min: 1, max: 1, chance: 0.15 },
       { itemId: "health_potion", min: 1, max: 1, chance: 0.1 },
       { itemId: "hunter_longbow", min: 1, max: 1, chance: 0.03 },
+      { itemId: "iron_boots", min: 1, max: 1, chance: 0.04 },
     ],
     color: 0x8a7a5a,
   },
@@ -334,6 +338,7 @@ export const MOBS: Record<string, MobDef> = {
     drops: [
       { itemId: "coins", min: 5, max: 12, chance: 1 },
       { itemId: "ash_pelt", min: 1, max: 1, chance: 0.5 },
+      { itemId: "leather_gloves", min: 1, max: 1, chance: 0.05 },
     ],
     color: 0x8d9498,
   },
@@ -355,6 +360,7 @@ export const MOBS: Record<string, MobDef> = {
     drops: [
       { itemId: "coins", min: 6, max: 15, chance: 1 },
       { itemId: "iron_ore", min: 1, max: 2, chance: 0.5 },
+      { itemId: "iron_legs", min: 1, max: 1, chance: 0.04 },
       { itemId: "iron_bar", min: 1, max: 1, chance: 0.2 },
       { itemId: "health_potion", min: 1, max: 1, chance: 0.1 },
     ],
@@ -379,6 +385,7 @@ export const MOBS: Record<string, MobDef> = {
       { itemId: "coins", min: 8, max: 18, chance: 1 },
       { itemId: "iron_bar", min: 1, max: 1, chance: 0.25 },
       { itemId: "ancient_relic", min: 1, max: 1, chance: 0.06 },
+      { itemId: "deepdelver_band", min: 1, max: 1, chance: 0.04 },
     ],
     color: 0x9a8f7c,
   },
@@ -489,6 +496,7 @@ export const MOBS: Record<string, MobDef> = {
     drops: [
       { itemId: "coins", min: 6, max: 15, chance: 1 },
       { itemId: "iron_bar", min: 1, max: 1, chance: 0.3 },
+      { itemId: "iron_helm", min: 1, max: 1, chance: 0.05 },
       { itemId: "ancient_relic", min: 1, max: 1, chance: 0.08 },
     ],
     color: 0x7d8ba1,
@@ -537,6 +545,7 @@ export const MOBS: Record<string, MobDef> = {
       { itemId: "coins", min: 150, max: 300, chance: 1 },
       { itemId: "ancient_relic", min: 2, max: 4, chance: 1 },
       { itemId: "cinder_heart", min: 1, max: 1, chance: 0.5 },
+      { itemId: "cinderheart_signet", min: 1, max: 1, chance: 0.3 },
     ],
     color: 0xff5a2c,
     boss: true,
@@ -564,6 +573,7 @@ export const MOBS: Record<string, MobDef> = {
     drops: [
       { itemId: "coins", min: 200, max: 400, chance: 1 },
       { itemId: "ancient_relic", min: 1, max: 2, chance: 1 },
+      { itemId: "band_of_embers", min: 1, max: 1, chance: 0.2 },
       { itemId: "health_potion", min: 1, max: 2, chance: 0.6 },
     ],
     color: 0x14b8a6,
@@ -589,7 +599,10 @@ export const MOBS: Record<string, MobDef> = {
     moveSpeed: 130,
     respawnMs: 999_999_999,
     xpReward: 1000,
-    drops: [{ itemId: "coins", min: 300, max: 600, chance: 1 }],
+    drops: [
+      { itemId: "coins", min: 300, max: 600, chance: 1 },
+      { itemId: "broodmother_carapace", min: 1, max: 1, chance: 0.35 },
+    ],
     color: 0xe25822,
     boss: true,
     telegraph: { windupMs: 1500, radius: 130, damage: 50, cooldownMs: 7000 },
@@ -610,7 +623,10 @@ export const MOBS: Record<string, MobDef> = {
     moveSpeed: 110,
     respawnMs: 999_999_999,
     xpReward: 1200,
-    drops: [{ itemId: "coins", min: 350, max: 700, chance: 1 }],
+    drops: [
+      { itemId: "coins", min: 350, max: 700, chance: 1 },
+      { itemId: "colossus_greaves", min: 1, max: 1, chance: 0.35 },
+    ],
     color: 0x3f3f46,
     boss: true,
     telegraph: { windupMs: 1800, radius: 160, damage: 62, cooldownMs: 8000 },
@@ -633,6 +649,7 @@ export const MOBS: Record<string, MobDef> = {
     xpReward: 1400,
     drops: [
       { itemId: "coins", min: 400, max: 800, chance: 1 },
+      { itemId: "shadestep_boots", min: 1, max: 1, chance: 0.35 },
       { itemId: "ancient_relic", min: 1, max: 2, chance: 1 },
     ],
     color: 0xa855f7,
@@ -657,6 +674,7 @@ export const MOBS: Record<string, MobDef> = {
     xpReward: 1700,
     drops: [
       { itemId: "coins", min: 500, max: 900, chance: 1 },
+      { itemId: "heralds_gauntlets", min: 1, max: 1, chance: 0.35 },
       { itemId: "cinder_heart", min: 1, max: 1, chance: 0.25 },
     ],
     color: 0xfacc15,
@@ -681,7 +699,10 @@ export const MOBS: Record<string, MobDef> = {
     xpReward: 2500,
     // The relic itself is lockout-gated and awarded by the raid logic, NOT
     // this table — otherwise a locked player could farm it.
-    drops: [{ itemId: "coins", min: 800, max: 1500, chance: 1 }],
+    drops: [
+      { itemId: "coins", min: 800, max: 1500, chance: 1 },
+      { itemId: "molten_crown", min: 1, max: 1, chance: 0.4 },
+    ],
     color: 0xdc2626,
     boss: true,
     telegraph: { windupMs: 2000, radius: 180, damage: 80, cooldownMs: 8000 },

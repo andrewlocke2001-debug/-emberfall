@@ -27,6 +27,7 @@ export function abilityKitFor(weaponType: WeaponType | undefined): AbilityId[] {
   if (weaponType === "staff") return ["cinderbolt", "ember_burst", "mend"];
   if (weaponType === "axe") return ["strike", "rend", "mend"];
   if (weaponType === "dagger") return ["strike", "hamstring", "mend"];
+  // Maul + sword share the clean-burst melee kit.
   return ["strike", "power_strike", "mend"];
 }
 

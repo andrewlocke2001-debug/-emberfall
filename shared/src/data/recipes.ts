@@ -108,6 +108,34 @@ export const RECIPES: Record<string, RecipeDef> = {
     xp: 6,
     levelReq: 1,
   },
+  forge_iron_helm: {
+    id: "forge_iron_helm", skill: "smithing", name: "Iron Helm",
+    inputs: [{ itemId: "iron_bar", qty: 2 }], output: { itemId: "iron_helm", qty: 1 }, xp: 24, levelReq: 13,
+  },
+  forge_iron_platebody: {
+    id: "forge_iron_platebody", skill: "smithing", name: "Iron Platebody",
+    inputs: [{ itemId: "iron_bar", qty: 5 }], output: { itemId: "iron_platebody", qty: 1 }, xp: 60, levelReq: 20,
+  },
+  forge_iron_legs: {
+    id: "forge_iron_legs", skill: "smithing", name: "Iron Legs",
+    inputs: [{ itemId: "iron_bar", qty: 3 }], output: { itemId: "iron_legs", qty: 1 }, xp: 36, levelReq: 16,
+  },
+  forge_iron_gauntlets: {
+    id: "forge_iron_gauntlets", skill: "smithing", name: "Iron Gauntlets",
+    inputs: [{ itemId: "iron_bar", qty: 2 }], output: { itemId: "iron_gauntlets", qty: 1 }, xp: 22, levelReq: 13,
+  },
+  forge_iron_boots: {
+    id: "forge_iron_boots", skill: "smithing", name: "Iron Boots",
+    inputs: [{ itemId: "iron_bar", qty: 2 }], output: { itemId: "iron_boots", qty: 1 }, xp: 22, levelReq: 14,
+  },
+  forge_bronze_maul: {
+    id: "forge_bronze_maul", skill: "smithing", name: "Bronze Maul",
+    inputs: [{ itemId: "bronze_bar", qty: 2 }], output: { itemId: "bronze_maul", qty: 1 }, xp: 14, levelReq: 4,
+  },
+  forge_iron_maul: {
+    id: "forge_iron_maul", skill: "smithing", name: "Iron Maul",
+    inputs: [{ itemId: "iron_bar", qty: 3 }], output: { itemId: "iron_maul", qty: 1 }, xp: 28, levelReq: 16,
+  },
   cook_crab: {
     id: "cook_crab",
     skill: "cooking",

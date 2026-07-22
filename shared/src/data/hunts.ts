@@ -20,12 +20,19 @@ export const HUNT_TARGETS: HuntTargetDef[] = [
   { mob: "thorn_stalker", min: 4, max: 7, points: 20 },
   { mob: "ruin_sentinel", min: 3, max: 5, points: 28 },
   { mob: "ember_wraith", min: 3, max: 5, points: 34 },
+  { mob: "unreturned_wanderer", min: 3, max: 5, points: 24 },
+  { mob: "quenchclaw", min: 4, max: 6, points: 30 },
+  { mob: "scree_hound", min: 4, max: 6, points: 38 },
+  { mob: "fen_creeper", min: 3, max: 5, points: 46 },
 ];
 
 /** The Hunt point shop: retention-loop rewards, priced in Hunt points. */
 export const HUNT_REWARDS: { itemId: string; points: number }[] = [
   { itemId: "health_potion", points: 5 },
   { itemId: "iron_sword", points: 40 },
+  { itemId: "copper_ring", points: 20 },
+  { itemId: "iron_platebody", points: 90 },
+  { itemId: "band_of_embers", points: 140 },
   { itemId: "ancient_relic", points: 60 },
   { itemId: "cinder_heart", points: 250 },
 ];
