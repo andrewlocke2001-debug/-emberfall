@@ -166,6 +166,7 @@ export class SettingsPanel {
         ["→ Kindlecourt", "kindlecourt"],
         ["→ Emberheart Caldera", "emberheart_caldera"],
         ["→ Refused Column", "refused_column"],
+        ["→ Sunken Pyre", "sunken_pyre"],
         ["→ Cinder Depths", "cinder_depths"],
         ["→ Molten Throne (raid)", "molten_throne"],
       ] as const) {

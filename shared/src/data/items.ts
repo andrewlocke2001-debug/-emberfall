@@ -438,6 +438,12 @@ export const ITEMS: Record<string, ItemDef> = {
     equipSlot: "feet", bonus: { attack: 8, strength: 10, defence: 6, maxHp: 20 }, maxDurability: 500,
     desc: "They remember every step the fire took. Compasses point at them.",
   },
+  oarblade: {
+    id: "oarblade", name: "Oarblade", rarity: "rare", maxStack: 1, value: 350,
+    equipSlot: "weapon", bonus: { attack: 8, strength: 10 }, maxDurability: 300,
+    weaponType: "sword",
+    desc: "An oar the Wall refused, ground to an edge. It rows through people now.",
+  },
   barrow_lantern: {
     id: "barrow_lantern",
     name: "Barrow Lantern",

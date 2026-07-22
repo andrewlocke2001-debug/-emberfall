@@ -116,6 +116,11 @@ const PALETTES: Record<string, ZonePalette> = {
     path: 0x4e3c34, wall: 0x3f3438, water: 0xb85a1e, canopy: 0x33232a,
     canopyLit: 0x4a3038, floor: 0x503a34,
   },
+  sunken_pyre: {
+    grass: 0x21313a, grassDark: 0x1b2931, blade: 0x2f4450, flower: 0x7fb0ba,
+    path: 0x35434c, wall: 0x2c3b42, water: 0x1d4a56, canopy: 0x22333a,
+    canopyLit: 0x30474f, floor: 0x4a3c30,
+  },
   bg_arena: {
     grass: 0x33383f, grassDark: 0x2b3037, blade: 0x454c56, flower: 0x8fa3bd,
     path: 0x4a5058, wall: 0x555d68, water: 0x1d3f66, canopy: 0x2c3e35,
@@ -1011,6 +1016,44 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     finish("mob-harvest_enforcer");
   }
 
+  // The Pyre Admiral (P17.1): a burned coat still standing its watch.
+  ctx = canvas("mob-pyre_admiral", 44, 52);
+  if (ctx) {
+    const coat = 0x3c5560;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    ctx.fillStyle = css(mix(coat, 0x000000, 0.3));
+    ctx.beginPath();
+    ctx.moveTo(8, 48);
+    ctx.quadraticCurveTo(6, 20, 22, 12);
+    ctx.quadraticCurveTo(38, 20, 36, 48);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = css(coat);
+    ctx.beginPath();
+    ctx.moveTo(10, 46);
+    ctx.quadraticCurveTo(9, 21, 22, 13);
+    ctx.quadraticCurveTo(35, 21, 34, 46);
+    ctx.closePath();
+    ctx.fill();
+    // Charred epaulettes still faintly aglow + the bicorn silhouette.
+    ctx.fillStyle = css(0xff8a3c);
+    ctx.fillRect(10, 22, 5, 3);
+    ctx.fillRect(29, 22, 5, 3);
+    ctx.fillStyle = css(mix(coat, 0x000000, 0.45));
+    ctx.beginPath();
+    ctx.ellipse(22, 10, 11, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // The watch-lantern, held and hollow.
+    ctx.fillStyle = css(0xbfe6ff);
+    ctx.beginPath();
+    ctx.arc(34, 34, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    finish("mob-pyre_admiral");
+  }
+
   // Cinder Husk (P16.3): a kindled remnant walking — charcoal, ember seams.
   ctx = canvas("mob-cinder_husk", 38, 46);
   if (ctx) {
@@ -1496,6 +1539,7 @@ const ATMOS: Record<string, Atmosphere> = {
   graywastes: { particle: { texture: "fx-soft", tint: 0xeef6fc, lifespan: 8000, speedY: [14, 30], alpha: 0.34, freq: 420 }, vignette: 0.52, fog: 0x8895a2, fogAlpha: 0.13 },
   kindlecourt: { particle: { texture: "fx-soft", tint: 0xf0c890, lifespan: 7000, speedY: [-20, -8], alpha: 0.25, freq: 650 }, vignette: 0.5, fog: 0x6e6257, fogAlpha: 0.1 },
   emberheart_caldera: { particle: { texture: "fx-soft", tint: 0xff9e5e, lifespan: 5000, speedY: [-44, -20], alpha: 0.38, freq: 260 }, vignette: 0.55, fog: 0x5e2f1e, fogAlpha: 0.12 },
+  sunken_pyre: { particle: { texture: "fx-soft", tint: 0x9fd4de, lifespan: 9000, speedY: [-14, -4], alpha: 0.22, freq: 900 }, vignette: 0.58, fog: 0x27454e, fogAlpha: 0.15 },
   marrowgate_downs: { particle: { texture: "fx-soft", tint: 0xcfe3ee, lifespan: 9000, speedY: [8, 20], alpha: 0.28, freq: 900 }, vignette: 0.45, fog: 0x6f8290, fogAlpha: 0.1 },
   ashreach: { particle: { texture: "fx-soft", tint: 0xff9e5e, lifespan: 6000, speedY: [-30, -12], alpha: 0.35, freq: 350 }, vignette: 0.45, fog: 0x5e2f1e, fogAlpha: 0.09 },
   cinder_depths: { particle: { texture: "fx-soft", tint: 0xcabdd6, lifespan: 8000, speedY: [-10, 10], alpha: 0.12, freq: 900 }, vignette: 0.55, fog: 0x161320, fogAlpha: 0.14 },

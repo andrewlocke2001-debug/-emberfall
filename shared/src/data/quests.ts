@@ -170,6 +170,15 @@ export const QUESTS: Record<string, QuestDef> = {
     requires: "the_wound_watch",
     giver: "camp_keeper_ashka",
   },
+  the_wake_unpaid: {
+    id: "the_wake_unpaid",
+    name: "The Wake, Unpaid",
+    summary: "Descend the barnacled hatch and give the Pyre Admiral his cold falling.",
+    objectives: [{ type: "kill", mob: "pyre_admiral", count: 1, desc: "Put the Pyre Admiral to rest" }],
+    rewards: { coins: 150, xp: [{ skill: "melee", amount: 260 }] },
+    requires: "the_wake_paid",
+    giver: "charterwright_essa",
+  },
   // First contact — meet the Hearthwarden who runs the gate.
   greet_mira: {
     id: "greet_mira",

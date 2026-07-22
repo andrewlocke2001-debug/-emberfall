@@ -38,8 +38,11 @@ function paint(): string[] {
   p.hline(14, 23, 47, "=");
   p.hline(36, 42, 46, "=");
 
-  // The salvage flats: tide-bared ground among the wrecks.
+  // The salvage flats: tide-bared ground among the wrecks — and the
+  // barnacled hatch down into the Sunken Pyre (P17.1).
   p.fillRect(8, 46, 13, 49, ",");
+  p.fillRect(8, 47, 9, 48, "P");
+  p.set(11, 48, "2");
   p.fillRect(42, 45, 47, 48, ",");
 
   // Scattered pines on the higher ground.
@@ -75,7 +78,8 @@ export const vossmere: MapSource = {
   displayName: "The Vossmere",
   exits: {
     X: { to: "tanglewood", entry: "south" },
+    P: { to: "sunken_pyre", entry: "gate" },
   },
-  entries: { "1": "north" },
+  entries: { "1": "north", "2": "flats" },
   ascii: paint(),
 };

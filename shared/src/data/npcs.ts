@@ -52,7 +52,7 @@ export const NPCS: Record<string, NpcDef> = {
     y: 1360,
     greeting:
       "Welcome to the wet end of the world. The Shoremade are building something here — planks, charters, a future — and the sea keeps sending crabs, shades and thieves to eat it. Care to earn your keep?",
-    quests: ["planks_over_water", "the_wake_paid"],
+    quests: ["planks_over_water", "the_wake_paid", "the_wake_unpaid"],
     color: 0x6f9aa8,
   },
   rite_keeper_brunna: {
