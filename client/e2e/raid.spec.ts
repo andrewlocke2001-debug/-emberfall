@@ -36,9 +36,14 @@ test("the Molten Throne: five-boss gauntlet ends in the weekly relic", async ({ 
   await page.evaluate(() => window.__mmo!.equip("iron_sword"));
   await page.evaluate(() => window.__mmo!.equip("cinder_heart"));
 
-  // Step onto the north gate → the instanced raid.
+  // Step onto the north gate → the Emberheart Caldera (P16.3: the Throne
+  // now descends from inside the Wound's overworld, not the Ashreach).
   await cmd(page, "/tp 784 72");
   await cmd(page, "/tp 784 40");
+  await expect.poll(() => zone(page), { timeout: 20_000 }).toBe("emberheart_caldera");
+  // Cross the caldera floor to the Throne gate on the wound's west lip.
+  await cmd(page, "/tp 688 470");
+  await cmd(page, "/tp 700 416");
   await expect.poll(() => zone(page), { timeout: 20_000 }).toBe("molten_throne");
 
   // Only the first boss exists; each kill wakes the next.
