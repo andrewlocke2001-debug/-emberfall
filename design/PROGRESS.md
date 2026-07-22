@@ -744,9 +744,20 @@ user decisions. The single-file solo build is the play-test channel.
   passive points now 24 at cap; damage mult tops at 5.8x; raid bosses
   (53-60) properly levelable. 238 unit; probe: maxme→60, 24 web points,
   wight died in 5 swings, quest, both-side gate render.
-- Next: Kindlecourt (48-56, Lamplight Archive) → Emberheart Caldera
-  (52-60) to complete the 1-60 path; or the promised dungeons (Sunken
-  Pyre / Sealed Shift / Bleedworks / Refused-Column-style for new zones).
+- **P16.2 (2026-07-22, commit 97b3870)** — **The Kindlecourt** (48-56):
+  the shattered capital south of the Graywastes. Scaffold of the
+  Everlasting Lamp (walk-in engine floor); sealed Lamplight Archive
+  (raid-lead-in dungeon later); five breached insulae + forum +
+  colonnades + cistern. Mobs: Unreturned Courtier / Court Sentinel /
+  Archive Warden (55 elite, drops the LAMPLIGHTER STAFF — first rare
+  chase weapon). Docent Havel + 2 quests incl. the first MAGIC-XP
+  reward (19 total); Lamp Glass; iron/copper/cistern trout; waystone;
+  2 endgame hunt tasks; burnt-marble palette + ember motes + 3 authored
+  painters. 242 unit; probe: travel in, lvl-55 warden killed at cap,
+  quest, both-side gate render.
+- Next: **Emberheart Caldera** (52-60) completes the 1-60 path (wraps
+  the shipped Molten Throne raid); then the promised dungeons (Sunken
+  Pyre / Sealed Shift / Bleedworks / Lamplight Archive).
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
