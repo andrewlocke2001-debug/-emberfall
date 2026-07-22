@@ -702,8 +702,18 @@ user decisions. The single-file solo build is the play-test channel.
   grey=distant, keystones/notables labeled; Calling offered from level 1.
   Old 72-node tiered TALENTS retired. 226 unit; probe: allocate/adjacency/
   effects/respec/persist + screenshot.
-- Remaining P15: .3 gear expansion (fill legs/hands/feet/ring, varied
-  acquisition) · .4 AOE abilities + 4-slot bar · .5 endgame damage pass.
+- **P15.3 (2026-07-22, commit f2bc9bd)** — GEAR EXPANSION: legs/hands/feet/
+  ring were EMPTY; now every slot has multiple items via VARIED channels.
+  Leather set (beast drops + quest), iron set (smithing + humanoid drops),
+  the maul weapon class (was unwielded), rings, and 8 BOSS UNIQUES (one
+  per boss, endgame-chunky → feeds P15.5): Broodmother Carapace, Colossus
+  Greaves, Shade-Step Boots, Herald Gauntlets, Molten Crown (relic),
+  Cinderheart Signet, Gatewright Keyring, Deepdelver Band. 4 quest gear
+  rewards + hunt-shop additions + 5 higher hunt tasks + smithing recipes.
+  231 unit (+6 gear coverage); probe: slots equip/raise HP, maul wields,
+  Broodmother dropped her Carapace.
+- Remaining P15: .4 AOE abilities + 4-slot bar · .5 endgame damage pass
+  (bare-cap DPS still ~13/swing — bosses are 2000-4000 HP).
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
