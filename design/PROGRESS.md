@@ -712,8 +712,18 @@ user decisions. The single-file solo build is the play-test channel.
   rewards + hunt-shop additions + 5 higher hunt tasks + smithing recipes.
   231 unit (+6 gear coverage); probe: slots equip/raise HP, maul wields,
   Broodmother dropped her Carapace.
-- Remaining P15: .4 AOE abilities + 4-slot bar · .5 endgame damage pass
-  (bare-cap DPS still ~13/swing — bosses are 2000-4000 HP).
+- **P15.4 (2026-07-22, commit a21ef1c)** — AOE ABILITIES + 4-slot bar.
+  Per weapon class: Whirlwind (sword/maul self r96), Fan of Knives
+  (dagger self r84), Volley (bow target r96), Scorchwave (staff target
+  r104 + burn). AbilityDef.aoe {radius, atTarget?}; new resolveAoe runs
+  the full single-hit pipeline (accuracy/execute/crit/lifesteal/effect/
+  contributor/killEnemy) vs every enemy in the blast, server + solo
+  identical; ids snapshotted so killEnemy is safe mid-loop. Bar → 4 slots
+  (ability4 key, default 4); self-centered AOE needs no target. 231 unit,
+  e2e 6/6; probe: sword 4-slot bar, Whirlwind hit a wolf pack, Volley hit
+  an emberling pack.
+- Remaining P15: .5 endgame damage pass (bare-cap DPS still ~13/swing —
+  bosses are 2000-4000 HP; boss uniques + web now exist to feed it).
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
