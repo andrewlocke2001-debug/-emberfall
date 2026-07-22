@@ -733,6 +733,21 @@ user decisions. The single-file solo build is the play-test channel.
   **P15 ROUND COMPLETE** (all 5 play-test asks: raid trap + boss
   mechanics, PoE web, gear, AOE, big numbers).
 
+## P16 — the endgame ladder
+- **P16.1 (2026-07-22, commit b518d45)** — **The Graywastes** (44-52) +
+  **LEVEL CAP 60**. Frost steppe east of the Ashreach (east gate; north
+  belongs to the raid): Cold Beacon landmark (black lamp, mystery 2-of-9),
+  six open-door homesteads, hot-spring trout, cache camps. Mobs: Frost
+  Wight / Cache-Reaver / Beacon Congregant (drops Shard of the Beacon
+  rare amulet). Cache-Factor Merrin + 2 quests (17 total); iron/copper/
+  trout + waystone; frost palette + heavy snow. Cap raise = one constant;
+  passive points now 24 at cap; damage mult tops at 5.8x; raid bosses
+  (53-60) properly levelable. 238 unit; probe: maxme→60, 24 web points,
+  wight died in 5 swings, quest, both-side gate render.
+- Next: Kindlecourt (48-56, Lamplight Archive) → Emberheart Caldera
+  (52-60) to complete the 1-60 path; or the promised dungeons (Sunken
+  Pyre / Sealed Shift / Bleedworks / Refused-Column-style for new zones).
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
