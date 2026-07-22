@@ -755,9 +755,19 @@ user decisions. The single-file solo build is the play-test channel.
   2 endgame hunt tasks; burnt-marble palette + ember motes + 3 authored
   painters. 242 unit; probe: travel in, lvl-55 warden killed at cap,
   quest, both-side gate render.
-- Next: **Emberheart Caldera** (52-60) completes the 1-60 path (wraps
-  the shipped Molten Throne raid); then the promised dungeons (Sunken
-  Pyre / Sealed Shift / Bleedworks / Lamplight Archive).
+- **P16.3 (2026-07-22, commit 4bb5f86)** — **The Emberheart Caldera**
+  (52-60): the Wound itself — **THE 1-60 WORLD IS COMPLETE**. Wound-column
+  in a lava ring; the Last Camp truce; the raid gate MOVED INTO the zone
+  (Ashreach R gate → caldera; Molten Throne exit + return zone → caldera
+  floor). Mobs: Cinder Husk / Wound Wraith / Throne Herald (drops
+  Wound-Walker Boots, relic feet). Camp-Keeper Ashka + 2 quests incl.
+  first RANGED-XP reward (21 total); Ember Tears; richest iron (no
+  fishing — lava); Last Camp waystone; lava palette + fast embers; 3
+  painters. maps.test caught a patch-of-patch exit regression mid-slice.
+  246 unit; probe: travel/kill-59-at-cap/quest/FULL raid chain both ways.
+- **The continent now: 10 zones + 4 instances, contiguous 1-60.** Left
+  from WORLD.md: Greatwake Isles (34-42 side zone) + the promised
+  dungeons (Sunken Pyre / Sealed Shift / Bleedworks / Lamplight Archive).
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
