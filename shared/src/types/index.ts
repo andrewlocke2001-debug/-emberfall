@@ -151,8 +151,8 @@ export const BG_REWARD_COINS = 150;
 /** Max melee-level gap for a party member to share kill XP. */
 export const PARTY_LEVEL_RANGE = 10;
 
-/** Level cap for P2 (GW-style low ceiling; raised in later content). */
-export const LEVEL_CAP = 50;
+/** Level cap — raised 50 → 60 with the Graywastes (P16.1). */
+export const LEVEL_CAP = 60;
 
 /** Rested XP (WoW-style): logged-off time banks a buffer that adds +50% XP. */
 export const RESTED_BONUS_RATE = 0.5;

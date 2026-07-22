@@ -162,6 +162,7 @@ export class SettingsPanel {
         ["→ Dolmholt", "dolmholt"],
         ["→ Cinderfen", "cinderfen"],
         ["→ Ashreach (PvP)", "ashreach"],
+        ["→ Graywastes", "graywastes"],
         ["→ Refused Column", "refused_column"],
         ["→ Cinder Depths", "cinder_depths"],
         ["→ Molten Throne (raid)", "molten_throne"],

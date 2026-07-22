@@ -45,6 +45,11 @@ function paint(): string[] {
   p.set(24, 46, "1");
   p.set(26, 46, "s");
 
+  // East gate out to the Graywastes (P16.1) + its return entry.
+  p.fillRect(48, 24, 49, 25, "W");
+  p.hline(40, 47, 24, ",").hline(40, 47, 25, ",");
+  p.set(46, 26, "3");
+
   // North gate up to the Molten Throne raid (P12.1) + its return entry.
   p.fillRect(24, 0, 25, 1, "R");
   p.set(24, 3, "2");
@@ -58,7 +63,8 @@ export const ashreach: MapSource = {
   exits: {
     X: { to: "tanglewood", entry: "ash" },
     R: { to: "molten_throne", entry: "default" },
+    W: { to: "graywastes", entry: "west" },
   },
-  entries: { "1": "south", "2": "throne" },
+  entries: { "1": "south", "2": "throne", "3": "east" },
   ascii: paint(),
 };

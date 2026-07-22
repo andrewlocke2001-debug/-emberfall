@@ -101,6 +101,11 @@ const PALETTES: Record<string, ZonePalette> = {
     path: 0x574f3e, wall: 0x707a6c, water: 0x3a5a52, canopy: 0x33452f,
     canopyLit: 0x49603f, floor: 0x5e5744,
   },
+  graywastes: {
+    grass: 0x475056, grassDark: 0x3c444a, blade: 0x5d686e, flower: 0xd8e8f0,
+    path: 0x5a5b55, wall: 0x77828c, water: 0x2a5666, canopy: 0x2e3e3c,
+    canopyLit: 0x415852, floor: 0x565a5e,
+  },
   bg_arena: {
     grass: 0x33383f, grassDark: 0x2b3037, blade: 0x454c56, flower: 0x8fa3bd,
     path: 0x4a5058, wall: 0x555d68, water: 0x1d3f66, canopy: 0x2c3e35,
@@ -996,6 +1001,40 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     finish("mob-harvest_enforcer");
   }
 
+  // Cache-Reaver (P16.1): a cold-weather bandit — furs, hood, pale lamp.
+  ctx = canvas("mob-cache_reaver", 36, 42);
+  if (ctx) {
+    const cloth = 0x556270;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    ctx.fillStyle = css(mix(cloth, 0x000000, 0.3));
+    ctx.beginPath();
+    ctx.moveTo(7, 38);
+    ctx.quadraticCurveTo(5, 18, 18, 12);
+    ctx.quadraticCurveTo(31, 18, 29, 38);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = css(cloth);
+    ctx.beginPath();
+    ctx.moveTo(9, 36);
+    ctx.quadraticCurveTo(8, 19, 18, 13);
+    ctx.quadraticCurveTo(28, 19, 27, 36);
+    ctx.closePath();
+    ctx.fill();
+    // Fur ruff at the hood + a cold-blue expedition lamp.
+    ctx.strokeStyle = css(0x8a97a5);
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(18, 15, 6, Math.PI * 0.15, Math.PI * 0.85, true);
+    ctx.stroke();
+    ctx.fillStyle = css(0xbfe6ff);
+    ctx.beginPath();
+    ctx.arc(26, 30, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    finish("mob-cache_reaver");
+  }
+
   // Open-Vein Cutter (P14.4): a hooded digger, slate-clothed, pick on back.
   ctx = canvas("mob-open_vein_cutter", 36, 42);
   if (ctx) {
@@ -1068,6 +1107,8 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     ["marrow_warden", 36, 44, 0x7d9aab, 0xb5dced],
     ["gatewright", 46, 54, 0x6e8fa2, 0xe8fbff],
     ["salt_shade", 32, 40, 0x8fb8bd, 0xd6f4f0],
+    ["frost_wight", 30, 38, 0x9eb4c8, 0xe8f6ff],
+    ["beacon_congregant", 34, 42, 0x8296ad, 0xdceeff],
   ] as const) {
     ctx = canvas(`mob-${kind}`, w, h);
     if (ctx) {
@@ -1326,6 +1367,7 @@ const ATMOS: Record<string, Atmosphere> = {
   vossmere: { particle: { texture: "fx-soft", tint: 0xa9d2d9, lifespan: 8000, speedY: [-16, -6], alpha: 0.24, freq: 800 }, vignette: 0.42, fog: 0x4e6d74, fogAlpha: 0.11 },
   dolmholt: { particle: { texture: "fx-soft", tint: 0xe8f2f8, lifespan: 9000, speedY: [10, 24], alpha: 0.3, freq: 750 }, vignette: 0.44, fog: 0x707c88, fogAlpha: 0.09 },
   cinderfen: { particle: { texture: "fx-soft", tint: 0xd8e8dc, lifespan: 7000, speedY: [-24, -10], alpha: 0.26, freq: 500 }, vignette: 0.46, fog: 0x4e6455, fogAlpha: 0.12 },
+  graywastes: { particle: { texture: "fx-soft", tint: 0xeef6fc, lifespan: 8000, speedY: [14, 30], alpha: 0.34, freq: 420 }, vignette: 0.52, fog: 0x8895a2, fogAlpha: 0.13 },
   marrowgate_downs: { particle: { texture: "fx-soft", tint: 0xcfe3ee, lifespan: 9000, speedY: [8, 20], alpha: 0.28, freq: 900 }, vignette: 0.45, fog: 0x6f8290, fogAlpha: 0.1 },
   ashreach: { particle: { texture: "fx-soft", tint: 0xff9e5e, lifespan: 6000, speedY: [-30, -12], alpha: 0.35, freq: 350 }, vignette: 0.45, fog: 0x5e2f1e, fogAlpha: 0.09 },
   cinder_depths: { particle: { texture: "fx-soft", tint: 0xcabdd6, lifespan: 8000, speedY: [-10, 10], alpha: 0.12, freq: 900 }, vignette: 0.55, fog: 0x161320, fogAlpha: 0.14 },

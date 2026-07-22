@@ -414,6 +414,11 @@ export const ITEMS: Record<string, ItemDef> = {
     value: 9,
     desc: "Vitrified sap from the scar-fen. Warm long after dark.",
   },
+  shard_of_the_beacon: {
+    id: "shard_of_the_beacon", name: "Shard of the Beacon", rarity: "rare", maxStack: 1, value: 700,
+    equipSlot: "amulet", bonus: { attack: 7, strength: 7, maxHp: 15 },
+    desc: "A sliver of the black lamp. It is warm, and it is wrong. (2 of 9.)",
+  },
   barrow_lantern: {
     id: "barrow_lantern",
     name: "Barrow Lantern",

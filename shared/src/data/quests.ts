@@ -116,6 +116,24 @@ export const QUESTS: Record<string, QuestDef> = {
     requires: "the_fen_bleeds",
     giver: "tender_ilse",
   },
+  // The Graywastes arc (P16.1) — the cache expeditions vs the cold.
+  the_cold_ledger: {
+    id: "the_cold_ledger",
+    name: "The Cold Ledger",
+    summary: "Put down 6 Cache-Reavers robbing the Order's expeditions.",
+    objectives: [{ type: "kill", mob: "cache_reaver", count: 6, desc: "Put down 6 Cache-Reavers" }],
+    rewards: { coins: 130, xp: [{ skill: "melee", amount: 320 }] },
+    giver: "cache_factor_merrin",
+  },
+  what_the_beacon_gathers: {
+    id: "what_the_beacon_gathers",
+    name: "What the Beacon Gathers",
+    summary: "Gather 8 Grave Wax from the wights the black lamp keeps calling in.",
+    objectives: [{ type: "collect", itemId: "grave_wax", count: 8, desc: "Gather 8 Grave Wax" }],
+    rewards: { coins: 120, items: [{ itemId: "health_potion", qty: 3 }], xp: [{ skill: "vitality", amount: 220 }] },
+    requires: "the_cold_ledger",
+    giver: "cache_factor_merrin",
+  },
   // First contact — meet the Hearthwarden who runs the gate.
   greet_mira: {
     id: "greet_mira",

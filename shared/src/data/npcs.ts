@@ -77,6 +77,17 @@ export const NPCS: Record<string, NpcDef> = {
     quests: ["the_fen_bleeds", "amber_for_the_tending"],
     color: 0x7fae8e,
   },
+  cache_factor_merrin: {
+    id: "cache_factor_merrin",
+    name: "Cache-Factor Merrin",
+    zone: "graywastes",
+    x: 208,
+    y: 976,
+    greeting:
+      "The Order sells cache predictions; I collect what comes back. The reavers rob my expeditions, the cold takes the rest, and that Beacon on the rise gives light the way a debt gives comfort. Work for coin?",
+    quests: ["the_cold_ledger", "what_the_beacon_gathers"],
+    color: 0x8f9aa8,
+  },
   huntmaster_veyra: {
     id: "huntmaster_veyra",
     name: "Huntmaster Veyra",

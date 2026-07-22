@@ -14,6 +14,7 @@ import { refusedColumn } from "./maps/refused_column";
 import { vossmere } from "./maps/vossmere";
 import { dolmholt } from "./maps/dolmholt";
 import { cinderfen } from "./maps/cinderfen";
+import { graywastes } from "./maps/graywastes";
 
 /**
  * ASCII → Tiled-format JSON compiler. Run from the repo root:
@@ -59,6 +60,9 @@ const GROUND: Record<string, number> = {
   n: 1,
   y: 1,
   j: 1,
+  z: 1,
+  v: 1,
+  G: 1,
 };
 const OBSTACLE: Record<string, number> = { "#": 3, T: 4, "~": 5, f: 7 };
 
@@ -85,9 +89,12 @@ const ENEMY_CHARS: Record<string, string> = {
   n: "fen_creeper",
   y: "glass_stalker",
   j: "harvest_enforcer",
+  z: "frost_wight",
+  v: "cache_reaver",
+  G: "beacon_congregant",
 };
 
-const MAPS: MapSource[] = [meadowbrook, greenreach, tanglewood, cinderDepths, ashreach, moltenThrone, bgArena, marrowgateDowns, refusedColumn, vossmere, dolmholt, cinderfen];
+const MAPS: MapSource[] = [meadowbrook, greenreach, tanglewood, cinderDepths, ashreach, moltenThrone, bgArena, marrowgateDowns, refusedColumn, vossmere, dolmholt, cinderfen, graywastes];
 
 function compile(src: MapSource): object {
   const height = src.ascii.length;

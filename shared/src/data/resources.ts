@@ -135,6 +135,13 @@ export const NODES: Partial<Record<ZoneId, ResourceNode[]>> = {
     { id: "copper-1", type: "copper_rock", x: 336, y: 1360 },
     { id: "trout-1", type: "trout_spot", x: 688, y: 720 },
   ],
+  // The Graywastes: frozen iron worth the trip + the hot-spring trout.
+  graywastes: [
+    { id: "iron-1", type: "iron_rock", x: 656, y: 528 },
+    { id: "iron-2", type: "iron_rock", x: 1296, y: 1136 },
+    { id: "copper-1", type: "copper_rock", x: 528, y: 1424 },
+    { id: "trout-1", type: "trout_spot", x: 1520, y: 1680 },
+  ],
   // Tanglewood: richer iron in the north glade + trout at the wraith pond
   // (the pond is guarded — better yield lives behind danger).
   tanglewood: [
