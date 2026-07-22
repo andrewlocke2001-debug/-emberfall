@@ -765,9 +765,18 @@ user decisions. The single-file solo build is the play-test channel.
   fishing — lava); Last Camp waystone; lava palette + fast embers; 3
   painters. maps.test caught a patch-of-patch exit regression mid-slice.
   246 unit; probe: travel/kill-59-at-cap/quest/FULL raid chain both ways.
-- **The continent now: 10 zones + 4 instances, contiguous 1-60.** Left
-  from WORLD.md: Greatwake Isles (34-42 side zone) + the promised
-  dungeons (Sunken Pyre / Sealed Shift / Bleedworks / Lamplight Archive).
+## P17 — the promised dungeons
+- **P17.1 (2026-07-22, commit fdc0daf)** — **The Sunken Pyre** (18-26):
+  the Vossmere dungeon. Barnacled hatch on the salvage flats → 30×50
+  wreck-reef crawl (listing hold, fused decks, pyre heart). Boss the
+  PYRE ADMIRAL (26, telegraph volley ×2 + salt-shade adds at 60/30% via
+  the P15.1 mechanics system; drops the OARBLADE rare sword — the
+  mid-band chase weapon). Essa quest 3 closes the arc (22 quests).
+  Coastal trash reused; authored Admiral painter; drowned palette.
+  250 unit; probe: Admiral + adds confirmed, loot, hatch both ways.
+- **The continent: 10 zones + 5 instances, contiguous 1-60.** Left from
+  WORLD.md: Greatwake Isles (34-42 side zone) + dungeons (Sealed Shift /
+  Bleedworks / Lamplight Archive).
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
