@@ -722,8 +722,16 @@ user decisions. The single-file solo build is the play-test channel.
   (ability4 key, default 4); self-centered AOE needs no target. 231 unit,
   e2e 6/6; probe: sword 4-slot bar, Whirlwind hit a wolf pack, Volley hit
   an emberling pack.
-- Remaining P15: .5 endgame damage pass (bare-cap DPS still ~13/swing —
-  bosses are 2000-4000 HP; boss uniques + web now exist to feed it).
+- **P15.5 (2026-07-22, commit 87b4d8a)** — ENDGAME DAMAGE SCALING.
+  resolveAttack gains optional damageMult; playerDamageMult(level) =
+  1 + level*0.08 (L1 1.08x → L50 5x), applied ONLY to player attacks
+  (PvE + AOE, server + solo), reading the governing skill level. Mobs
+  stay at 1x (incoming damage unchanged); PvP excluded (no one-shots).
+  Stacks with gear/web/perks/specials/crit/AOE. Measured: L50 Strike
+  now hits up to 77 (was ~15 cap; 38x a level-1 rookie), early game
+  intact. Boss HP unchanged — the boost fixes the ratio. 234 unit.
+  **P15 ROUND COMPLETE** (all 5 play-test asks: raid trap + boss
+  mechanics, PoE web, gear, AOE, big numbers).
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
