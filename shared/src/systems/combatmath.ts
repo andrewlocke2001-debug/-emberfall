@@ -42,6 +42,16 @@ export function maxHit(strength: number): number {
 }
 
 /**
+ * Endgame damage scaling (P15.5). Player attacks are multiplied by this,
+ * growing with the governing combat level so late-game hits get big — a
+ * fresh character is barely changed, a level-50 hits ~5×. Applied ONLY to
+ * player attacks (mobs use the raw roll, so incoming damage is unchanged).
+ */
+export function playerDamageMult(level: number): number {
+  return 1 + Math.max(1, level) * 0.08;
+}
+
+/**
  * Resolve a single attack. Consumes up to two RNG draws (accuracy, then
  * damage) so tests can force any outcome. Pure — the caller applies the result.
  */
@@ -51,12 +61,14 @@ export function resolveAttack(
   rng: Rng = Math.random,
   /** Flat accuracy added on top of the curve (players get PLAYER_ACCURACY_BONUS). */
   accuracyBonus = 0,
+  /** Damage multiplier (players get playerDamageMult; mobs stay at 1). */
+  damageMult = 1,
 ): AttackOutcome {
   if (!attacker.alive || !defender.alive || defender.hp <= 0) {
     return { hit: false, damage: 0, targetHpAfter: defender.hp, targetDied: false };
   }
   const landed = rng() < Math.min(0.95, hitChance(attacker.attack, defender.defence) + accuracyBonus);
-  const damage = landed ? Math.floor(rng() * (maxHit(attacker.strength) + 1)) : 0;
+  const damage = landed ? Math.floor(rng() * (maxHit(attacker.strength) + 1) * damageMult) : 0;
   const targetHpAfter = Math.max(0, defender.hp - damage);
   return { hit: landed, damage, targetHpAfter, targetDied: targetHpAfter <= 0 };
 }

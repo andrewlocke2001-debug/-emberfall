@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hitChance, maxHit, resolveAttack, type CombatStats } from "./combatmath";
+import { hitChance, maxHit, resolveAttack, playerDamageMult, type CombatStats } from "./combatmath";
 
 function stats(over: Partial<CombatStats> = {}): CombatStats {
   return { attack: 10, strength: 10, defence: 10, hp: 50, maxHp: 50, alive: true, ...over };
@@ -80,5 +80,27 @@ describe("resolveAttack accuracy bonus (PLAYER_ACCURACY_BONUS)", () => {
     const overwhelming = stats({ attack: 999 });
     expect(resolveAttack(overwhelming, stats(), scriptedRng(0.96, 0.5), 1).hit).toBe(false);
     expect(resolveAttack(overwhelming, stats(), scriptedRng(0.94, 0.5), 1).hit).toBe(true);
+  });
+});
+
+describe("playerDamageMult (P15.5 endgame scaling)", () => {
+  it("barely touches early game, ~5x at the cap", () => {
+    expect(playerDamageMult(1)).toBeCloseTo(1.08);
+    expect(playerDamageMult(10)).toBeCloseTo(1.8);
+    expect(playerDamageMult(25)).toBeCloseTo(3.0);
+    expect(playerDamageMult(50)).toBeCloseTo(5.0);
+  });
+  it("is monotonic in level", () => {
+    for (let l = 1; l < 50; l++) expect(playerDamageMult(l + 1)).toBeGreaterThan(playerDamageMult(l));
+  });
+});
+
+describe("resolveAttack damageMult", () => {
+  it("scales the rolled damage, mobs (mult 1) unchanged", () => {
+    // max roll: floor(0.999 * (maxHit+1)) = maxHit; strength 40 → maxHit 11.
+    const base = resolveAttack(stats({ strength: 40 }), stats(), scriptedRng(0, 0.999));
+    const boosted = resolveAttack(stats({ strength: 40 }), stats(), scriptedRng(0, 0.999), 0, 3);
+    expect(base.damage).toBe(11);
+    expect(boosted.damage).toBe(35); // floor(0.999 * 12 * 3)
   });
 });

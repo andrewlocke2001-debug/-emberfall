@@ -86,7 +86,7 @@ import {
 import { vendorDef, vendorsInZone } from "@mmo/shared/data/vendors";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
-import { resolveAttack, type CombatStats } from "@mmo/shared/systems/combatmath";
+import { resolveAttack, playerDamageMult, type CombatStats } from "@mmo/shared/systems/combatmath";
 import {
   combatStatsFromLevel,
   gainXp,
@@ -655,7 +655,9 @@ export class SoloRoom {
 
     const atk = this.playerStats();
     atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
-    const result = resolveAttack(atk, this.mobStats(enemy), Math.random, PLAYER_ACCURACY_BONUS);
+    const govLevel =
+      ability.skill === "ranged" ? levelForXp(p.rangedXp) : ability.skill === "magic" ? levelForXp(p.magicXp) : p.level;
+    const result = resolveAttack(atk, this.mobStats(enemy), Math.random, PLAYER_ACCURACY_BONUS, playerDamageMult(govLevel));
     this.commitAbility(ability, now);
     p.energy -= cost;
 
@@ -699,6 +701,9 @@ export class SoloRoom {
   ): void {
     const p = this.player();
     const r2 = (ability.aoe?.radius ?? 0) ** 2;
+    const aoeDmgMult = playerDamageMult(
+      ability.skill === "ranged" ? levelForXp(p.rangedXp) : ability.skill === "magic" ? levelForXp(p.magicXp) : p.level,
+    );
     let anyHit = false;
     for (const id of [...this.state.enemies.keys()]) {
       const enemy = this.state.enemies.get(id);
@@ -706,7 +711,7 @@ export class SoloRoom {
       if (distSq(cx, cy, enemy.x, enemy.y) > r2) continue;
       const atk = this.playerStats();
       atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
-      const result = resolveAttack(atk, this.mobStats(enemy), Math.random, PLAYER_ACCURACY_BONUS);
+      const result = resolveAttack(atk, this.mobStats(enemy), Math.random, PLAYER_ACCURACY_BONUS, aoeDmgMult);
       if (!result.hit) continue;
       anyHit = true;
       let dmg = executeAdjust(result.damage, enemy.hp, enemy.maxHp, this.chosenPerks);

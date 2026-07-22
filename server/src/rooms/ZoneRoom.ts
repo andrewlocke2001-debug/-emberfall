@@ -224,7 +224,7 @@ import {
 } from "@mmo/shared/protocol/schemas";
 import { rollDrops } from "@mmo/shared/systems/loot";
 import { stepWithCollision, isBoxFree } from "@mmo/shared/systems/collision";
-import { resolveAttack, type CombatStats } from "@mmo/shared/systems/combatmath";
+import { resolveAttack, playerDamageMult, type CombatStats } from "@mmo/shared/systems/combatmath";
 import {
   combatStatsFromLevel,
   gainXp,
@@ -1054,7 +1054,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
     const atk = this.playerStats(sessionId, player);
     atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
-    const result = resolveAttack(atk, mobCombatStats(enemy), Math.random, PLAYER_ACCURACY_BONUS);
+    const govLevel =
+      ability.skill === "ranged"
+        ? levelForXp(player.rangedXp)
+        : ability.skill === "magic"
+          ? levelForXp(player.magicXp)
+          : player.level;
+    const result = resolveAttack(atk, mobCombatStats(enemy), Math.random, PLAYER_ACCURACY_BONUS, playerDamageMult(govLevel));
 
     // The swing happens regardless of hit/miss → it costs energy + cooldown.
     this.commitAbility(sessionId, ability, now);
@@ -1122,6 +1128,13 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const r2 = r * r;
     const myPerks = this.perks.get(sessionId) ?? [];
     const myTalents = this.talents.get(sessionId) ?? {};
+    const aoeGovLevel =
+      ability.skill === "ranged"
+        ? levelForXp(player.rangedXp)
+        : ability.skill === "magic"
+          ? levelForXp(player.magicXp)
+          : player.level;
+    const aoeDmgMult = playerDamageMult(aoeGovLevel);
     let anyHit = false;
     // Snapshot the ids first — killEnemy mutates the enemies map mid-loop.
     const ids = [...this.state.enemies.keys()];
@@ -1131,7 +1144,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       if (distSq(cx, cy, enemy.x, enemy.y) > r2) continue;
       const atk = this.playerStats(sessionId, player);
       atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
-      const result = resolveAttack(atk, mobCombatStats(enemy), Math.random, PLAYER_ACCURACY_BONUS);
+      const result = resolveAttack(atk, mobCombatStats(enemy), Math.random, PLAYER_ACCURACY_BONUS, aoeDmgMult);
       if (!result.hit) continue;
       anyHit = true;
       let dmg = executeAdjust(result.damage, enemy.hp, enemy.maxHp, myPerks);
