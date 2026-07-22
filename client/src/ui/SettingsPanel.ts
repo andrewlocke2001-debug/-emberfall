@@ -163,6 +163,7 @@ export class SettingsPanel {
         ["→ Cinderfen", "cinderfen"],
         ["→ Ashreach (PvP)", "ashreach"],
         ["→ Graywastes", "graywastes"],
+        ["→ Kindlecourt", "kindlecourt"],
         ["→ Refused Column", "refused_column"],
         ["→ Cinder Depths", "cinder_depths"],
         ["→ Molten Throne (raid)", "molten_throne"],

@@ -25,6 +25,7 @@ export const WAYSTONES: Record<string, WaystoneDef> = {
   ws_dolmholt: { id: "ws_dolmholt", zone: "dolmholt", x: 912, y: 1744, name: "The Dolmholt" },
   ws_cinderfen: { id: "ws_cinderfen", zone: "cinderfen", x: 208, y: 1008, name: "The Cinderfen" },
   ws_graywastes: { id: "ws_graywastes", zone: "graywastes", x: 208, y: 1008, name: "The Graywastes" },
+  ws_kindlecourt: { id: "ws_kindlecourt", zone: "kindlecourt", x: 944, y: 144, name: "The Kindlecourt" },
 };
 
 export function waystoneById(id: string): WaystoneDef | undefined {

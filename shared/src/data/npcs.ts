@@ -88,6 +88,17 @@ export const NPCS: Record<string, NpcDef> = {
     quests: ["the_cold_ledger", "what_the_beacon_gathers"],
     color: 0x8f9aa8,
   },
+  docent_havel: {
+    id: "docent_havel",
+    name: "Docent Havel",
+    zone: "kindlecourt",
+    x: 816,
+    y: 176,
+    greeting:
+      "Mind the sentinels — they still think there's a capital to defend. I catalogue what the Accord left. The Archive? Sealed, staffed, and above my clearance, which is the politest sentence I know with a lie in every word.",
+    quests: ["the_dead_watch", "glass_for_the_study"],
+    color: 0xb1a37f,
+  },
   huntmaster_veyra: {
     id: "huntmaster_veyra",
     name: "Huntmaster Veyra",

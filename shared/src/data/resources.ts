@@ -142,6 +142,14 @@ export const NODES: Partial<Record<ZoneId, ResourceNode[]>> = {
     { id: "copper-1", type: "copper_rock", x: 528, y: 1424 },
     { id: "trout-1", type: "trout_spot", x: 1520, y: 1680 },
   ],
+  // The Kindlecourt: the capital's stores — iron among the ruins + the
+  // flooded cistern's pale trout.
+  kindlecourt: [
+    { id: "iron-1", type: "iron_rock", x: 720, y: 1232 },
+    { id: "iron-2", type: "iron_rock", x: 1296, y: 1424 },
+    { id: "copper-1", type: "copper_rock", x: 400, y: 848 },
+    { id: "trout-1", type: "trout_spot", x: 304, y: 1744 },
+  ],
   // Tanglewood: richer iron in the north glade + trout at the wraith pond
   // (the pond is guarded — better yield lives behind danger).
   tanglewood: [

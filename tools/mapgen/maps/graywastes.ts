@@ -24,6 +24,11 @@ function paint(): string[] {
   p.hline(2, 30, 29, ",").hline(2, 30, 30, ",");
   p.vline(30, 12, 29, ",").vline(31, 12, 29, ",");
 
+  // South gate (P16.2): the expedition trail continues to the Kindlecourt.
+  p.vline(29, 31, 57, ",").vline(30, 31, 57, ",");
+  p.fillRect(29, 58, 30, 59, "K");
+  p.set(27, 55, "2");
+
   // The Cold Beacon: a black lamp-tower on the northern rise, with a step
   // you can walk up to — and a door that has not opened in a century.
   p.fillRect(26, 4, 35, 11, "#");
@@ -78,7 +83,8 @@ export const graywastes: MapSource = {
   displayName: "The Graywastes",
   exits: {
     X: { to: "ashreach", entry: "east" },
+    K: { to: "kindlecourt", entry: "north" },
   },
-  entries: { "1": "west" },
+  entries: { "1": "west", "2": "south" },
   ascii: paint(),
 };

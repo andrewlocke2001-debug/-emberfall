@@ -134,6 +134,24 @@ export const QUESTS: Record<string, QuestDef> = {
     requires: "the_cold_ledger",
     giver: "cache_factor_merrin",
   },
+  // The Kindlecourt arc (P16.2) — cataloguing a capital that fights back.
+  the_dead_watch: {
+    id: "the_dead_watch",
+    name: "The Dead Watch",
+    summary: "Put down 6 Court Sentinels still patrolling a fallen capital.",
+    objectives: [{ type: "kill", mob: "court_sentinel", count: 6, desc: "Put down 6 Court Sentinels" }],
+    rewards: { coins: 150, xp: [{ skill: "melee", amount: 380 }] },
+    giver: "docent_havel",
+  },
+  glass_for_the_study: {
+    id: "glass_for_the_study",
+    name: "Glass for the Study",
+    summary: "Gather 8 Lamp Glass for Havel's catalogue of the melted lamps.",
+    objectives: [{ type: "collect", itemId: "lamp_glass", count: 8, desc: "Gather 8 Lamp Glass" }],
+    rewards: { coins: 140, items: [{ itemId: "health_potion", qty: 3 }], xp: [{ skill: "magic", amount: 300 }] },
+    requires: "the_dead_watch",
+    giver: "docent_havel",
+  },
   // First contact — meet the Hearthwarden who runs the gate.
   greet_mira: {
     id: "greet_mira",

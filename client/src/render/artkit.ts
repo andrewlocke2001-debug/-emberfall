@@ -106,6 +106,11 @@ const PALETTES: Record<string, ZonePalette> = {
     path: 0x5a5b55, wall: 0x77828c, water: 0x2a5666, canopy: 0x2e3e3c,
     canopyLit: 0x415852, floor: 0x565a5e,
   },
+  kindlecourt: {
+    grass: 0x4a4440, grassDark: 0x3f3a36, blade: 0x5f5850, flower: 0xe0b070,
+    path: 0x6b6157, wall: 0x8a8078, water: 0x27424e, canopy: 0x3a352e,
+    canopyLit: 0x504839, floor: 0x6e6257,
+  },
   bg_arena: {
     grass: 0x33383f, grassDark: 0x2b3037, blade: 0x454c56, flower: 0x8fa3bd,
     path: 0x4a5058, wall: 0x555d68, water: 0x1d3f66, canopy: 0x2c3e35,
@@ -1001,6 +1006,64 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     finish("mob-harvest_enforcer");
   }
 
+  // Court Sentinel (P16.2): the capital's parade construct — marble + gilt.
+  ctx = canvas("mob-court_sentinel", 42, 46);
+  if (ctx) {
+    const stone = 0x8a8078;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    ctx.fillStyle = css(mix(stone, 0x000000, 0.25));
+    ctx.fillRect(7, 8, 28, 34);
+    ctx.strokeRect(7, 8, 28, 34);
+    ctx.fillStyle = css(stone);
+    ctx.fillRect(9, 10, 24, 30);
+    // Gilt chestplate band + a dead lamp where a face should be.
+    ctx.fillStyle = css(0xc9b45a);
+    ctx.fillRect(9, 24, 24, 4);
+    ctx.fillStyle = css(0x3a352e);
+    ctx.beginPath();
+    ctx.arc(21, 16, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = css(0xc9b45a);
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    finish("mob-court_sentinel");
+  }
+
+  // Archive Warden (P16.2): Order robes gone wrong — gilt hood, lamp sigil.
+  ctx = canvas("mob-archive_warden", 36, 42);
+  if (ctx) {
+    const cloth = 0x6e6247;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    ctx.fillStyle = css(mix(cloth, 0x000000, 0.3));
+    ctx.beginPath();
+    ctx.moveTo(7, 38);
+    ctx.quadraticCurveTo(5, 18, 18, 12);
+    ctx.quadraticCurveTo(31, 18, 29, 38);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = css(cloth);
+    ctx.beginPath();
+    ctx.moveTo(9, 36);
+    ctx.quadraticCurveTo(8, 19, 18, 13);
+    ctx.quadraticCurveTo(28, 19, 27, 36);
+    ctx.closePath();
+    ctx.fill();
+    // The Order's lamp-sigil — but LIT, which it should not be.
+    ctx.fillStyle = css(0xffd34d);
+    ctx.fillRect(16, 22, 4, 6);
+    ctx.strokeStyle = css(0x2a2f3a);
+    ctx.lineWidth = 1.4;
+    ctx.strokeRect(16, 22, 4, 6);
+    ctx.fillStyle = css(0xfff3c0);
+    ctx.beginPath();
+    ctx.arc(18, 25, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+    finish("mob-archive_warden");
+  }
+
   // Cache-Reaver (P16.1): a cold-weather bandit — furs, hood, pale lamp.
   ctx = canvas("mob-cache_reaver", 36, 42);
   if (ctx) {
@@ -1108,6 +1171,7 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     ["gatewright", 46, 54, 0x6e8fa2, 0xe8fbff],
     ["salt_shade", 32, 40, 0x8fb8bd, 0xd6f4f0],
     ["frost_wight", 30, 38, 0x9eb4c8, 0xe8f6ff],
+    ["unreturned_courtier", 32, 40, 0xcfc0a0, 0xfff3d6],
     ["beacon_congregant", 34, 42, 0x8296ad, 0xdceeff],
   ] as const) {
     ctx = canvas(`mob-${kind}`, w, h);
@@ -1368,6 +1432,7 @@ const ATMOS: Record<string, Atmosphere> = {
   dolmholt: { particle: { texture: "fx-soft", tint: 0xe8f2f8, lifespan: 9000, speedY: [10, 24], alpha: 0.3, freq: 750 }, vignette: 0.44, fog: 0x707c88, fogAlpha: 0.09 },
   cinderfen: { particle: { texture: "fx-soft", tint: 0xd8e8dc, lifespan: 7000, speedY: [-24, -10], alpha: 0.26, freq: 500 }, vignette: 0.46, fog: 0x4e6455, fogAlpha: 0.12 },
   graywastes: { particle: { texture: "fx-soft", tint: 0xeef6fc, lifespan: 8000, speedY: [14, 30], alpha: 0.34, freq: 420 }, vignette: 0.52, fog: 0x8895a2, fogAlpha: 0.13 },
+  kindlecourt: { particle: { texture: "fx-soft", tint: 0xf0c890, lifespan: 7000, speedY: [-20, -8], alpha: 0.25, freq: 650 }, vignette: 0.5, fog: 0x6e6257, fogAlpha: 0.1 },
   marrowgate_downs: { particle: { texture: "fx-soft", tint: 0xcfe3ee, lifespan: 9000, speedY: [8, 20], alpha: 0.28, freq: 900 }, vignette: 0.45, fog: 0x6f8290, fogAlpha: 0.1 },
   ashreach: { particle: { texture: "fx-soft", tint: 0xff9e5e, lifespan: 6000, speedY: [-30, -12], alpha: 0.35, freq: 350 }, vignette: 0.45, fog: 0x5e2f1e, fogAlpha: 0.09 },
   cinder_depths: { particle: { texture: "fx-soft", tint: 0xcabdd6, lifespan: 8000, speedY: [-10, 10], alpha: 0.12, freq: 900 }, vignette: 0.55, fog: 0x161320, fogAlpha: 0.14 },

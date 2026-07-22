@@ -419,6 +419,16 @@ export const ITEMS: Record<string, ItemDef> = {
     equipSlot: "amulet", bonus: { attack: 7, strength: 7, maxHp: 15 },
     desc: "A sliver of the black lamp. It is warm, and it is wrong. (2 of 9.)",
   },
+  lamp_glass: {
+    id: "lamp_glass", name: "Lamp Glass", rarity: "common", maxStack: 2_147_483_647, value: 12,
+    desc: "Glass from the capital's melted lamps. It still refuses to go fully dark.",
+  },
+  lamplighter_staff: {
+    id: "lamplighter_staff", name: "Lamplighter's Staff", rarity: "rare", maxStack: 1, value: 800,
+    equipSlot: "weapon", bonus: { attack: 9, strength: 12 }, maxDurability: 300,
+    weaponType: "staff",
+    desc: "An Archive underwarden's rod. The ferrule is still warm from work nobody admits to.",
+  },
   barrow_lantern: {
     id: "barrow_lantern",
     name: "Barrow Lantern",
