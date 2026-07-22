@@ -111,6 +111,11 @@ const PALETTES: Record<string, ZonePalette> = {
     path: 0x6b6157, wall: 0x8a8078, water: 0x27424e, canopy: 0x3a352e,
     canopyLit: 0x504839, floor: 0x6e6257,
   },
+  emberheart_caldera: {
+    grass: 0x332a28, grassDark: 0x2b2321, blade: 0x4a3a34, flower: 0xff9e5e,
+    path: 0x4e3c34, wall: 0x3f3438, water: 0xb85a1e, canopy: 0x33232a,
+    canopyLit: 0x4a3038, floor: 0x503a34,
+  },
   bg_arena: {
     grass: 0x33383f, grassDark: 0x2b3037, blade: 0x454c56, flower: 0x8fa3bd,
     path: 0x4a5058, wall: 0x555d68, water: 0x1d3f66, canopy: 0x2c3e35,
@@ -1006,6 +1011,62 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     finish("mob-harvest_enforcer");
   }
 
+  // Cinder Husk (P16.3): a kindled remnant walking — charcoal, ember seams.
+  ctx = canvas("mob-cinder_husk", 38, 46);
+  if (ctx) {
+    const char = 0x3a2e28;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    ctx.fillStyle = css(mix(char, 0x000000, 0.2));
+    ctx.fillRect(8, 8, 22, 34);
+    ctx.strokeRect(8, 8, 22, 34);
+    ctx.fillStyle = css(char);
+    ctx.fillRect(10, 10, 18, 30);
+    // Ember seams — the fire that never finished with it.
+    ctx.strokeStyle = css(0xff8a3c);
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(14, 12); ctx.lineTo(16, 22); ctx.lineTo(13, 32);
+    ctx.moveTo(24, 13); ctx.lineTo(22, 24); ctx.lineTo(25, 36);
+    ctx.moveTo(18, 26); ctx.lineTo(20, 30);
+    ctx.stroke();
+    ctx.fillStyle = css(0xffb066);
+    ctx.beginPath();
+    ctx.arc(19, 17, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    finish("mob-cinder_husk");
+  }
+
+  // Throne Herald (P16.3): the court's crier — gilt-red hood, crown sigil.
+  ctx = canvas("mob-throne_herald", 38, 44);
+  if (ctx) {
+    const cloth = 0x7a3428;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    ctx.fillStyle = css(mix(cloth, 0x000000, 0.3));
+    ctx.beginPath();
+    ctx.moveTo(7, 40);
+    ctx.quadraticCurveTo(5, 18, 19, 12);
+    ctx.quadraticCurveTo(33, 18, 31, 40);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = css(cloth);
+    ctx.beginPath();
+    ctx.moveTo(9, 38);
+    ctx.quadraticCurveTo(8, 19, 19, 13);
+    ctx.quadraticCurveTo(30, 19, 29, 38);
+    ctx.closePath();
+    ctx.fill();
+    // The Molten King's crown sigil at the chest.
+    ctx.fillStyle = css(0xe8b13a);
+    ctx.beginPath();
+    ctx.moveTo(14, 28); ctx.lineTo(16, 23); ctx.lineTo(19, 27);
+    ctx.lineTo(22, 23); ctx.lineTo(24, 28); ctx.closePath();
+    ctx.fill();
+    finish("mob-throne_herald");
+  }
+
   // Court Sentinel (P16.2): the capital's parade construct — marble + gilt.
   ctx = canvas("mob-court_sentinel", 42, 46);
   if (ctx) {
@@ -1172,6 +1233,7 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     ["salt_shade", 32, 40, 0x8fb8bd, 0xd6f4f0],
     ["frost_wight", 30, 38, 0x9eb4c8, 0xe8f6ff],
     ["unreturned_courtier", 32, 40, 0xcfc0a0, 0xfff3d6],
+    ["wound_wraith", 36, 44, 0xc97a4a, 0xffd9a8],
     ["beacon_congregant", 34, 42, 0x8296ad, 0xdceeff],
   ] as const) {
     ctx = canvas(`mob-${kind}`, w, h);
@@ -1433,6 +1495,7 @@ const ATMOS: Record<string, Atmosphere> = {
   cinderfen: { particle: { texture: "fx-soft", tint: 0xd8e8dc, lifespan: 7000, speedY: [-24, -10], alpha: 0.26, freq: 500 }, vignette: 0.46, fog: 0x4e6455, fogAlpha: 0.12 },
   graywastes: { particle: { texture: "fx-soft", tint: 0xeef6fc, lifespan: 8000, speedY: [14, 30], alpha: 0.34, freq: 420 }, vignette: 0.52, fog: 0x8895a2, fogAlpha: 0.13 },
   kindlecourt: { particle: { texture: "fx-soft", tint: 0xf0c890, lifespan: 7000, speedY: [-20, -8], alpha: 0.25, freq: 650 }, vignette: 0.5, fog: 0x6e6257, fogAlpha: 0.1 },
+  emberheart_caldera: { particle: { texture: "fx-soft", tint: 0xff9e5e, lifespan: 5000, speedY: [-44, -20], alpha: 0.38, freq: 260 }, vignette: 0.55, fog: 0x5e2f1e, fogAlpha: 0.12 },
   marrowgate_downs: { particle: { texture: "fx-soft", tint: 0xcfe3ee, lifespan: 9000, speedY: [8, 20], alpha: 0.28, freq: 900 }, vignette: 0.45, fog: 0x6f8290, fogAlpha: 0.1 },
   ashreach: { particle: { texture: "fx-soft", tint: 0xff9e5e, lifespan: 6000, speedY: [-30, -12], alpha: 0.35, freq: 350 }, vignette: 0.45, fog: 0x5e2f1e, fogAlpha: 0.09 },
   cinder_depths: { particle: { texture: "fx-soft", tint: 0xcabdd6, lifespan: 8000, speedY: [-10, 10], alpha: 0.12, freq: 900 }, vignette: 0.55, fog: 0x161320, fogAlpha: 0.14 },

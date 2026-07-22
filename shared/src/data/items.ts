@@ -429,6 +429,15 @@ export const ITEMS: Record<string, ItemDef> = {
     weaponType: "staff",
     desc: "An Archive underwarden's rod. The ferrule is still warm from work nobody admits to.",
   },
+  ember_tear: {
+    id: "ember_tear", name: "Ember Tear", rarity: "common", maxStack: 2_147_483_647, value: 15,
+    desc: "A bead of the Ember's grief, cooled mid-fall. Warm a century on.",
+  },
+  wound_walker_boots: {
+    id: "wound_walker_boots", name: "Wound-Walker Boots", rarity: "relic", maxStack: 1, value: 1500,
+    equipSlot: "feet", bonus: { attack: 8, strength: 10, defence: 6, maxHp: 20 }, maxDurability: 500,
+    desc: "They remember every step the fire took. Compasses point at them.",
+  },
   barrow_lantern: {
     id: "barrow_lantern",
     name: "Barrow Lantern",

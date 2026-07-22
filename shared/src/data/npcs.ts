@@ -99,6 +99,17 @@ export const NPCS: Record<string, NpcDef> = {
     quests: ["the_dead_watch", "glass_for_the_study"],
     color: 0xb1a37f,
   },
+  camp_keeper_ashka: {
+    id: "camp_keeper_ashka",
+    name: "Camp-Keeper Ashka",
+    zone: "emberheart_caldera",
+    x: 1040,
+    y: 1680,
+    greeting:
+      "One fire in this whole crater doesn't want you dead, and you're standing at it. I keep the truce: League, Order, Tendfast — everyone's cold at the Last Camp. Listen... you can hear it dreaming down there. Try not to wake it.",
+    quests: ["the_wound_watch", "tears_of_the_ember"],
+    color: 0xd08a5a,
+  },
   huntmaster_veyra: {
     id: "huntmaster_veyra",
     name: "Huntmaster Veyra",

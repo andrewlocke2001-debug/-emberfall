@@ -150,6 +150,14 @@ export const NODES: Partial<Record<ZoneId, ResourceNode[]>> = {
     { id: "copper-1", type: "copper_rock", x: 400, y: 848 },
     { id: "trout-1", type: "trout_spot", x: 304, y: 1744 },
   ],
+  // The Emberheart Caldera: the richest iron in Vesper — and nothing swims
+  // in lava, so the fishers stay home.
+  emberheart_caldera: [
+    { id: "iron-1", type: "iron_rock", x: 336, y: 720 },
+    { id: "iron-2", type: "iron_rock", x: 1680, y: 848 },
+    { id: "iron-3", type: "iron_rock", x: 656, y: 1424 },
+    { id: "copper-1", type: "copper_rock", x: 1520, y: 1360 },
+  ],
   // Tanglewood: richer iron in the north glade + trout at the wraith pond
   // (the pond is guarded — better yield lives behind danger).
   tanglewood: [

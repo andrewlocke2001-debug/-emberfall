@@ -152,6 +152,24 @@ export const QUESTS: Record<string, QuestDef> = {
     requires: "the_dead_watch",
     giver: "docent_havel",
   },
+  // The Emberheart Caldera arc (P16.3) — holding the Last Camp's truce.
+  the_wound_watch: {
+    id: "the_wound_watch",
+    name: "The Wound Watch",
+    summary: "Put down 6 Cinder Husks before they stagger into the Last Camp.",
+    objectives: [{ type: "kill", mob: "cinder_husk", count: 6, desc: "Put down 6 Cinder Husks" }],
+    rewards: { coins: 170, xp: [{ skill: "melee", amount: 450 }] },
+    giver: "camp_keeper_ashka",
+  },
+  tears_of_the_ember: {
+    id: "tears_of_the_ember",
+    name: "Tears of the Ember",
+    summary: "Gather 8 Ember Tears — Ashka trades them to every faction for the camp's keep.",
+    objectives: [{ type: "collect", itemId: "ember_tear", count: 8, desc: "Gather 8 Ember Tears" }],
+    rewards: { coins: 160, items: [{ itemId: "health_potion", qty: 3 }], xp: [{ skill: "ranged", amount: 350 }] },
+    requires: "the_wound_watch",
+    giver: "camp_keeper_ashka",
+  },
   // First contact — meet the Hearthwarden who runs the gate.
   greet_mira: {
     id: "greet_mira",

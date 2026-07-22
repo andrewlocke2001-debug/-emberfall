@@ -26,6 +26,7 @@ export const HUNT_TARGETS: HuntTargetDef[] = [
   { mob: "fen_creeper", min: 3, max: 5, points: 46 },
   { mob: "frost_wight", min: 3, max: 5, points: 56 },
   { mob: "court_sentinel", min: 3, max: 5, points: 66 },
+  { mob: "cinder_husk", min: 3, max: 5, points: 76 },
 ];
 
 /** The Hunt point shop: retention-loop rewards, priced in Hunt points. */

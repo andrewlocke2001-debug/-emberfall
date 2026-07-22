@@ -47,7 +47,7 @@ function paint(): string[] {
 export const moltenThrone: MapSource = {
   id: "molten_throne",
   displayName: "The Molten Throne",
-  exits: { X: { to: "ashreach", entry: "throne" } },
+  exits: { X: { to: "emberheart_caldera", entry: "gate" } },
   entries: {},
   ascii: paint(),
 };

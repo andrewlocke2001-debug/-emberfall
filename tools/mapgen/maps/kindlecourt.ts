@@ -53,6 +53,11 @@ function paint(): string[] {
     p.set(bx + 3, by + 4, "="); // the breached doorway
   }
 
+  // The pilgrim road east (P16.3): south of the Scaffold to the Caldera.
+  p.hline(16, 57, 50, ",").hline(16, 57, 51, ",");
+  p.fillRect(58, 50, 59, 51, "E");
+  p.set(55, 52, "2");
+
   // The flooded cistern (south-west).
   p.fillRect(6, 52, 12, 56, "~");
 
@@ -87,7 +92,8 @@ export const kindlecourt: MapSource = {
   displayName: "The Kindlecourt",
   exits: {
     X: { to: "graywastes", entry: "south" },
+    E: { to: "emberheart_caldera", entry: "west" },
   },
-  entries: { "1": "north" },
+  entries: { "1": "north", "2": "east" },
   ascii: paint(),
 };

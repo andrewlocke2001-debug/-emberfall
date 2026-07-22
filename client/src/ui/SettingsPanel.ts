@@ -164,6 +164,7 @@ export class SettingsPanel {
         ["→ Ashreach (PvP)", "ashreach"],
         ["→ Graywastes", "graywastes"],
         ["→ Kindlecourt", "kindlecourt"],
+        ["→ Emberheart Caldera", "emberheart_caldera"],
         ["→ Refused Column", "refused_column"],
         ["→ Cinder Depths", "cinder_depths"],
         ["→ Molten Throne (raid)", "molten_throne"],
