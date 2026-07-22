@@ -613,6 +613,8 @@ export class ZoneScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys[bind.ability1]!)) this.tryUseAbility(this.weaponKit[0]!);
     if (Phaser.Input.Keyboard.JustDown(this.keys[bind.ability2]!)) this.tryUseAbility(this.weaponKit[1]!);
     if (Phaser.Input.Keyboard.JustDown(this.keys[bind.ability3]!)) this.tryUseAbility(this.weaponKit[2]!);
+    if (this.weaponKit[3] && Phaser.Input.Keyboard.JustDown(this.keys[bind.ability4]!))
+      this.tryUseAbility(this.weaponKit[3]);
     if (Phaser.Input.Keyboard.JustDown(this.keys[bind.inventory]!)) this.inventory?.toggle();
 
     // Bank: fetch contents when you arrive at one; B toggles the panel there;
@@ -676,10 +678,15 @@ if (me) {
     if (!self || !self.alive || !this.abilityBar) return;
     if (!this.abilityBar.canUse(id, self.energy)) return;
 
-    if (ABILITIES[id].kind === "heal") {
+    const ab = ABILITIES[id];
+    if (ab.kind === "heal") {
+      room.send(ClientMessage.UseAbility, { abilityId: id, targetId: this.localSessionId });
+    } else if (ab.aoe && !ab.aoe.atTarget) {
+      // Self-centered AOE (Whirlwind, Fan of Knives): spins around you — no
+      // target needed; the server hits everything in range of the caster.
       room.send(ClientMessage.UseAbility, { abilityId: id, targetId: this.localSessionId });
     } else {
-      if (!this.selectedTargetId) return; // attacks need a target
+      if (!this.selectedTargetId) return; // single-target + target-centered AOE need a target
       room.send(ClientMessage.UseAbility, { abilityId: id, targetId: this.selectedTargetId });
     }
     this.abilityBar.markUsed(id);

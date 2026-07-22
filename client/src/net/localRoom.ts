@@ -632,6 +632,23 @@ export class SoloRoom {
       return;
     }
 
+    // AOE finisher (P15.4): self-centered (melee) or on the target (ranged).
+    if (ability.aoe) {
+      let cx = p.x;
+      let cy = p.y;
+      if (ability.aoe.atTarget) {
+        const aim = this.state.enemies.get(msg.targetId);
+        if (!aim || !aim.alive) return;
+        if (distSq(p.x, p.y, aim.x, aim.y) > ability.range * ability.range) return;
+        cx = aim.x;
+        cy = aim.y;
+      }
+      this.commitAbility(ability, now);
+      p.energy -= cost;
+      this.resolveAoe(ability, cx, cy, now);
+      return;
+    }
+
     const enemy = this.state.enemies.get(msg.targetId);
     if (!enemy || !enemy.alive) return;
     if (distSq(p.x, p.y, enemy.x, enemy.y) > ability.range * ability.range) return;
@@ -670,6 +687,47 @@ export class SoloRoom {
   private commitAbility(ability: { id: string; cooldownMs: number; onGcd?: boolean }, now: number): void {
     if (ability.onGcd ?? true) this.gcdUntil = now + talentGcdMs(this.talents, perkGcdMs(this.chosenPerks, GCD_MS));
     if (ability.cooldownMs > 0) this.abilityCooldowns.set(ability.id, now + ability.cooldownMs);
+  }
+
+  /** AOE finisher (P15.4) — the single-hit pipeline against every enemy in
+   *  radius of (cx,cy). Mirrors the server exactly. */
+  private resolveAoe(
+    ability: (typeof ABILITIES)[keyof typeof ABILITIES],
+    cx: number,
+    cy: number,
+    now: number,
+  ): void {
+    const p = this.player();
+    const r2 = (ability.aoe?.radius ?? 0) ** 2;
+    let anyHit = false;
+    for (const id of [...this.state.enemies.keys()]) {
+      const enemy = this.state.enemies.get(id);
+      if (!enemy || !enemy.alive) continue;
+      if (distSq(cx, cy, enemy.x, enemy.y) > r2) continue;
+      const atk = this.playerStats();
+      atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
+      const result = resolveAttack(atk, this.mobStats(enemy), Math.random, PLAYER_ACCURACY_BONUS);
+      if (!result.hit) continue;
+      anyHit = true;
+      let dmg = executeAdjust(result.damage, enemy.hp, enemy.maxHp, this.chosenPerks);
+      dmg = talentExecuteAdjust(dmg, enemy.hp, enemy.maxHp, this.talents);
+      if (dmg > 0 && Math.random() < talentCritChance(this.talents)) dmg = Math.round(dmg * CRIT_MULT);
+      const hpAfter = Math.max(0, enemy.hp - dmg);
+      const died = hpAfter <= 0;
+      enemy.hp = hpAfter;
+      const ls = perkLifesteal(this.chosenPerks) + talentLifesteal(this.talents);
+      if (ls > 0 && dmg > 0 && p.alive) p.hp = Math.min(p.maxHp, p.hp + ls);
+      this.tagged.add(id);
+      if (ability.effect && !died) {
+        this.activeEffects.set(
+          id,
+          applyEffect(this.activeEffects.get(id) ?? [], ability.effect, SOLO_ID, ability.skill ?? "melee", now),
+        );
+      }
+      this.emit(ServerMessage.CombatEvent, { attackerId: SOLO_ID, targetId: id, damage: dmg, targetDied: died });
+      if (died) this.killEnemy(enemy, now, ability.skill ?? "melee");
+    }
+    if (anyHit) this.wearGear(this.equipment.weapon);
   }
 
   /** A mob dies: stop it, clear its effects, schedule respawn, pay credit. */

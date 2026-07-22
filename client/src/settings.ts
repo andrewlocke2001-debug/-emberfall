@@ -19,6 +19,7 @@ export interface KeyBinds {
   ability1: string;
   ability2: string;
   ability3: string;
+  ability4: string;
 }
 
 export interface Settings {
@@ -44,6 +45,7 @@ export const DEFAULT_KEYS: KeyBinds = {
   ability1: "ONE",
   ability2: "TWO",
   ability3: "THREE",
+  ability4: "FOUR",
 };
 
 /** Keys the game reserves (movement/attack/chat/UI) — never bindable. */

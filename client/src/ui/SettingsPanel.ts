@@ -30,8 +30,9 @@ const KEY_LABELS: Record<keyof KeyBinds, string> = {
   mount: "Mount / dismount",
   skills: "Skill tree",
   ability1: "Ability 1 (Strike)",
-  ability2: "Ability 2 (Power Strike)",
-  ability3: "Ability 3 (Mend)",
+  ability2: "Ability 2 (Special)",
+  ability3: "Ability 3 (AOE)",
+  ability4: "Ability 4 (Mend)",
 };
 
 /** Pretty display for Phaser key names ("ONE" → "1"). */

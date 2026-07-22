@@ -23,6 +23,10 @@ export const ABILITY_IDS = [
   "ember_burst",
   "rend",
   "hamstring",
+  "whirlwind",
+  "fan_of_knives",
+  "volley",
+  "scorchwave",
 ] as const;
 export type AbilityId = (typeof ABILITY_IDS)[number];
 
@@ -213,6 +217,9 @@ export interface AbilityDef {
   weaponTypes?: WeaponType[];
   /** Status effect applied to the target on a LANDED hit (P13.2). */
   effect?: AbilityEffect;
+  /** Area attack (P15.4): hits every enemy within radius. atTarget centers on
+   *  the target (ranged/magic); otherwise centers on the caster (melee). */
+  aoe?: { radius: number; atTarget?: boolean };
 }
 
 /** A status effect carried by an ability (data) — see systems/effects.ts. */

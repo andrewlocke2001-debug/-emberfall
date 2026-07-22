@@ -942,6 +942,24 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       return;
     }
 
+    // AOE finisher (P15.4): hit every enemy in the blast. Self-centered for
+    // melee; centered on the target for ranged/magic (needs a target to aim).
+    if (ability.aoe) {
+      let cx = player.x;
+      let cy = player.y;
+      if (ability.aoe.atTarget) {
+        const aim = this.state.enemies.get(msg.targetId);
+        if (!aim || !aim.alive) return;
+        if (distSq(player.x, player.y, aim.x, aim.y) > ability.range * ability.range) return;
+        cx = aim.x;
+        cy = aim.y;
+      }
+      this.commitAbility(sessionId, ability, now);
+      player.energy -= cost;
+      this.resolveAoe(client, sessionId, player, ability, cx, cy, now);
+      return;
+    }
+
     // PvP: allowed inside an active duel, freely (with anti-grief rules) in a
     // PvP risk zone (the Ashreach, P9.2), or cross-team in the battleground.
     const duelTarget = this.duels.get(sessionId);
@@ -1087,6 +1105,57 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.broadcast(ServerMessage.CombatEvent, evt);
       if (died) this.killEnemy(enemy, now);
     }
+  }
+
+  /** AOE finisher (P15.4): the same per-enemy pipeline as a single hit, run
+   *  against every living enemy within `radius` of (cx,cy). Lifesteal sums. */
+  private resolveAoe(
+    client: Client,
+    sessionId: string,
+    player: PlayerSchema,
+    ability: (typeof ABILITIES)[keyof typeof ABILITIES],
+    cx: number,
+    cy: number,
+    now: number,
+  ): void {
+    const r = ability.aoe?.radius ?? 0;
+    const r2 = r * r;
+    const myPerks = this.perks.get(sessionId) ?? [];
+    const myTalents = this.talents.get(sessionId) ?? {};
+    let anyHit = false;
+    // Snapshot the ids first — killEnemy mutates the enemies map mid-loop.
+    const ids = [...this.state.enemies.keys()];
+    for (const id of ids) {
+      const enemy = this.state.enemies.get(id);
+      if (!enemy || !enemy.alive) continue;
+      if (distSq(cx, cy, enemy.x, enemy.y) > r2) continue;
+      const atk = this.playerStats(sessionId, player);
+      atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
+      const result = resolveAttack(atk, mobCombatStats(enemy), Math.random, PLAYER_ACCURACY_BONUS);
+      if (!result.hit) continue;
+      anyHit = true;
+      let dmg = executeAdjust(result.damage, enemy.hp, enemy.maxHp, myPerks);
+      dmg = talentExecuteAdjust(dmg, enemy.hp, enemy.maxHp, myTalents);
+      if (dmg > 0 && Math.random() < talentCritChance(myTalents)) dmg = Math.round(dmg * CRIT_MULT);
+      const hpAfter = Math.max(0, enemy.hp - dmg);
+      const died = hpAfter <= 0;
+      enemy.hp = hpAfter;
+      const ls = perkLifesteal(myPerks) + talentLifesteal(myTalents);
+      if (ls > 0 && dmg > 0 && player.alive) player.hp = Math.min(player.maxHp, player.hp + ls);
+      this.mobContributors.get(id)?.add(sessionId);
+      const skillMap = this.mobContributorSkill.get(id) ?? new Map<string, CombatSkill>();
+      skillMap.set(sessionId, ability.skill ?? "melee");
+      this.mobContributorSkill.set(id, skillMap);
+      if (ability.effect && !died) {
+        this.activeEffects.set(
+          id,
+          applyEffect(this.activeEffects.get(id) ?? [], ability.effect, sessionId, ability.skill ?? "melee", now),
+        );
+      }
+      this.broadcast(ServerMessage.CombatEvent, { attackerId: sessionId, targetId: id, damage: dmg, targetDied: died });
+      if (died) this.killEnemy(enemy, now);
+    }
+    if (anyHit) this.wearGear(client, this.equipment.get(sessionId)?.weapon);
   }
 
   /** Advance all status effects: apply due DoT ticks, drop expired ones. */

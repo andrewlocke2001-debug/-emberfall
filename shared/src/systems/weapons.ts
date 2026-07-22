@@ -23,12 +23,13 @@ export function basicAbilityFor(weaponType: WeaponType | undefined): AbilityId {
 
 /** The ability-bar kit shown for this weapon class (basic, special, utility). */
 export function abilityKitFor(weaponType: WeaponType | undefined): AbilityId[] {
-  if (weaponType === "bow") return ["quick_shot", "aimed_shot", "mend"];
-  if (weaponType === "staff") return ["cinderbolt", "ember_burst", "mend"];
-  if (weaponType === "axe") return ["strike", "rend", "mend"];
-  if (weaponType === "dagger") return ["strike", "hamstring", "mend"];
-  // Maul + sword share the clean-burst melee kit.
-  return ["strike", "power_strike", "mend"];
+  // Four slots (P15.4): basic, special, AOE, utility.
+  if (weaponType === "bow") return ["quick_shot", "aimed_shot", "volley", "mend"];
+  if (weaponType === "staff") return ["cinderbolt", "ember_burst", "scorchwave", "mend"];
+  if (weaponType === "axe") return ["strike", "rend", "whirlwind", "mend"];
+  if (weaponType === "dagger") return ["strike", "hamstring", "fan_of_knives", "mend"];
+  // Maul + sword share the clean-burst melee kit + Whirlwind.
+  return ["strike", "power_strike", "whirlwind", "mend"];
 }
 
 /**
