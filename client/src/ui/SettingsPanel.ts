@@ -170,6 +170,7 @@ export class SettingsPanel {
         ["→ Sealed Shift", "sealed_shift"],
         ["→ Bleedworks", "bleedworks"],
         ["→ Lamplight Archive", "lamplight_archive"],
+        ["→ Greatwake Isles", "greatwake_isles"],
         ["→ Cinder Depths", "cinder_depths"],
         ["→ Molten Throne (raid)", "molten_throne"],
       ] as const) {

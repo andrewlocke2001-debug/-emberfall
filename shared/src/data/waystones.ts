@@ -27,6 +27,7 @@ export const WAYSTONES: Record<string, WaystoneDef> = {
   ws_graywastes: { id: "ws_graywastes", zone: "graywastes", x: 208, y: 1008, name: "The Graywastes" },
   ws_kindlecourt: { id: "ws_kindlecourt", zone: "kindlecourt", x: 944, y: 144, name: "The Kindlecourt" },
   ws_emberheart: { id: "ws_emberheart", zone: "emberheart_caldera", x: 976, y: 1712, name: "The Last Camp" },
+  ws_greatwake: { id: "ws_greatwake", zone: "greatwake_isles", x: 400, y: 1552, name: "Hearthholm" },
 };
 
 export function waystoneById(id: string): WaystoneDef | undefined {

@@ -131,6 +131,11 @@ const PALETTES: Record<string, ZonePalette> = {
     path: 0x4a463e, wall: 0x3f4448, water: 0xc2601e, canopy: 0x30332f,
     canopyLit: 0x424640, floor: 0x554e42,
   },
+  greatwake_isles: {
+    grass: 0x4a4640, grassDark: 0x3e3b35, blade: 0x5a554b, flower: 0xd8b04a,
+    path: 0x6b5f4c, wall: 0x4d4644, water: 0x2f6d75, canopy: 0x51584d,
+    canopyLit: 0x69705d, floor: 0x6e6152,
+  },
   lamplight_archive: {
     grass: 0x38322a, grassDark: 0x2f2a23, blade: 0x4a4236, flower: 0xffd34d,
     path: 0x4e4436, wall: 0x4a4038, water: 0x27424e, canopy: 0x332e26,
@@ -1031,6 +1036,126 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     finish("mob-harvest_enforcer");
   }
 
+  // The Wakespawn (P18.1): a humped sea-thing, kindled along its seams.
+  ctx = canvas("mob-wakespawn", 36, 28);
+  if (ctx) {
+    const hide = 0x3f7d8c;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    ctx.fillStyle = css(mix(hide, 0x000000, 0.25));
+    ctx.beginPath();
+    ctx.moveTo(4, 24);
+    ctx.quadraticCurveTo(6, 6, 18, 5);
+    ctx.quadraticCurveTo(30, 6, 32, 24);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = css(hide);
+    ctx.beginPath();
+    ctx.moveTo(6, 23);
+    ctx.quadraticCurveTo(8, 8, 18, 7);
+    ctx.quadraticCurveTo(28, 8, 30, 23);
+    ctx.closePath();
+    ctx.fill();
+    // Ember seams down the hump — the kindling shows through.
+    ctx.strokeStyle = css(0xff9c4a);
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(13, 10);
+    ctx.quadraticCurveTo(15, 16, 12, 22);
+    ctx.moveTo(22, 9);
+    ctx.quadraticCurveTo(24, 15, 23, 22);
+    ctx.stroke();
+    // Small hot eyes low on the body.
+    ctx.fillStyle = css(0xffd34d);
+    ctx.fillRect(14, 19, 2, 2);
+    ctx.fillRect(21, 19, 2, 2);
+    finish("mob-wakespawn");
+  }
+
+  // The Keel Shade (P18.1): one of the Unreturned, still asking after the tide.
+  ctx = canvas("mob-keel_shade", 30, 40);
+  if (ctx) {
+    const shroud = 0x8f9bae;
+    ctx.strokeStyle = "rgba(5,7,10,0.85)";
+    ctx.lineWidth = 2;
+    ctx.fillStyle = css(mix(shroud, 0x000000, 0.35));
+    ctx.beginPath();
+    ctx.moveTo(7, 37);
+    ctx.quadraticCurveTo(4, 14, 15, 5);
+    ctx.quadraticCurveTo(26, 14, 23, 37);
+    ctx.quadraticCurveTo(19, 33, 15, 37);
+    ctx.quadraticCurveTo(11, 33, 7, 37);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = css(shroud);
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(9, 34);
+    ctx.quadraticCurveTo(7, 15, 15, 8);
+    ctx.quadraticCurveTo(23, 15, 21, 34);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    // A keel-nail clutched against the chest.
+    ctx.strokeStyle = css(0x5c554a);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(15, 18);
+    ctx.lineTo(15, 28);
+    ctx.stroke();
+    // Hollow tide-grey eyes.
+    ctx.fillStyle = css(0xd7e4e2);
+    ctx.fillRect(12, 13, 2, 3);
+    ctx.fillRect(17, 13, 2, 3);
+    finish("mob-keel_shade");
+  }
+
+  // The Leviathanling (P18.1): a kindled whelp, gullet aglow.
+  ctx = canvas("mob-leviathanling", 46, 30);
+  if (ctx) {
+    const hide = 0xd06a3f;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    // Serpentine body in one long sweep, head east.
+    ctx.fillStyle = css(mix(hide, 0x000000, 0.3));
+    ctx.beginPath();
+    ctx.moveTo(3, 18);
+    ctx.quadraticCurveTo(10, 8, 20, 14);
+    ctx.quadraticCurveTo(30, 20, 38, 12);
+    ctx.quadraticCurveTo(43, 9, 43, 15);
+    ctx.quadraticCurveTo(40, 22, 30, 24);
+    ctx.quadraticCurveTo(16, 26, 6, 24);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = css(hide);
+    ctx.beginPath();
+    ctx.moveTo(6, 18);
+    ctx.quadraticCurveTo(12, 11, 20, 16);
+    ctx.quadraticCurveTo(30, 21, 37, 14);
+    ctx.quadraticCurveTo(40, 12, 40, 16);
+    ctx.quadraticCurveTo(37, 21, 29, 22);
+    ctx.quadraticCurveTo(16, 24, 8, 22);
+    ctx.closePath();
+    ctx.fill();
+    // Fin spines along the back.
+    ctx.strokeStyle = css(mix(hide, 0x000000, 0.4));
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(12, 12); ctx.lineTo(14, 8);
+    ctx.moveTo(20, 14); ctx.lineTo(23, 10);
+    ctx.moveTo(29, 17); ctx.lineTo(32, 13);
+    ctx.stroke();
+    // The glowing gullet at the head.
+    ctx.fillStyle = css(0xffd34d);
+    ctx.beginPath();
+    ctx.arc(39, 16, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    finish("mob-leviathanling");
+  }
+
   // Provost Ilsever (P17.4): gilt-edged Order robes, a lamp held high.
   ctx = canvas("mob-provost_ilsever", 42, 52);
   if (ctx) {
@@ -1681,6 +1806,7 @@ const ATMOS: Record<string, Atmosphere> = {
   sunken_pyre: { particle: { texture: "fx-soft", tint: 0x9fd4de, lifespan: 9000, speedY: [-14, -4], alpha: 0.22, freq: 900 }, vignette: 0.58, fog: 0x27454e, fogAlpha: 0.15 },
   sealed_shift: { particle: { texture: "fx-soft", tint: 0xcbb58a, lifespan: 10000, speedY: [6, 16], alpha: 0.2, freq: 1000 }, vignette: 0.56, fog: 0x3a332c, fogAlpha: 0.14 },
   bleedworks: { particle: { texture: "fx-soft", tint: 0xe8c9a0, lifespan: 6000, speedY: [-26, -12], alpha: 0.3, freq: 480 }, vignette: 0.55, fog: 0x4a4038, fogAlpha: 0.13 },
+  greatwake_isles: { particle: { texture: "fx-soft", tint: 0xbfe8e2, lifespan: 6000, speedY: [-16, -8], alpha: 0.22, freq: 500 }, vignette: 0.38, fog: 0x9fc4c0, fogAlpha: 0.08 },
   lamplight_archive: { particle: { texture: "fx-soft", tint: 0xffe9a8, lifespan: 8000, speedY: [-10, -4], alpha: 0.28, freq: 700 }, vignette: 0.52, fog: 0x3a332a, fogAlpha: 0.12 },
   marrowgate_downs: { particle: { texture: "fx-soft", tint: 0xcfe3ee, lifespan: 9000, speedY: [8, 20], alpha: 0.28, freq: 900 }, vignette: 0.45, fog: 0x6f8290, fogAlpha: 0.1 },
   ashreach: { particle: { texture: "fx-soft", tint: 0xff9e5e, lifespan: 6000, speedY: [-30, -12], alpha: 0.35, freq: 350 }, vignette: 0.45, fog: 0x5e2f1e, fogAlpha: 0.09 },

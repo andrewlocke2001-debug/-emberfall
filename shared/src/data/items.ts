@@ -467,6 +467,19 @@ export const ITEMS: Record<string, ItemDef> = {
     equipSlot: "ring", bonus: { attack: 6, strength: 6, defence: 5, maxHp: 25 },
     desc: "Somebody's stolen spark, still burning. It keeps you instead, now.",
   },
+  cinder_pearl: {
+    id: "cinder_pearl", name: "Cinder Pearl", rarity: "common", maxStack: 2_147_483_647, value: 55,
+    desc: "Sea-cooled cinder, stable and clean-burning. The only fire the Order didn't light.",
+  },
+  leviathan_scale: {
+    id: "leviathan_scale", name: "Leviathan Scale", rarity: "common", maxStack: 2_147_483_647, value: 70,
+    desc: "Still warm. It will be warm in a hundred years.",
+  },
+  kettle_charm: {
+    id: "kettle_charm", name: "Kettle Charm", rarity: "rare", maxStack: 1, value: 750,
+    equipSlot: "amulet", bonus: { defence: 5, maxHp: 20 },
+    desc: "A nailed kettle from a shrine post. A boiling offering needs no fire here.",
+  },
   barrow_lantern: {
     id: "barrow_lantern",
     name: "Barrow Lantern",

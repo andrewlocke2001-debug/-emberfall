@@ -77,6 +77,17 @@ export const NPCS: Record<string, NpcDef> = {
     quests: ["the_fen_bleeds", "amber_for_the_tending", "shut_the_intake"],
     color: 0x7fae8e,
   },
+  pearlmother_sena: {
+    id: "pearlmother_sena",
+    name: "Pearlmother Sena",
+    zone: "greatwake_isles",
+    x: 336,
+    y: 1488,
+    greeting:
+      "The beds cool the Ember's spit into pearls, and the leviathans that made the beds want them back. The Order calls that a supply problem. I call it a debt coming due. Dive anyway?",
+    quests: ["the_beds_at_slack_tide", "what_the_wake_keeps"],
+    color: 0x5f8ea3,
+  },
   cache_factor_merrin: {
     id: "cache_factor_merrin",
     name: "Cache-Factor Merrin",

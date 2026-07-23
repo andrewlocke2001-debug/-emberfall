@@ -17,6 +17,7 @@ import sunkenPyreJson from "./maps/sunken_pyre.json";
 import sealedShiftJson from "./maps/sealed_shift.json";
 import bleedworksJson from "./maps/bleedworks.json";
 import lamplightArchiveJson from "./maps/lamplight_archive.json";
+import greatwakeIslesJson from "./maps/greatwake_isles.json";
 import { loadZoneMap, type TiledMap, type ZoneMap } from "../systems/zonemap";
 
 /**
@@ -28,7 +29,7 @@ import { loadZoneMap, type TiledMap, type ZoneMap } from "../systems/zonemap";
  * DUNGEON_IDS are instanced maps (one room PER RUN, matched by party) — they
  * deliberately stay out of ZONE_IDS so nothing treats them as overworld.
  */
-export const ZONE_IDS = ["meadowbrook", "greenreach", "marrowgate_downs", "tanglewood", "vossmere", "dolmholt", "cinderfen", "ashreach", "graywastes", "kindlecourt", "emberheart_caldera"] as const;
+export const ZONE_IDS = ["meadowbrook", "greenreach", "marrowgate_downs", "tanglewood", "vossmere", "dolmholt", "cinderfen", "ashreach", "graywastes", "kindlecourt", "emberheart_caldera", "greatwake_isles"] as const;
 export type ZoneId = (typeof ZONE_IDS)[number];
 
 /** Zones where open PvP (with anti-grief rules) is enabled — the risk zones. */
@@ -49,6 +50,7 @@ export const ZONES: Record<ZoneId, ZoneMap> = {
   graywastes: loadZoneMap("graywastes", graywastesJson as unknown as TiledMap),
   kindlecourt: loadZoneMap("kindlecourt", kindlecourtJson as unknown as TiledMap),
   emberheart_caldera: loadZoneMap("emberheart_caldera", emberheartCalderaJson as unknown as TiledMap),
+  greatwake_isles: loadZoneMap("greatwake_isles", greatwakeIslesJson as unknown as TiledMap),
 };
 
 export const DUNGEONS: Record<DungeonId, ZoneMap> = {

@@ -54,6 +54,10 @@ function paint(): string[] {
   p.fillRect(24, 0, 25, 1, "R");
   p.set(24, 3, "2");
 
+  // West gate down to the Greatwake Isles (P18.1) + its return entry.
+  p.fillRect(0, 24, 1, 25, "S");
+  p.set(3, 26, "4");
+
   return p.rows();
 }
 
@@ -64,7 +68,8 @@ export const ashreach: MapSource = {
     X: { to: "tanglewood", entry: "ash" },
     R: { to: "emberheart_caldera", entry: "south" },
     W: { to: "graywastes", entry: "west" },
+    S: { to: "greatwake_isles", entry: "east" },
   },
-  entries: { "1": "south", "2": "throne", "3": "east" },
+  entries: { "1": "south", "2": "throne", "3": "east", "4": "west" },
   ascii: paint(),
 };

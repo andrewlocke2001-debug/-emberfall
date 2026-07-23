@@ -22,6 +22,10 @@ function paint(): string[] {
   // West gate (to the Dolmholt) + the duckboard road east into the fen.
   p.fillRect(0, 29, 1, 30, "X");
   p.hline(2, 44, 29, ",").hline(2, 44, 30, ",");
+  // East gate: the strait ferry out to the Greatwake Isles (P18.1).
+  p.fillRect(58, 29, 59, 30, "S");
+  p.hline(45, 57, 29, ",").hline(45, 57, 30, ",");
+  p.set(56, 31, "3");
   // Spur north to the Bleedworks; spur south to the tending-camp.
   p.vline(38, 14, 29, ",").vline(39, 14, 29, ",");
   p.vline(16, 30, 44, ",").vline(17, 30, 44, ",");
@@ -81,7 +85,8 @@ export const cinderfen: MapSource = {
   exits: {
     X: { to: "dolmholt", entry: "east" },
     B: { to: "bleedworks", entry: "gate" },
+    S: { to: "greatwake_isles", entry: "west" },
   },
-  entries: { "1": "west", "2": "intake" },
+  entries: { "1": "west", "2": "intake", "3": "east" },
   ascii: paint(),
 };

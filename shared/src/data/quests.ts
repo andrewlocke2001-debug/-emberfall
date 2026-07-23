@@ -206,6 +206,23 @@ export const QUESTS: Record<string, QuestDef> = {
     requires: "glass_for_the_study",
     giver: "docent_havel",
   },
+  the_beds_at_slack_tide: {
+    id: "the_beds_at_slack_tide",
+    name: "The Beds at Slack Tide",
+    summary: "The pearl beds are open for one tide and the wakespawn know it too. Clear the shallows so the divers can work.",
+    objectives: [{ type: "kill", mob: "wakespawn", count: 6, desc: "Clear 6 Wakespawn from the beds" }],
+    rewards: { coins: 120, xp: [{ skill: "fishing", amount: 200 }] },
+    giver: "pearlmother_sena",
+  },
+  what_the_wake_keeps: {
+    id: "what_the_wake_keeps",
+    name: "What the Wake Keeps",
+    summary: "Sena pays in coin for pearls and in silence for where they come from. Bring her four.",
+    objectives: [{ type: "collect", itemId: "cinder_pearl", count: 4, desc: "Gather 4 Cinder Pearls" }],
+    rewards: { coins: 150, items: [{ itemId: "health_potion", qty: 2 }], xp: [{ skill: "vitality", amount: 180 }] },
+    requires: "the_beds_at_slack_tide",
+    giver: "pearlmother_sena",
+  },
   // First contact — meet the Hearthwarden who runs the gate.
   greet_mira: {
     id: "greet_mira",

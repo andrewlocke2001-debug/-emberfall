@@ -135,6 +135,13 @@ export const NODES: Partial<Record<ZoneId, ResourceNode[]>> = {
     { id: "copper-1", type: "copper_rock", x: 336, y: 1360 },
     { id: "trout-1", type: "trout_spot", x: 688, y: 720 },
   ],
+  // The Greatwake Isles: pearl-water trout + island iron (P18.1).
+  greatwake_isles: [
+    { id: "trout-1", type: "trout_spot", x: 784, y: 1328 },
+    { id: "trout-2", type: "trout_spot", x: 528, y: 1264 },
+    { id: "iron-1", type: "iron_rock", x: 1488, y: 1008 },
+    { id: "iron-2", type: "iron_rock", x: 1424, y: 1456 },
+  ],
   // The Graywastes: frozen iron worth the trip + the hot-spring trout.
   graywastes: [
     { id: "iron-1", type: "iron_rock", x: 656, y: 528 },

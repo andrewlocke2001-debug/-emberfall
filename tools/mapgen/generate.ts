@@ -21,6 +21,7 @@ import { sunkenPyre } from "./maps/sunken_pyre";
 import { sealedShift } from "./maps/sealed_shift";
 import { bleedworks } from "./maps/bleedworks";
 import { lamplightArchive } from "./maps/lamplight_archive";
+import { greatwakeIsles } from "./maps/greatwake_isles";
 
 /**
  * ASCII → Tiled-format JSON compiler. Run from the repo root:
@@ -79,6 +80,9 @@ const GROUND: Record<string, number> = {
   Z: 1,
   O: 1,
   U: 1,
+  M: 1,
+  P: 1,
+  V: 1,
 };
 const OBSTACLE: Record<string, number> = { "#": 3, T: 4, "~": 5, f: 7 };
 
@@ -118,9 +122,12 @@ const ENEMY_CHARS: Record<string, string> = {
   Z: "bell_foreman",
   O: "intake_overseer",
   U: "provost_ilsever",
+  M: "wakespawn",
+  P: "keel_shade",
+  V: "leviathanling",
 };
 
-const MAPS: MapSource[] = [meadowbrook, greenreach, tanglewood, cinderDepths, ashreach, moltenThrone, bgArena, marrowgateDowns, refusedColumn, vossmere, dolmholt, cinderfen, graywastes, kindlecourt, emberheartCaldera, sunkenPyre, sealedShift, bleedworks, lamplightArchive];
+const MAPS: MapSource[] = [meadowbrook, greenreach, tanglewood, cinderDepths, ashreach, moltenThrone, bgArena, marrowgateDowns, refusedColumn, vossmere, dolmholt, cinderfen, graywastes, kindlecourt, emberheartCaldera, sunkenPyre, sealedShift, bleedworks, lamplightArchive, greatwakeIsles];
 
 function compile(src: MapSource): object {
   const height = src.ascii.length;
