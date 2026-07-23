@@ -774,9 +774,18 @@ user decisions. The single-file solo build is the play-test channel.
   mid-band chase weapon). Essa quest 3 closes the arc (22 quests).
   Coastal trash reused; authored Admiral painter; drowned palette.
   250 unit; probe: Admiral + adds confirmed, loot, hatch both ways.
-- **The continent: 10 zones + 5 instances, contiguous 1-60.** Left from
-  WORLD.md: Greatwake Isles (34-42 side zone) + dungeons (Sealed Shift /
-  Bleedworks / Lamplight Archive).
+- **P17.2 (2026-07-22, commit cd066b1)** — **The Sealed Shift** (26-34):
+  the Dolmholt dungeon behind the reopened Doors. Bell gallery → burned
+  shift → the foreman's face, with the ANSWERED DOOR sealed beyond the
+  arena (expansion hook). Boss the BELL-FOREMAN (34: telegraph +
+  deep-echo adds at 50% + ENRAGE below 25%; drops THE FOREMAN'S BELL —
+  the maul class's rare chase). Brunna quest 3 closes the arc (23
+  quests, mining XP). Mountain trash reused; authored Foreman painter;
+  deep-mine palette. 254 unit; probe entered THROUGH the Doors: adds
+  woke mid-fight, loot paid, stair both ways.
+- **The continent: 10 zones + 6 instances, contiguous 1-60.** Left from
+  WORLD.md: Greatwake Isles (34-42 side zone) + dungeons (Bleedworks /
+  Lamplight Archive).
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
