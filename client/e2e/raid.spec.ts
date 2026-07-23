@@ -61,11 +61,30 @@ test("the Molten Throne: five-boss gauntlet ends in the weekly relic", async ({ 
       .poll(
         async () => {
           await cmd(page, "/heal"); // bosses hit hard; the fixture must survive
-          await page.evaluate((eid) => window.__mmo!.attack(eid), id);
-          await page.waitForTimeout(1600);
+          // Warded bosses (P20.1, the Herald): break the live wards first.
+          const ward = await page.evaluate(() => {
+            const mmo = window.__mmo! as never as { state?: () => { enemies: Map<string, { shielded?: boolean; x: number; y: number }> } | null; enemyIds: () => string[]; enemyHp: (id: string) => number | null };
+            const shieldedBoss = mmo.enemyIds().some((x) => x.startsWith("raid-") && !!mmo.state?.()?.enemies.get(x)?.shielded);
+            if (!shieldedBoss) return null;
+            const w = mmo.enemyIds().find((x) => x.startsWith("ward-") && (mmo.enemyHp(x) ?? 0) > 0);
+            if (!w) return null;
+            const e = mmo.state?.()?.enemies.get(w);
+            return e ? { id: w, x: Math.round(e.x), y: Math.round(e.y) } : null;
+          });
+          if (ward) {
+            await cmd(page, `/weaken ${ward.id}`); // the fixture one-shots 1hp targets
+            await cmd(page, `/tp ${ward.x + 30} ${ward.y}`);
+            await page.waitForTimeout(150);
+            await page.evaluate((eid) => window.__mmo!.attack(eid), ward.id);
+          } else {
+            await cmd(page, `/tp ${boss.x + 44} ${boss.y}`);
+            await page.waitForTimeout(150);
+            await page.evaluate((eid) => window.__mmo!.attack(eid), id);
+          }
+          await page.waitForTimeout(1450);
           return page.evaluate((eid) => window.__mmo!.enemyHp(eid), id);
         },
-        { timeout: 40_000, intervals: [0] },
+        { timeout: 60_000, intervals: [0] },
       )
       .toBe(0);
   }

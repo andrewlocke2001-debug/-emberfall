@@ -25,9 +25,10 @@ import { ITEMS, type EquipSlot } from "@mmo/shared/data/items";
 import { BANKS, nearBank } from "@mmo/shared/data/banks";
 import { NODES, RESOURCES } from "@mmo/shared/data/resources";
 import { ZONES, DEFAULT_ZONE, mapForId, type ZoneId } from "@mmo/shared/data/zones";
-import { MOBS } from "@mmo/shared/data/mobs";
+import { MOBS, mobDef } from "@mmo/shared/data/mobs";
 import type { ZoneMap } from "@mmo/shared/systems/zonemap";
-import type { EnemySchema, PlayerSchema, GroundLootSchema } from "@mmo/shared/schema/state";
+import type { EnemySchema,
+  HazardSchema, PlayerSchema, GroundLootSchema } from "@mmo/shared/schema/state";
 import type { ZoneConnection } from "../net/room";
 import { EntityView } from "../ui/EntityView";
 import { TouchControls } from "../ui/TouchControls";
@@ -97,6 +98,12 @@ export class ZoneScene extends Phaser.Scene {
   private readonly enemies = new Map<string, EntityView>();
   /** Boss telegraph danger circles, keyed by enemy id. */
   private readonly telegraphs = new Map<string, Phaser.GameObjects.Arc>();
+  /** Boss charge-rush line telegraphs (P20.1), keyed by enemy id. */
+  private readonly chargeLines = new Map<string, Phaser.GameObjects.Line>();
+  /** Warded-boss shield rings (P20.1), keyed by enemy id. */
+  private readonly shieldRings = new Map<string, Phaser.GameObjects.Arc>();
+  /** Burning ground pools (P20.1), keyed by hazard id. */
+  private readonly hazardPools = new Map<string, Phaser.GameObjects.Arc>();
   /** Ground-loot pile markers, keyed by loot id. */
   private readonly lootViews = new Map<string, Phaser.GameObjects.Container>();
   /** Last walk-over pickup attempt per loot id (throttles the auto-send). */
@@ -201,6 +208,9 @@ export class ZoneScene extends Phaser.Scene {
     this.players.clear();
     this.enemies.clear();
     this.telegraphs.clear();
+    this.chargeLines.clear();
+    this.shieldRings.clear();
+    this.hazardPools.clear();
     this.lootViews.clear();
     this.lootAttemptAt.clear();
     this.predictionReady = false;
@@ -599,7 +609,10 @@ export class ZoneScene extends Phaser.Scene {
       view.setHp(enemy.hp, enemy.maxHp);
       view.setAlive(enemy.alive);
       this.updateTelegraph(id, enemy);
+      this.updateChargeLine(id, enemy);
+      this.updateShieldRing(id, enemy);
     });
+    this.updateHazards(room.state.hazards);
 
     this.updateSelectionRing();
 
@@ -742,6 +755,10 @@ if (me) {
       this.enemies.delete(id);
       this.telegraphs.get(id)?.destroy();
       this.telegraphs.delete(id);
+      this.chargeLines.get(id)?.destroy();
+      this.chargeLines.delete(id);
+      this.shieldRings.get(id)?.destroy();
+      this.shieldRings.delete(id);
       if (this.selectedTargetId === id) this.selectTarget(null);
     });
 
@@ -966,6 +983,73 @@ if (me) {
     arc.setRadius(enemy.teleRadius);
     // Pulse the fill so the warning reads as urgent while it winds up.
     arc.setFillStyle(0xff3020, 0.22 + 0.16 * (0.5 + 0.5 * Math.sin(this.time.now / 90)));
+  }
+
+  /** Charge-rush warning (P20.1): a pulsing lance from the boss to its mark. */
+  private updateChargeLine(id: string, enemy: EnemySchema): void {
+    let line = this.chargeLines.get(id);
+    if (enemy.chargeAt <= 0 || !enemy.alive) {
+      if (line) {
+        line.destroy();
+        this.chargeLines.delete(id);
+      }
+      return;
+    }
+    const width = mobDef(enemy.kind).mechanics?.charge?.width ?? 48;
+    if (!line) {
+      line = this.add
+        .line(0, 0, enemy.x, enemy.y, enemy.chargeX, enemy.chargeY, 0xff5030, 0.5)
+        .setOrigin(0, 0)
+        .setLineWidth(width / 2)
+        .setDepth(1);
+      this.chargeLines.set(id, line);
+    }
+    line.setTo(enemy.x, enemy.y, enemy.chargeX, enemy.chargeY);
+    line.setAlpha(0.35 + 0.3 * (0.5 + 0.5 * Math.sin(this.time.now / 80)));
+  }
+
+  /** Warded boss (P20.1): a golden shield ring — hitting it is pointless. */
+  private updateShieldRing(id: string, enemy: EnemySchema): void {
+    let ring = this.shieldRings.get(id);
+    if (!enemy.shielded || !enemy.alive) {
+      if (ring) {
+        ring.destroy();
+        this.shieldRings.delete(id);
+      }
+      return;
+    }
+    if (!ring) {
+      ring = this.add
+        .circle(enemy.x, enemy.y, 36, 0xffd34d, 0.1)
+        .setStrokeStyle(3, 0xffd34d, 0.9)
+        .setDepth(5);
+      this.shieldRings.set(id, ring);
+    }
+    ring.setPosition(enemy.x, enemy.y);
+    ring.setAlpha(0.65 + 0.35 * (0.5 + 0.5 * Math.sin(this.time.now / 120)));
+  }
+
+  /** Burning ground (P20.1): render every live hazard pool from synced state. */
+  private updateHazards(hazards: { forEach(cb: (h: HazardSchema, id: string) => void): void } | undefined): void {
+    const seen = new Set<string>();
+    hazards?.forEach((h, id) => {
+      seen.add(id);
+      let arc = this.hazardPools.get(id);
+      if (!arc) {
+        arc = this.add
+          .circle(h.x, h.y, h.radius, 0xff7a30, 0.16)
+          .setStrokeStyle(2, 0xff9c4a, 0.5)
+          .setDepth(0.9);
+        this.hazardPools.set(id, arc);
+      }
+      arc.setFillStyle(0xff7a30, 0.12 + 0.08 * (0.5 + 0.5 * Math.sin(this.time.now / 200)));
+    });
+    for (const [id, arc] of this.hazardPools) {
+      if (!seen.has(id)) {
+        arc.destroy();
+        this.hazardPools.delete(id);
+      }
+    }
   }
 
   /** A clickable vendor: opens the shop panel (the server gates each trade). */
@@ -1213,6 +1297,8 @@ if (me) {
       enemyCount: () => room.state?.enemies?.size ?? 0,
       enemyIds: () => (room.state?.enemies ? [...room.state.enemies.keys()] : []),
       enemyHp: (id: string) => room.state?.enemies?.get(id)?.hp ?? null,
+      /** Raw synced state (P20.1 probes: hazards, shields, charges). */
+      state: () => room.state ?? null,
       telegraphActive: () => {
         let active = false;
         room.state?.enemies?.forEach((e) => {

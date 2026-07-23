@@ -37,6 +37,14 @@ export interface BossMechanics {
   onHitEffect?: AbilityEffect;
   /** The telegraph fires this many slams back-to-back, chasing the target. */
   telegraphVolley?: number;
+  /** Each telegraph slam leaves burning ground where it lands (P20.1). */
+  hazardOnTelegraph?: { radius: number; dps: number; durationMs: number; fromPhase?: boolean };
+  /** Telegraphed line rush: wind up aimed at the target, then charge (P20.1). */
+  charge?: { everyMs: number; windupMs: number; speed: number; damage: number; width: number; fromPhase?: boolean };
+  /** Waves of warding adds; while any of a wave lives the boss is IMMUNE (P20.1). */
+  shieldAdds?: { pct: number; kind: string; count: number }[];
+  /** Below this HP fraction the fight escalates: a roar, then harder numbers (P20.1). */
+  phase?: { pct: number; windupMult?: number; radiusMult?: number; damageMult?: number; moveMult?: number; roar?: string };
 }
 
 export interface MobDef {
@@ -250,7 +258,7 @@ export const MOBS: Record<string, MobDef> = {
     ],
     color: 0x6e8fa2,
     telegraph: { windupMs: 1500, radius: 120, damage: 34, cooldownMs: 8000 },
-    mechanics: { addsAtHpPct: [{ pct: 0.5, kind: "barrow_wisp", count: 2 }], telegraphVolley: 2 },
+    mechanics: { addsAtHpPct: [{ pct: 0.5, kind: "barrow_wisp", count: 2 }], charge: { everyMs: 9000, windupMs: 1300, speed: 380, damage: 34, width: 52 } },
   },
   quenchclaw: {
     kind: "quenchclaw",
@@ -690,6 +698,7 @@ export const MOBS: Record<string, MobDef> = {
         { pct: 0.3, kind: "salt_shade", count: 2 },
       ],
       telegraphVolley: 2,
+      hazardOnTelegraph: { radius: 70, dps: 8, durationMs: 12000 },
     },
   },
   bell_foreman: {
@@ -719,6 +728,7 @@ export const MOBS: Record<string, MobDef> = {
     mechanics: {
       addsAtHpPct: [{ pct: 0.5, kind: "deep_echo", count: 2 }],
       enrage: { pct: 0.25, cooldownMult: 0.7, moveMult: 1.25 },
+      phase: { pct: 0.5, windupMult: 0.75, radiusMult: 1.25, damageMult: 1.2, roar: "The last Bell TOLLS. The shift is called back to work." },
     },
   },
   intake_overseer: {
@@ -748,6 +758,7 @@ export const MOBS: Record<string, MobDef> = {
     mechanics: {
       telegraphVolley: 3,
       onHitEffect: { kind: "burn", damage: 10, durationMs: 5000 },
+      hazardOnTelegraph: { radius: 65, dps: 10, durationMs: 10000 },
     },
   },
   provost_ilsever: {
@@ -776,7 +787,7 @@ export const MOBS: Record<string, MobDef> = {
     boss: true,
     telegraph: { windupMs: 1700, radius: 150, damage: 60, cooldownMs: 7500 },
     mechanics: {
-      addsAtHpPct: [
+      shieldAdds: [
         { pct: 0.66, kind: "archive_warden", count: 2 },
         { pct: 0.33, kind: "archive_warden", count: 2 },
       ],
@@ -877,7 +888,7 @@ export const MOBS: Record<string, MobDef> = {
     boss: true,
     telegraph: { windupMs: 1500, radius: 130, damage: 42, cooldownMs: 7000 },
     mechanics: {
-      telegraphVolley: 2,
+      charge: { everyMs: 8500, windupMs: 1300, speed: 420, damage: 50, width: 56 },
       enrage: { pct: 0.3, cooldownMult: 0.65, moveMult: 1.3 },
     },
   },
@@ -977,7 +988,7 @@ export const MOBS: Record<string, MobDef> = {
     boss: true,
     // Slow, heavy, dodgeable: a 1.6s wind-up cinder slam every ~7s.
     telegraph: { windupMs: 1600, radius: 140, damage: 55, cooldownMs: 7000 },
-    mechanics: { addsAtHpPct: [{ pct: 0.5, kind: "ember_wraith", count: 2 }] },
+    mechanics: { addsAtHpPct: [{ pct: 0.5, kind: "ember_wraith", count: 2 }], phase: { pct: 0.5, windupMult: 0.7, radiusMult: 1.3, roar: "The Warden draws the ash up into a STORM." } },
   },
 
   // --- World-event herald (P12.3): leads the scheduled zone invasions. ---
@@ -1032,7 +1043,7 @@ export const MOBS: Record<string, MobDef> = {
     color: 0xe25822,
     boss: true,
     telegraph: { windupMs: 1500, radius: 130, damage: 50, cooldownMs: 7000 },
-    mechanics: { addsAtHpPct: [{ pct: 0.66, kind: "emberling", count: 3 }, { pct: 0.33, kind: "emberling", count: 3 }] },
+    mechanics: { addsAtHpPct: [{ pct: 0.66, kind: "emberling", count: 3 }, { pct: 0.33, kind: "emberling", count: 3 }], hazardOnTelegraph: { radius: 80, dps: 12, durationMs: 15000 } },
   },
   obsidian_colossus: {
     kind: "obsidian_colossus",
@@ -1056,7 +1067,7 @@ export const MOBS: Record<string, MobDef> = {
     color: 0x3f3f46,
     boss: true,
     telegraph: { windupMs: 1800, radius: 160, damage: 62, cooldownMs: 8000 },
-    mechanics: { enrage: { pct: 0.3, cooldownMult: 0.55, moveMult: 1.5 }, telegraphVolley: 2 },
+    mechanics: { enrage: { pct: 0.3, cooldownMult: 0.55, moveMult: 1.5 }, telegraphVolley: 2, charge: { everyMs: 10000, windupMs: 1500, speed: 380, damage: 70, width: 68 } },
   },
   pyre_shade: {
     kind: "pyre_shade",
@@ -1081,7 +1092,7 @@ export const MOBS: Record<string, MobDef> = {
     color: 0xa855f7,
     boss: true,
     telegraph: { windupMs: 1300, radius: 120, damage: 58, cooldownMs: 6000 },
-    mechanics: { blinkEveryMs: 6000, onHitEffect: { kind: "burn", damage: 12, durationMs: 6000 } },
+    mechanics: { blinkEveryMs: 6000, onHitEffect: { kind: "burn", damage: 12, durationMs: 6000 }, phase: { pct: 0.5, windupMult: 0.6, moveMult: 1.35, roar: "The Shade splits the light!" } },
   },
   herald_of_cinders: {
     kind: "herald_of_cinders",
@@ -1106,7 +1117,7 @@ export const MOBS: Record<string, MobDef> = {
     color: 0xfacc15,
     boss: true,
     telegraph: { windupMs: 1600, radius: 150, damage: 66, cooldownMs: 7000 },
-    mechanics: { addsAtHpPct: [{ pct: 0.5, kind: "ember_wraith", count: 2 }], telegraphVolley: 2 },
+    mechanics: { shieldAdds: [{ pct: 0.6, kind: "ember_wraith", count: 2 }, { pct: 0.3, kind: "ember_wraith", count: 2 }], telegraphVolley: 2 },
   },
   molten_king: {
     kind: "molten_king",
@@ -1132,7 +1143,14 @@ export const MOBS: Record<string, MobDef> = {
     color: 0xdc2626,
     boss: true,
     telegraph: { windupMs: 2000, radius: 180, damage: 80, cooldownMs: 8000 },
-    mechanics: { telegraphVolley: 3, enrage: { pct: 0.25, cooldownMult: 0.7, moveMult: 1.3 }, onHitEffect: { kind: "burn", damage: 15, durationMs: 6000 } },
+    mechanics: {
+      telegraphVolley: 3,
+      enrage: { pct: 0.25, cooldownMult: 0.7, moveMult: 1.3 },
+      onHitEffect: { kind: "burn", damage: 15, durationMs: 6000 },
+      phase: { pct: 0.6, windupMult: 0.8, radiusMult: 1.15, damageMult: 1.15, roar: "The Throne WAKES. The slag rises." },
+      hazardOnTelegraph: { radius: 85, dps: 14, durationMs: 20000, fromPhase: true },
+      charge: { everyMs: 11000, windupMs: 1600, speed: 400, damage: 80, width: 72, fromPhase: true },
+    },
   },
 };
 

@@ -131,6 +131,13 @@ export class EnemySchema extends Schema {
   declare teleX: number;
   declare teleY: number;
   declare teleRadius: number;
+  /** Shielded boss (P20.1): takes NO damage until its wards die. */
+  declare shielded: boolean;
+  /** Charge rush (P20.1): time the rush launches (0 = none) toward (chargeX,chargeY).
+   *  Clients render a line telegraph from the boss to the destination until then. */
+  declare chargeAt: number;
+  declare chargeX: number;
+  declare chargeY: number;
 
   constructor() {
     super();
@@ -147,6 +154,10 @@ export class EnemySchema extends Schema {
     this.teleX = 0;
     this.teleY = 0;
     this.teleRadius = 0;
+    this.shielded = false;
+    this.chargeAt = 0;
+    this.chargeX = 0;
+    this.chargeY = 0;
   }
 }
 defineTypes(EnemySchema, {
@@ -163,6 +174,10 @@ defineTypes(EnemySchema, {
   teleX: "number",
   teleY: "number",
   teleRadius: "number",
+  shielded: "boolean",
+  chargeAt: "number",
+  chargeX: "number",
+  chargeY: "number",
 });
 
 /** A pile of items lying on the ground (dropped loot). */
@@ -198,12 +213,43 @@ defineTypes(GroundLootSchema, {
   ownerUntil: "number",
 });
 
+/** A persistent ground hazard (P20.1) — burning slag left by boss slams. */
+export class HazardSchema extends Schema {
+  declare id: string;
+  declare x: number;
+  declare y: number;
+  declare radius: number;
+  /** Damage per second while standing in the pool. */
+  declare dps: number;
+  /** Server time (ms) the pool burns out. */
+  declare until: number;
+
+  constructor() {
+    super();
+    this.id = "";
+    this.x = 0;
+    this.y = 0;
+    this.radius = 0;
+    this.dps = 0;
+    this.until = 0;
+  }
+}
+defineTypes(HazardSchema, {
+  id: "string",
+  x: "number",
+  y: "number",
+  radius: "number",
+  dps: "number",
+  until: "number",
+});
+
 /** Root room state for a single zone. */
 export class ZoneState extends Schema {
   declare zoneId: string;
   declare players: MapSchema<PlayerSchema>;
   declare enemies: MapSchema<EnemySchema>;
   declare loot: MapSchema<GroundLootSchema>;
+  declare hazards: MapSchema<HazardSchema>;
 
   constructor() {
     super();
@@ -211,6 +257,7 @@ export class ZoneState extends Schema {
     this.players = new MapSchema<PlayerSchema>();
     this.enemies = new MapSchema<EnemySchema>();
     this.loot = new MapSchema<GroundLootSchema>();
+    this.hazards = new MapSchema<HazardSchema>();
   }
 }
 defineTypes(ZoneState, {
@@ -218,4 +265,5 @@ defineTypes(ZoneState, {
   players: { map: PlayerSchema },
   enemies: { map: EnemySchema },
   loot: { map: GroundLootSchema },
+  hazards: { map: HazardSchema },
 });

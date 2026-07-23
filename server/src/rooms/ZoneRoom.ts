@@ -186,7 +186,8 @@ import {
   INVASION_HERALD_ID,
   INVASION_ESCORT_PREFIX,
 } from "@mmo/shared/data/invasions";
-import { EnemySchema, PlayerSchema, ZoneState, GroundLootSchema } from "@mmo/shared/schema/state";
+import { EnemySchema, PlayerSchema, ZoneState, GroundLootSchema, HazardSchema } from "@mmo/shared/schema/state";
+import { phaseMods, hazardDpsAt, chargeStep, inChargePath } from "@mmo/shared/systems/bossmech";
 import {
   MoveSchema,
   UseAbilitySchema,
@@ -372,7 +373,22 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   /** Monotonic counter for unique GM-spawned mob ids. */
   private gmSpawnCount = 0;
   /** Per-boss fight state (P15.1): fired add-waves, blink + volley timers. */
-  private readonly bossState = new Map<string, { firedAdds: Set<number>; lastBlinkAt: number; volleyLeft: number }>();
+  private readonly bossState = new Map<
+    string,
+    {
+      firedAdds: Set<number>;
+      lastBlinkAt: number;
+      volleyLeft: number;
+      // P20.1 fight primitives
+      nextChargeAt: number;
+      chargeHits: Set<string>;
+      roared: boolean;
+      firedShields: Set<number>;
+      wardIds: string[];
+    }
+  >();
+  private lastHazardTickAt = 0;
+  private hazardSeq = 0;
   /** Adds queued during the enemies pass (spawning mid-iteration is unsafe). */
   private pendingAdds: { kind: string; x: number; y: number; id: string }[] = [];
   private addSeq = 0;
@@ -1051,6 +1067,14 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const enemy = this.state.enemies.get(msg.targetId);
     if (!enemy || !enemy.alive) return;
     if (distSq(player.x, player.y, enemy.x, enemy.y) > ability.range * ability.range) return;
+    if (enemy.shielded) {
+      // Warded (P20.1): the hit fizzles — kill the wards first.
+      this.commitAbility(sessionId, ability, now);
+      player.energy -= cost;
+      const fizzle: CombatEventPayload = { attackerId: sessionId, targetId: enemy.id, damage: 0, targetDied: false, miss: true };
+      this.broadcast(ServerMessage.CombatEvent, fizzle);
+      return;
+    }
 
     const atk = this.playerStats(sessionId, player);
     atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
@@ -1141,6 +1165,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     for (const id of ids) {
       const enemy = this.state.enemies.get(id);
       if (!enemy || !enemy.alive) continue;
+      if (enemy.shielded) continue; // warded (P20.1)
       if (distSq(cx, cy, enemy.x, enemy.y) > r2) continue;
       const atk = this.playerStats(sessionId, player);
       atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
@@ -1179,7 +1204,7 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       else if (remaining !== list) this.activeEffects.set(id, remaining);
       for (const hit of hits) {
         const enemy = this.state.enemies.get(id);
-        if (enemy && enemy.alive) {
+        if (enemy && enemy.alive && !enemy.shielded) {
           enemy.hp = Math.max(0, enemy.hp - hit.damage);
           // DoT damage keeps kill credit + XP routing exact.
           this.mobContributors.get(id)?.add(hit.appliedBy);
@@ -1214,12 +1239,22 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
   }
 
   /** A mob dies: stop it, clear its effects, schedule respawn, pay credit. */
+  /** Zone-wide system line (P20.1 boss-fight callouts). */
+  private systemToZone(text: string, now: number): void {
+    const call: ChatBroadcastPayload = { channel: "zone", from: "System", zone: this.map.id, text, at: now };
+    this.broadcast(ServerMessage.Chat, call);
+  }
+
   private killEnemy(enemy: EnemySchema, now: number): void {
     enemy.alive = false;
-    enemy.respawnAt = now + mobDef(enemy.kind).respawnMs;
+    // Summoned adds and wards die for good — a boss fight cannot refill itself.
+    const summoned = enemy.id.startsWith("add-") || enemy.id.startsWith("ward-");
+    enemy.respawnAt = now + (summoned ? 999_999_999 : mobDef(enemy.kind).respawnMs);
     // Cancel any in-flight telegraph so a dead boss can't slam.
     enemy.teleAt = 0;
     enemy.teleRadius = 0;
+    enemy.chargeAt = 0;
+    enemy.shielded = false;
     this.activeEffects.delete(enemy.id);
     this.bossState.delete(enemy.id);
     this.awardKill(enemy);
@@ -3566,6 +3601,24 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       this.pendingAdds = [];
     }
 
+    // Ground hazards (P20.1): cull burnt-out pools; burn the standing (1s).
+    if (now - this.lastHazardTickAt >= 1000) {
+      this.lastHazardTickAt = now;
+      for (const id of [...this.state.hazards.keys()]) {
+        const h = this.state.hazards.get(id)!;
+        if (now >= h.until) this.state.hazards.delete(id);
+      }
+      this.state.players.forEach((p, sid) => {
+        if (!p.alive) return;
+        const dps = hazardDpsAt(this.state.hazards.values(), p.x, p.y, now);
+        if (dps <= 0) return;
+        p.hp = Math.max(0, p.hp - dps);
+        const evt: CombatEventPayload = { attackerId: "", targetId: sid, damage: dps, targetDied: p.hp <= 0 };
+        this.broadcast(ServerMessage.CombatEvent, evt);
+        if (p.hp <= 0) this.killPlayer(p, sid, now);
+      });
+    }
+
     // Respawn dead players at their zone's default entry.
     this.state.players.forEach((player, sessionId) => {
       if (player.alive) return;
@@ -3699,10 +3752,11 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
         if (vs && vs.volleyLeft > 0 && chase?.alive) {
           // Volley: the next slam winds up immediately, chasing the target.
           vs.volleyLeft--;
+          const pmv = phaseMods(def.mechanics, enemy.hp, enemy.maxHp);
           enemy.teleX = chase.x;
           enemy.teleY = chase.y;
-          enemy.teleRadius = def.telegraph.radius;
-          enemy.teleAt = now + Math.round(def.telegraph.windupMs * 0.75);
+          enemy.teleRadius = Math.round(def.telegraph.radius * pmv.radiusMult);
+          enemy.teleAt = now + Math.round(def.telegraph.windupMs * 0.75 * pmv.windupMult);
         } else {
           ai.teleReadyAt = now + def.telegraph.cooldownMs;
         }
@@ -3714,7 +3768,16 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
     const mech = def.mechanics;
     let bs = this.bossState.get(enemy.id);
     if (mech && !bs) {
-      bs = { firedAdds: new Set<number>(), lastBlinkAt: now, volleyLeft: 0 };
+      bs = {
+        firedAdds: new Set<number>(),
+        lastBlinkAt: now,
+        volleyLeft: 0,
+        nextChargeAt: now + (mech.charge?.everyMs ?? 0),
+        chargeHits: new Set<string>(),
+        roared: false,
+        firedShields: new Set<number>(),
+        wardIds: [],
+      };
       this.bossState.set(enemy.id, bs);
     }
     if (mech?.addsAtHpPct && bs) {
@@ -3740,6 +3803,68 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
           this.broadcast(ServerMessage.Chat, call);
         }
       }
+    }
+
+    // Phase escalation (P20.1): one roar the moment the threshold is crossed.
+    const pm = phaseMods(mech, enemy.hp, enemy.maxHp);
+    if (pm.active && bs && !bs.roared) {
+      bs.roared = true;
+      if (mech?.phase?.roar) this.systemToZone(`${enemy.name}: ${mech.phase.roar}`, now);
+    }
+
+    // Shield wards (P20.1): like add-waves, but the boss goes IMMUNE until
+    // every ward in the wave is down.
+    if (mech?.shieldAdds && bs) {
+      for (const wave of mech.shieldAdds) {
+        if (enemy.hp <= enemy.maxHp * wave.pct && !bs.firedShields.has(wave.pct)) {
+          bs.firedShields.add(wave.pct);
+          enemy.shielded = true;
+          for (let i = 0; i < wave.count; i++) {
+            const ang = (Math.PI * 2 * i) / wave.count;
+            const wid = `ward-${enemy.id}-${++this.addSeq}`;
+            bs.wardIds.push(wid);
+            this.pendingAdds.push({ kind: wave.kind, x: enemy.x + Math.cos(ang) * 64, y: enemy.y + Math.sin(ang) * 64, id: wid });
+          }
+          this.systemToZone(`${enemy.name} is WARDED — break the wards first!`, now);
+        }
+      }
+      const wards = bs.wardIds.map((id) => this.state.enemies.get(id));
+      // Wards may still be in pendingAdds this tick — only unshield once every
+      // ward has actually spawned AND died.
+      if (enemy.shielded && wards.length > 0 && wards.every((w) => w !== undefined) && wards.every((w) => !w!.alive)) {
+        enemy.shielded = false;
+        bs.wardIds = [];
+        this.systemToZone(`The wards fail — ${enemy.name} is vulnerable!`, now);
+      }
+    }
+
+    // Charge rush (P20.1): rooted while aiming, then a straight-line rush;
+    // contact along the path hits each player once per charge.
+    if (mech?.charge && bs && enemy.chargeAt > 0) {
+      const ch = mech.charge;
+      if (now < enemy.chargeAt) return; // winding up, rooted
+      const step = chargeStep(enemy.x, enemy.y, enemy.chargeX, enemy.chargeY, ch.speed, dt);
+      const beforeX = enemy.x;
+      const beforeY = enemy.y;
+      this.moveToward(enemy, enemy.chargeX, enemy.chargeY, ch.speed, dt);
+      const blocked = Math.hypot(enemy.x - beforeX, enemy.y - beforeY) < ch.speed * dt * 0.25;
+      this.state.players.forEach((p, sid) => {
+        if (!p.alive || bs.chargeHits.has(sid)) return;
+        if (!inChargePath(enemy.x, enemy.y, p.x, p.y, ch.width)) return;
+        bs.chargeHits.add(sid);
+        p.hp = Math.max(0, p.hp - ch.damage);
+        this.wearRandomArmor(sid);
+        const evt: CombatEventPayload = { attackerId: enemy.id, targetId: sid, damage: ch.damage, targetDied: p.hp <= 0 };
+        this.broadcast(ServerMessage.CombatEvent, evt);
+        if (p.hp <= 0) this.killPlayer(p, sid, now);
+      });
+      if (step.arrived || blocked) {
+        enemy.chargeAt = 0;
+        enemy.chargeX = 0;
+        enemy.chargeY = 0;
+        bs.nextChargeAt = now + ch.everyMs;
+      }
+      return;
     }
 
     const homeDist = Math.hypot(enemy.x - ai.homeX, enemy.y - ai.homeY);
@@ -3779,12 +3904,19 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
       }
       // Boss: begin a telegraphed slam centered on the target when it's ready,
       // then root (return) for the wind-up. It slams from any range — get out.
+      if (mech?.charge && bs && (!mech.charge.fromPhase || pm.active) && now >= bs.nextChargeAt) {
+        enemy.chargeX = target.x;
+        enemy.chargeY = target.y;
+        enemy.chargeAt = now + mech.charge.windupMs;
+        bs.chargeHits.clear();
+        return;
+      }
       if (def.telegraph && now >= ai.teleReadyAt) {
         if (bs) bs.volleyLeft = (mech?.telegraphVolley ?? 1) - 1;
         enemy.teleX = target.x;
         enemy.teleY = target.y;
-        enemy.teleRadius = def.telegraph.radius;
-        enemy.teleAt = now + def.telegraph.windupMs;
+        enemy.teleRadius = Math.round(def.telegraph.radius * pm.radiusMult);
+        enemy.teleAt = now + Math.round(def.telegraph.windupMs * pm.windupMult);
         return;
       }
       // Enrage: past the threshold the boss swings and moves faster.
@@ -3823,21 +3955,36 @@ export class ZoneRoom extends Room<{ state: ZoneState }> {
 
   /** A telegraphed slam lands: hit every living player still inside the circle. */
   private resolveTelegraph(enemy: EnemySchema, tele: TelegraphDef, now: number): void {
-    const r2 = tele.radius * tele.radius;
+    const mech = mobDef(enemy.kind).mechanics;
+    const pm = phaseMods(mech, enemy.hp, enemy.maxHp);
+    const dmg = Math.round(tele.damage * pm.damageMult);
+    const radius = enemy.teleRadius || tele.radius;
+    const r2 = radius * radius;
     this.state.players.forEach((p, sid) => {
       if (!p.alive) return;
       if (distSq(p.x, p.y, enemy.teleX, enemy.teleY) > r2) return; // dodged out
-      p.hp = Math.max(0, p.hp - tele.damage);
+      p.hp = Math.max(0, p.hp - dmg);
       this.wearRandomArmor(sid); // caught by the slam — wears armor (P8)
       const evt: CombatEventPayload = {
         attackerId: enemy.id,
         targetId: sid,
-        damage: tele.damage,
+        damage: dmg,
         targetDied: p.hp <= 0,
       };
       this.broadcast(ServerMessage.CombatEvent, evt);
       if (p.hp <= 0) this.killPlayer(p, sid, now);
     });
+    const hz = mech?.hazardOnTelegraph;
+    if (hz && (!hz.fromPhase || pm.active)) {
+      const h = new HazardSchema();
+      h.id = `hz-${++this.hazardSeq}`;
+      h.x = enemy.teleX;
+      h.y = enemy.teleY;
+      h.radius = hz.radius;
+      h.dps = hz.dps;
+      h.until = now + hz.durationMs;
+      this.state.hazards.set(h.id, h);
+    }
     enemy.teleAt = 0;
     enemy.teleRadius = 0;
   }

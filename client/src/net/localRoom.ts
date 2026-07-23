@@ -39,7 +39,8 @@ import {
   type WeaponType,
 } from "@mmo/shared";
 import type { MapSchema } from "@colyseus/schema";
-import { ZoneState, PlayerSchema, EnemySchema, GroundLootSchema } from "@mmo/shared/schema/state";
+import { ZoneState, PlayerSchema, EnemySchema, GroundLootSchema, HazardSchema } from "@mmo/shared/schema/state";
+import { phaseMods, hazardDpsAt, chargeStep, inChargePath } from "@mmo/shared/systems/bossmech";
 import type { EquipSlot } from "@mmo/shared/data/items";
 import { addItem, removeItem, countItem, canAdd, type Inventory } from "@mmo/shared/systems/inventory";
 import { craft } from "@mmo/shared/systems/crafting";
@@ -239,7 +240,22 @@ export class SoloRoom {
   /** Status effects (bleed/burn/slow) per enemy id (P13.2). */
   private readonly activeEffects = new Map<string, ActiveEffect[]>();
   /** Per-boss fight state (P15.1): fired add-waves, blink + volley timers. */
-  private readonly bossState = new Map<string, { firedAdds: Set<number>; lastBlinkAt: number; volleyLeft: number }>();
+  private readonly bossState = new Map<
+    string,
+    {
+      firedAdds: Set<number>;
+      lastBlinkAt: number;
+      volleyLeft: number;
+      // P20.1 fight primitives
+      nextChargeAt: number;
+      chargeHit: boolean;
+      roared: boolean;
+      firedShields: Set<number>;
+      wardIds: string[];
+    }
+  >();
+  private lastHazardTickAt = 0;
+  private hazardSeq = 0;
   /** Adds queued during the enemies pass (spawning mid-iteration is unsafe). */
   private pendingAdds: { kind: string; x: number; y: number; id: string }[] = [];
   private addSeq = 0;
@@ -652,6 +668,13 @@ export class SoloRoom {
     const enemy = this.state.enemies.get(msg.targetId);
     if (!enemy || !enemy.alive) return;
     if (distSq(p.x, p.y, enemy.x, enemy.y) > ability.range * ability.range) return;
+    if (enemy.shielded) {
+      // Warded (P20.1): the hit fizzles — kill the wards first.
+      this.commitAbility(ability, now);
+      p.energy -= cost;
+      this.emit(ServerMessage.CombatEvent, { attackerId: SOLO_ID, targetId: enemy.id, damage: 0, targetDied: false, miss: true });
+      return;
+    }
 
     const atk = this.playerStats();
     atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
@@ -708,6 +731,7 @@ export class SoloRoom {
     for (const id of [...this.state.enemies.keys()]) {
       const enemy = this.state.enemies.get(id);
       if (!enemy || !enemy.alive) continue;
+      if (enemy.shielded) continue; // warded (P20.1)
       if (distSq(cx, cy, enemy.x, enemy.y) > r2) continue;
       const atk = this.playerStats();
       atk.strength = Math.round(atk.strength * (ability.strengthMul ?? 1));
@@ -738,9 +762,13 @@ export class SoloRoom {
   /** A mob dies: stop it, clear its effects, schedule respawn, pay credit. */
   private killEnemy(enemy: EnemySchema, now: number, skill: CombatSkill): void {
     enemy.alive = false;
-    enemy.respawnAt = now + mobDef(enemy.kind).respawnMs;
+    // Summoned adds and wards die for good — a boss fight cannot refill itself.
+    const summoned = enemy.id.startsWith("add-") || enemy.id.startsWith("ward-");
+    enemy.respawnAt = now + (summoned ? 999_999_999 : mobDef(enemy.kind).respawnMs);
     enemy.teleAt = 0;
     enemy.teleRadius = 0;
+    enemy.chargeAt = 0;
+    enemy.shielded = false;
     this.activeEffects.delete(enemy.id);
     this.bossState.delete(enemy.id);
     this.awardKill(enemy, skill);
@@ -1528,6 +1556,23 @@ export class SoloRoom {
       if (e.alive) this.updateMob(e, dt, now);
     });
 
+    // Ground hazards (P20.1): cull burnt-out pools; burn the standing (1s).
+    if (now - this.lastHazardTickAt >= 1000) {
+      this.lastHazardTickAt = now;
+      for (const id of [...this.state.hazards.keys()]) {
+        const h = this.state.hazards.get(id)!;
+        if (now >= h.until) this.state.hazards.delete(id);
+      }
+      if (p.alive) {
+        const dps = hazardDpsAt(this.state.hazards.values(), p.x, p.y, now);
+        if (dps > 0) {
+          p.hp = Math.max(0, p.hp - dps);
+          this.emit(ServerMessage.CombatEvent, { attackerId: "", targetId: SOLO_ID, damage: dps, targetDied: p.hp <= 0 });
+          if (p.hp <= 0) this.killPlayer(now);
+        }
+      }
+    }
+
     // Advance status effects: DoT ticks damage enemies, kills pay the
     // applying skill (mirrors the server's tickActiveEffects).
     this.activeEffects.forEach((list, id) => {
@@ -1549,7 +1594,7 @@ export class SoloRoom {
         return;
       }
       const enemy = this.state.enemies.get(id);
-      if (!enemy || !enemy.alive) return;
+      if (!enemy || !enemy.alive || enemy.shielded) return;
       for (const hit of hits) {
         enemy.hp = Math.max(0, enemy.hp - hit.damage);
         this.emit(ServerMessage.CombatEvent, {
@@ -1658,10 +1703,11 @@ export class SoloRoom {
         const vs = this.bossState.get(e.id);
         if (vs && vs.volleyLeft > 0 && p.alive && ai.target) {
           vs.volleyLeft--;
+          const pmv = phaseMods(def.mechanics, e.hp, e.maxHp);
           e.teleX = p.x;
           e.teleY = p.y;
-          e.teleRadius = def.telegraph.radius;
-          e.teleAt = now + Math.round(def.telegraph.windupMs * 0.75);
+          e.teleRadius = Math.round(def.telegraph.radius * pmv.radiusMult);
+          e.teleAt = now + Math.round(def.telegraph.windupMs * 0.75 * pmv.windupMult);
         } else {
           ai.teleReadyAt = now + def.telegraph.cooldownMs;
         }
@@ -1673,7 +1719,16 @@ export class SoloRoom {
     const mech = def.mechanics;
     let bs = this.bossState.get(e.id);
     if (mech && !bs) {
-      bs = { firedAdds: new Set<number>(), lastBlinkAt: now, volleyLeft: 0 };
+      bs = {
+        firedAdds: new Set<number>(),
+        lastBlinkAt: now,
+        volleyLeft: 0,
+        nextChargeAt: now + (mech.charge?.everyMs ?? 0),
+        chargeHit: false,
+        roared: false,
+        firedShields: new Set<number>(),
+        wardIds: [],
+      };
       this.bossState.set(e.id, bs);
     }
     if (mech?.addsAtHpPct && bs) {
@@ -1694,6 +1749,65 @@ export class SoloRoom {
       }
     }
 
+    // Phase escalation (P20.1): one roar the moment the threshold is crossed.
+    const pm = phaseMods(mech, e.hp, e.maxHp);
+    if (pm.active && bs && !bs.roared) {
+      bs.roared = true;
+      if (mech?.phase?.roar) this.system(`${e.name}: ${mech.phase.roar}`);
+    }
+
+    // Shield wards (P20.1): like add-waves, but the boss goes IMMUNE until
+    // every ward in the wave is down.
+    if (mech?.shieldAdds && bs) {
+      for (const wave of mech.shieldAdds) {
+        if (e.hp <= e.maxHp * wave.pct && !bs.firedShields.has(wave.pct)) {
+          bs.firedShields.add(wave.pct);
+          e.shielded = true;
+          for (let i = 0; i < wave.count; i++) {
+            const ang = (Math.PI * 2 * i) / wave.count;
+            const wid = `ward-${e.id}-${++this.addSeq}`;
+            bs.wardIds.push(wid);
+            this.pendingAdds.push({ kind: wave.kind, x: e.x + Math.cos(ang) * 64, y: e.y + Math.sin(ang) * 64, id: wid });
+          }
+          this.system(`${e.name} is WARDED — break the wards first!`);
+        }
+      }
+      const wards = bs.wardIds.map((id) => this.state.enemies.get(id));
+      // Wards may still be in pendingAdds this tick — only unshield once every
+      // ward has actually spawned AND died.
+      if (e.shielded && wards.length > 0 && wards.every((w) => w !== undefined) && wards.every((w) => !w!.alive)) {
+        e.shielded = false;
+        bs.wardIds = [];
+        this.system(`The wards fail — ${e.name} is vulnerable!`);
+      }
+    }
+
+    // Charge rush (P20.1): rooted while aiming, then a straight-line rush;
+    // contact along the path hits once per charge.
+    if (mech?.charge && bs && e.chargeAt > 0) {
+      const ch = mech.charge;
+      if (now < e.chargeAt) return; // winding up, rooted
+      const step = chargeStep(e.x, e.y, e.chargeX, e.chargeY, ch.speed, dt);
+      const beforeX = e.x;
+      const beforeY = e.y;
+      this.moveToward(e, e.chargeX, e.chargeY, ch.speed, dt);
+      const blocked = Math.hypot(e.x - beforeX, e.y - beforeY) < ch.speed * dt * 0.25;
+      if (!bs.chargeHit && p.alive && inChargePath(e.x, e.y, p.x, p.y, ch.width)) {
+        bs.chargeHit = true;
+        p.hp = Math.max(0, p.hp - ch.damage);
+        this.wearRandomArmor();
+        this.emit(ServerMessage.CombatEvent, { attackerId: e.id, targetId: SOLO_ID, damage: ch.damage, targetDied: p.hp <= 0 });
+        if (p.hp <= 0) this.killPlayer(now);
+      }
+      if (step.arrived || blocked) {
+        e.chargeAt = 0;
+        e.chargeX = 0;
+        e.chargeY = 0;
+        bs.nextChargeAt = now + ch.everyMs;
+      }
+      return;
+    }
+
     const homeDist = Math.hypot(e.x - ai.homeX, e.y - ai.homeY);
     let target = ai.target ? this.state.players.get(ai.target) : undefined;
     if (target && (!target.alive || homeDist > def.leashRadius || Math.hypot(e.x - target.x, e.y - target.y) > def.leashRadius)) {
@@ -1711,12 +1825,19 @@ export class SoloRoom {
         e.x = target.x + (e.x >= target.x ? 44 : -44);
         e.y = target.y;
       }
+      if (mech?.charge && bs && (!mech.charge.fromPhase || pm.active) && now >= bs.nextChargeAt) {
+        e.chargeX = target.x;
+        e.chargeY = target.y;
+        e.chargeAt = now + mech.charge.windupMs;
+        bs.chargeHit = false;
+        return;
+      }
       if (def.telegraph && now >= ai.teleReadyAt) {
         if (bs) bs.volleyLeft = (mech?.telegraphVolley ?? 1) - 1;
         e.teleX = target.x;
         e.teleY = target.y;
-        e.teleRadius = def.telegraph.radius;
-        e.teleAt = now + def.telegraph.windupMs;
+        e.teleRadius = Math.round(def.telegraph.radius * pm.radiusMult);
+        e.teleAt = now + Math.round(def.telegraph.windupMs * pm.windupMult);
         return;
       }
       const enraged = mech?.enrage && e.hp <= e.maxHp * mech.enrage.pct ? mech.enrage : undefined;
@@ -1752,11 +1873,26 @@ export class SoloRoom {
 
   private resolveTelegraph(e: EnemySchema, tele: TelegraphDef, now: number): void {
     const p = this.player();
-    if (p.alive && distSq(p.x, p.y, e.teleX, e.teleY) <= tele.radius * tele.radius) {
-      p.hp = Math.max(0, p.hp - tele.damage);
+    const mech = mobDef(e.kind).mechanics;
+    const pm = phaseMods(mech, e.hp, e.maxHp);
+    const dmg = Math.round(tele.damage * pm.damageMult);
+    const radius = e.teleRadius || tele.radius;
+    if (p.alive && distSq(p.x, p.y, e.teleX, e.teleY) <= radius * radius) {
+      p.hp = Math.max(0, p.hp - dmg);
       this.wearRandomArmor(); // caught by the slam
-      this.emit(ServerMessage.CombatEvent, { attackerId: e.id, targetId: SOLO_ID, damage: tele.damage, targetDied: p.hp <= 0 });
+      this.emit(ServerMessage.CombatEvent, { attackerId: e.id, targetId: SOLO_ID, damage: dmg, targetDied: p.hp <= 0 });
       if (p.hp <= 0) this.killPlayer(now);
+    }
+    const hz = mech?.hazardOnTelegraph;
+    if (hz && (!hz.fromPhase || pm.active)) {
+      const h = new HazardSchema();
+      h.id = `hz-${++this.hazardSeq}`;
+      h.x = e.teleX;
+      h.y = e.teleY;
+      h.radius = hz.radius;
+      h.dps = hz.dps;
+      h.until = now + hz.durationMs;
+      this.state.hazards.set(h.id, h);
     }
     e.teleAt = 0;
     e.teleRadius = 0;
