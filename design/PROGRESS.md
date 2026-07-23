@@ -821,8 +821,18 @@ user decisions. The single-file solo build is the play-test channel.
   iron nodes. Black-sand/boiling-teal palette, steam atmosphere, 3
   authored painters. 266 unit; probe rode the ferry, cleared a
   wakespawn, crossed the one bridge, exited to Ashreach. **Continent:
-  11 zones + 8 instances.** Left: the Anchor-Tomb (P18.2) closes
-  WORLD.md entirely.
+  11 zones + 8 instances.**
+- **P18.2 (2026-07-23, commit d937553)** — **The Anchor-Tomb**: the
+  Vossari sea-funeral ground under the islet mound. 30×50: tide door →
+  keel gallery (funeral hulls in rows) → wet vault → anchor court. Boss
+  the HARBOR-SAINT (42, 520hp — the only volley+ENRAGE pairing; fifth
+  distinct kit). TIDE-KNIFE rare dagger chase; BRANDED KEELPLATE
+  guaranteed (mystery 2's clue: the Beacon's maker's mark, "2 of 9").
+  Sena quest 3 closes her arc (28 quests — every zone arc ends in its
+  own dungeon). Drowned palette, falling silt, barnacled Saint painter.
+  270 unit; probe: door both ways, Saint + keelplate + pearls.
+  **WORLD.md IS CLOSED: 11 zones + 9 instances, every planned zone,
+  dungeon, landmark, and mystery clue shipped.**
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
