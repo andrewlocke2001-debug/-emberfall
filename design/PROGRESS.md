@@ -834,6 +834,29 @@ user decisions. The single-file solo build is the play-test channel.
   **WORLD.md IS CLOSED: 11 zones + 9 instances, every planned zone,
   dungeon, landmark, and mystery clue shipped.**
 
+## P19–P20 — the doubled web + the boss overhaul (user feedback round)
+- **P19 (2026-07-23, commit fa227fc)** — **Doubled passive web**: 102 →
+  204 nodes, 12 keystones (a CROWN keystone past each spine keystone),
+  30 notables (deep forks past each branch), five travel layers
+  (innermost hexagon, center ring, gate arcs, spokes, rim road).
+  Allocation/netcode untouched (graph-generic). K-panel canvas 1280.
+- **P20.1/.2 (2026-07-23, commit c40759d)** — **Boss-fight overhaul**:
+  four new data-driven primitives (CHARGE line-rush w/ client lance
+  telegraph; HAZARD pools synced via HazardSchema that shrink the
+  arena; SHIELD WARDS that make the boss immune until every ward dies —
+  enforced in all three damage paths; PHASES with a roar + escalated
+  numbers), pure math in systems/bossmech.ts (11 tests). Twelve unique
+  kits — every boss has a signature; the MOLTEN KING fights in three
+  acts (slams → "The Throne WAKES" at 60%: slag pools + throne-charges
+  → 25% enrage). Fixes: ward-spawn race, simultaneous-wave ward list,
+  summoned adds no longer respawn mid-fight. Raid e2e ward-aware.
+- **P20.3 (2026-07-23, commit 122793c)** — **Boss art**: the shared
+  56×60 bossBody template is gone; eight authored one-off painters with
+  distinct scale + silhouette (crowned King 86×94, horizontal
+  Broodmother 96×62, hard-geometry Colossus 70×96, 98px-tall Pyre
+  Shade, winged Herald, hatted Warden, door-slab Gatewright, horn-first
+  Invasion Herald). Gallery-verified side by side. 281 unit green.
+
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
   camera tuning. Polish during/after P1.3 rendering work.
