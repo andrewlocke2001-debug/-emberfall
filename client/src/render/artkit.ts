@@ -1590,7 +1590,6 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     ["barrow_wisp", 26, 30, 0x9db8c4, 0xd9f2ff],
     ["unreturned_wanderer", 30, 38, 0x8aa6b4, 0xc4e6f5],
     ["marrow_warden", 36, 44, 0x7d9aab, 0xb5dced],
-    ["gatewright", 46, 54, 0x6e8fa2, 0xe8fbff],
     ["salt_shade", 32, 40, 0x8fb8bd, 0xd6f4f0],
     ["frost_wight", 30, 38, 0x9eb4c8, 0xe8f6ff],
     ["unreturned_courtier", 32, 40, 0xcfc0a0, 0xfff3d6],
@@ -1663,171 +1662,490 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     finish("mob-ember_wraith");
   }
 
-  // Bosses share a language: bigger mass, crown/horn features, aura ring is
-  // added by EntityView. Painted per kind for unique silhouettes.
-  const bossBody = (key: string, base: number, decorate: (c: CanvasRenderingContext2D) => void): void => {
-    const c = canvas(key, 56, 60);
-    if (!c) return;
-    c.fillStyle = css(mix(base, 0x000000, 0.3));
-    c.beginPath();
-    c.moveTo(10, 54);
-    c.quadraticCurveTo(4, 26, 28, 14);
-    c.quadraticCurveTo(52, 26, 46, 54);
-    c.closePath();
-    c.fill();
-    c.fillStyle = css(base);
-    c.beginPath();
-    c.moveTo(13, 52);
-    c.quadraticCurveTo(8, 27, 28, 16);
-    c.quadraticCurveTo(48, 27, 43, 52);
-    c.closePath();
-    c.fill();
-    c.fillStyle = css(mix(base, 0xffffff, 0.2));
-    c.beginPath();
-    c.moveTo(15, 44);
-    c.quadraticCurveTo(12, 27, 24, 18);
-    c.quadraticCurveTo(19, 28, 18, 44);
-    c.closePath();
-    c.fill();
-    decorate(c);
-    outline(c, () => {
-      c.beginPath();
-      c.moveTo(10, 54);
-      c.quadraticCurveTo(4, 26, 28, 14);
-      c.quadraticCurveTo(52, 26, 46, 54);
-      c.stroke();
-    });
-    finish(key);
-  };
+  // P20.3 — every boss is a one-off. No shared body, no shared silhouette:
+  // the King is the broadest thing in the game, the Shade the tallest and
+  // thinnest, the Broodmother a horizontal mass, the Colossus hard geometry.
 
-  bossBody("mob-warden_of_ash", 0x8a3d24, (c) => {
-    // Ash horns + furnace eyes.
-    c.strokeStyle = "#d9c9b0";
-    c.lineWidth = 3;
-    c.beginPath();
-    c.moveTo(18, 16);
-    c.quadraticCurveTo(12, 8, 15, 2);
-    c.moveTo(38, 16);
-    c.quadraticCurveTo(44, 8, 41, 2);
-    c.stroke();
-    c.fillStyle = "#ffb74a";
-    c.beginPath();
-    c.arc(23, 26, 2.2, 0, Math.PI * 2);
-    c.arc(33, 26, 2.2, 0, Math.PI * 2);
-    c.fill();
-  });
-  bossBody("mob-magmar_broodmother", 0xa14a1c, (c) => {
-    // Egg clutch bulges + many eyes.
-    c.fillStyle = "rgba(255,190,120,0.5)";
-    for (const [ex, ey] of [[20, 40], [30, 44], [38, 38]] as const) {
+  // THE MOLTEN KING (86×94): a crowned magma titan. Slag-slab torso, magma
+  // seams, two planted fists, fire licking between the crown's points.
+  {
+    const c = canvas("mob-molten_king", 86, 94);
+    if (c) {
+      const slag = 0x531a1a;
+      c.strokeStyle = "rgba(5,7,10,0.9)";
+      c.lineWidth = 2.5;
+      // The slag cape spilling behind like a cooled flow.
+      c.fillStyle = css(mix(slag, 0x000000, 0.45));
       c.beginPath();
-      c.arc(ex, ey, 4.5, 0, Math.PI * 2);
+      c.moveTo(8, 90);
+      c.quadraticCurveTo(2, 50, 16, 34);
+      c.quadraticCurveTo(43, 22, 70, 34);
+      c.quadraticCurveTo(84, 50, 78, 90);
+      c.closePath();
       c.fill();
-    }
-    c.fillStyle = "#ffd166";
-    for (const [ex, ey] of [[22, 24], [28, 21], [34, 24], [25, 28], [31, 28]] as const) {
+      c.stroke();
+      // The torso: a broad trapezoid of dark slag.
+      c.fillStyle = css(slag);
       c.beginPath();
-      c.arc(ex, ey, 1.6, 0, Math.PI * 2);
+      c.moveTo(16, 88);
+      c.lineTo(20, 36);
+      c.quadraticCurveTo(43, 26, 66, 36);
+      c.lineTo(70, 88);
+      c.closePath();
       c.fill();
-    }
-  });
-  bossBody("mob-obsidian_colossus", 0x3f3f46, (c) => {
-    // Faceted obsidian plates.
-    c.strokeStyle = "rgba(255,255,255,0.25)";
-    c.lineWidth = 1.5;
-    c.beginPath();
-    c.moveTo(16, 24);
-    c.lineTo(28, 30);
-    c.lineTo(40, 22);
-    c.moveTo(28, 30);
-    c.lineTo(28, 48);
-    c.stroke();
-    c.fillStyle = "#9ad0e8";
-    c.beginPath();
-    c.arc(24, 25, 2, 0, Math.PI * 2);
-    c.arc(33, 25, 2, 0, Math.PI * 2);
-    c.fill();
-  });
-  bossBody("mob-pyre_shade", 0x6d28d9, (c) => {
-    // Violet flame crown.
-    c.fillStyle = "#c084fc";
-    for (let i = 0; i < 4; i++) {
-      const fx = 18 + i * 7;
+      c.stroke();
+      // Magma seams glowing through the plates.
+      c.strokeStyle = css(0xff6a2a);
+      c.lineWidth = 2.2;
       c.beginPath();
-      c.moveTo(fx, 16);
-      c.quadraticCurveTo(fx + 2, 6 - (i % 2) * 3, fx + 4, 16);
+      c.moveTo(30, 40); c.quadraticCurveTo(34, 58, 28, 84);
+      c.moveTo(43, 34); c.lineTo(43, 60);
+      c.moveTo(56, 40); c.quadraticCurveTo(52, 58, 58, 84);
+      c.moveTo(24, 62); c.lineTo(38, 66);
+      c.moveTo(62, 62); c.lineTo(48, 66);
+      c.stroke();
+      // Two planted fists.
+      c.strokeStyle = "rgba(5,7,10,0.9)";
+      c.lineWidth = 2.5;
+      c.fillStyle = css(mix(slag, 0x000000, 0.25));
+      c.beginPath(); c.arc(13, 80, 9, 0, Math.PI * 2); c.fill(); c.stroke();
+      c.beginPath(); c.arc(73, 80, 9, 0, Math.PI * 2); c.fill(); c.stroke();
+      c.strokeStyle = css(0xff6a2a);
+      c.lineWidth = 1.6;
+      c.beginPath();
+      c.moveTo(8, 78); c.lineTo(18, 78);
+      c.moveTo(68, 78); c.lineTo(78, 78);
+      c.stroke();
+      // The head, low between the shoulders, eyes like tapped furnaces.
+      c.fillStyle = css(mix(slag, 0x000000, 0.2));
+      c.strokeStyle = "rgba(5,7,10,0.9)";
+      c.lineWidth = 2.5;
+      c.beginPath();
+      c.moveTo(32, 34);
+      c.quadraticCurveTo(43, 24, 54, 34);
+      c.lineTo(52, 22);
+      c.lineTo(34, 22);
+      c.closePath();
       c.fill();
+      c.stroke();
+      c.fillStyle = css(0xffd166);
+      c.fillRect(36, 26, 4, 4);
+      c.fillRect(46, 26, 4, 4);
+      // The crown: five obsidian points with fire between them.
+      c.fillStyle = css(0x1c1917);
+      c.beginPath();
+      c.moveTo(30, 22);
+      c.lineTo(32, 6); c.lineTo(37, 16);
+      c.lineTo(43, 2); c.lineTo(49, 16);
+      c.lineTo(54, 6); c.lineTo(56, 22);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      c.fillStyle = css(0xff9c3f);
+      for (const [fx, fy] of [[35, 14], [43, 10], [51, 14]] as const) {
+        c.beginPath();
+        c.moveTo(fx - 2, fy + 6);
+        c.quadraticCurveTo(fx, fy - 4, fx + 2, fy + 6);
+        c.closePath();
+        c.fill();
+      }
+      finish("mob-molten_king");
     }
-    c.fillStyle = "#f5d0fe";
-    c.beginPath();
-    c.arc(24, 26, 2, 0, Math.PI * 2);
-    c.arc(32, 26, 2, 0, Math.PI * 2);
-    c.fill();
-  });
-  bossBody("mob-herald_of_cinders", 0x14b8a6, (c) => {
-    // War-banner spine.
-    c.strokeStyle = "#0f766e";
-    c.lineWidth = 3;
-    c.beginPath();
-    c.moveTo(28, 14);
-    c.lineTo(28, 0);
-    c.stroke();
-    c.fillStyle = "#f59e0b";
-    c.beginPath();
-    c.moveTo(28, 1);
-    c.lineTo(42, 5);
-    c.lineTo(28, 10);
-    c.closePath();
-    c.fill();
-    c.fillStyle = "#ecfeff";
-    c.beginPath();
-    c.arc(24, 25, 2, 0, Math.PI * 2);
-    c.arc(32, 25, 2, 0, Math.PI * 2);
-    c.fill();
-  });
-  bossBody("mob-molten_king", 0xdc2626, (c) => {
-    // The crown.
-    c.fillStyle = "#ffd166";
-    c.beginPath();
-    c.moveTo(17, 15);
-    c.lineTo(19, 5);
-    c.lineTo(23, 12);
-    c.lineTo(28, 3);
-    c.lineTo(33, 12);
-    c.lineTo(37, 5);
-    c.lineTo(39, 15);
-    c.closePath();
-    c.fill();
-    c.fillStyle = "#7f1d1d";
-    c.beginPath();
-    c.ellipse(28, 27, 8, 4.5, 0, 0, Math.PI * 2);
-    c.fill();
-    c.fillStyle = "#fef08a";
-    c.beginPath();
-    c.arc(24, 26.4, 2, 0, Math.PI * 2);
-    c.arc(32, 26.4, 2, 0, Math.PI * 2);
-    c.fill();
-  });
-  bossBody("mob-invasion_herald", 0x0f766e, (c) => {
-    c.strokeStyle = "#134e4a";
-    c.lineWidth = 3;
-    c.beginPath();
-    c.moveTo(28, 14);
-    c.lineTo(28, 0);
-    c.stroke();
-    c.fillStyle = "#2dd4bf";
-    c.beginPath();
-    c.moveTo(28, 1);
-    c.lineTo(41, 6);
-    c.lineTo(28, 11);
-    c.closePath();
-    c.fill();
-    c.fillStyle = "#ccfbf1";
-    c.beginPath();
-    c.arc(24, 25, 2, 0, Math.PI * 2);
-    c.arc(32, 25, 2, 0, Math.PI * 2);
-    c.fill();
-  });
+  }
+
+  // THE MAGMAR BROODMOTHER (96×62): a horizontal brood-mass. A swollen
+  // three-lobed abdomen glowing from inside, egg-blisters, spindly legs,
+  // a small hooded head down at one end.
+  {
+    const c = canvas("mob-magmar_broodmother", 96, 62);
+    if (c) {
+      const hide = 0x7c3413;
+      c.strokeStyle = "rgba(5,7,10,0.9)";
+      c.lineWidth = 2.5;
+      // Six spindly legs first, under everything.
+      c.strokeStyle = css(mix(hide, 0x000000, 0.4));
+      c.lineWidth = 3;
+      for (const [lx, dir] of [[30, -1], [46, -1], [62, -1], [38, 1], [54, 1], [70, 1]] as const) {
+        c.beginPath();
+        c.moveTo(lx, 44);
+        c.quadraticCurveTo(lx + dir * 8, 52, lx + dir * 12, 60);
+        c.stroke();
+      }
+      // The abdomen: three swollen lobes, biggest at the rear.
+      c.strokeStyle = "rgba(5,7,10,0.9)";
+      c.lineWidth = 2.5;
+      c.fillStyle = css(hide);
+      c.beginPath(); c.ellipse(70, 34, 24, 20, 0, 0, Math.PI * 2); c.fill(); c.stroke();
+      c.beginPath(); c.ellipse(44, 36, 18, 16, 0, 0, Math.PI * 2); c.fill(); c.stroke();
+      c.beginPath(); c.ellipse(24, 38, 12, 11, 0, 0, Math.PI * 2); c.fill(); c.stroke();
+      // The brood-glow through the shell.
+      c.fillStyle = "rgba(255,150,60,0.35)";
+      c.beginPath(); c.ellipse(70, 36, 16, 12, 0, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(44, 38, 11, 8, 0, 0, Math.PI * 2); c.fill();
+      // Egg-blisters riding the rear lobe.
+      c.fillStyle = "rgba(255,205,130,0.75)";
+      for (const [ex, ey, er] of [[62, 22, 4.5], [74, 18, 4], [84, 28, 4.5], [80, 42, 4]] as const) {
+        c.beginPath(); c.arc(ex, ey, er, 0, Math.PI * 2); c.fill();
+      }
+      c.strokeStyle = "rgba(5,7,10,0.5)";
+      c.lineWidth = 1.4;
+      for (const [ex, ey, er] of [[62, 22, 4.5], [74, 18, 4], [84, 28, 4.5], [80, 42, 4]] as const) {
+        c.beginPath(); c.arc(ex, ey, er, 0, Math.PI * 2); c.stroke();
+      }
+      // The head: small, hooded, low-slung at the front.
+      c.fillStyle = css(mix(hide, 0x000000, 0.25));
+      c.strokeStyle = "rgba(5,7,10,0.9)";
+      c.lineWidth = 2.5;
+      c.beginPath();
+      c.moveTo(14, 46);
+      c.quadraticCurveTo(2, 40, 8, 30);
+      c.quadraticCurveTo(16, 24, 22, 30);
+      c.quadraticCurveTo(24, 40, 14, 46);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      c.fillStyle = css(0xffd166);
+      for (const [ex, ey] of [[9, 33], [14, 31], [19, 33], [11, 37], [17, 37]] as const) {
+        c.beginPath(); c.arc(ex, ey, 1.5, 0, Math.PI * 2); c.fill();
+      }
+      finish("mob-magmar_broodmother");
+    }
+  }
+
+  // THE OBSIDIAN COLOSSUS (70×96): hard geometry — a walking monolith of
+  // stacked angular slabs. No curves anywhere. Eyes in a deep slot.
+  {
+    const c = canvas("mob-obsidian_colossus", 70, 96);
+    if (c) {
+      const stone = 0x2f2f36;
+      c.strokeStyle = "rgba(5,7,10,0.9)";
+      c.lineWidth = 2.5;
+      // Legs: two square pillars.
+      c.fillStyle = css(mix(stone, 0x000000, 0.3));
+      c.fillRect(14, 62, 16, 32);
+      c.fillRect(40, 62, 16, 32);
+      c.strokeRect(14, 62, 16, 32);
+      c.strokeRect(40, 62, 16, 32);
+      // Torso: one great tilted slab.
+      c.fillStyle = css(stone);
+      c.beginPath();
+      c.moveTo(8, 64);
+      c.lineTo(12, 26);
+      c.lineTo(58, 22);
+      c.lineTo(62, 64);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      // The off-shoulder block: asymmetric, like a quarry error.
+      c.fillStyle = css(mix(stone, 0xffffff, 0.12));
+      c.beginPath();
+      c.moveTo(50, 24);
+      c.lineTo(48, 8);
+      c.lineTo(68, 12);
+      c.lineTo(66, 30);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      // The head: a low block sunk into the shoulders, eye-slot cut deep.
+      c.fillStyle = css(mix(stone, 0x000000, 0.2));
+      c.fillRect(20, 8, 24, 18);
+      c.strokeRect(20, 8, 24, 18);
+      c.fillStyle = css(0x0b0e12);
+      c.fillRect(23, 15, 18, 5);
+      c.fillStyle = css(0x9ad0e8);
+      c.fillRect(26, 16, 3, 3);
+      c.fillRect(35, 16, 3, 3);
+      // Facet fractures catching light.
+      c.strokeStyle = "rgba(255,255,255,0.22)";
+      c.lineWidth = 1.5;
+      c.beginPath();
+      c.moveTo(14, 32); c.lineTo(34, 42); c.lineTo(56, 30);
+      c.moveTo(34, 42); c.lineTo(32, 62);
+      c.moveTo(20, 50); c.lineTo(34, 54);
+      c.stroke();
+      finish("mob-obsidian_colossus");
+    }
+  }
+
+  // THE PYRE SHADE (50×98): the tallest, thinnest thing alive — one sinuous
+  // violet flame tapering to a point that never touches the ground.
+  {
+    const c = canvas("mob-pyre_shade", 50, 98);
+    if (c) {
+      c.strokeStyle = "rgba(5,7,10,0.85)";
+      c.lineWidth = 2;
+      // Outer flame body, swaying.
+      c.fillStyle = css(0x4c1d95);
+      c.beginPath();
+      c.moveTo(25, 96);
+      c.quadraticCurveTo(10, 74, 16, 52);
+      c.quadraticCurveTo(20, 34, 12, 20);
+      c.quadraticCurveTo(18, 4, 25, 8);
+      c.quadraticCurveTo(32, 4, 38, 20);
+      c.quadraticCurveTo(30, 34, 34, 52);
+      c.quadraticCurveTo(40, 74, 25, 96);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      // Inner tongue.
+      c.fillStyle = css(0x7c3aed);
+      c.beginPath();
+      c.moveTo(25, 88);
+      c.quadraticCurveTo(16, 68, 21, 50);
+      c.quadraticCurveTo(24, 34, 19, 22);
+      c.quadraticCurveTo(25, 12, 31, 22);
+      c.quadraticCurveTo(26, 34, 29, 50);
+      c.quadraticCurveTo(34, 68, 25, 88);
+      c.closePath();
+      c.fill();
+      // The pale core where a heart never was.
+      c.fillStyle = css(0xd8b4fe);
+      c.beginPath();
+      c.ellipse(25, 40, 4, 9, 0, 0, Math.PI * 2);
+      c.fill();
+      // Cold white eyes high in the flame.
+      c.fillStyle = css(0xf5d0fe);
+      c.beginPath();
+      c.arc(21, 20, 2.2, 0, Math.PI * 2);
+      c.arc(29, 20, 2.2, 0, Math.PI * 2);
+      c.fill();
+      finish("mob-pyre_shade");
+    }
+  }
+
+  // THE HERALD OF CINDERS (92×82): the widest wingspan in the game — two
+  // arcs of separated ember feathers behind a slim armored core + banner.
+  {
+    const c = canvas("mob-herald_of_cinders", 92, 82);
+    if (c) {
+      const armor = 0x0f766e;
+      c.strokeStyle = "rgba(5,7,10,0.85)";
+      c.lineWidth = 2;
+      // Wings: separated cinder feathers, each its own lick of fire.
+      for (const dir of [-1, 1] as const) {
+        for (let i = 0; i < 5; i++) {
+          const bx = 46 + dir * (12 + i * 7);
+          const by = 44 - i * 7;
+          c.fillStyle = css(mix(0xf59e0b, 0x7c2d12, i / 5));
+          c.beginPath();
+          c.moveTo(46, 46);
+          c.quadraticCurveTo(bx, by + 8, bx + dir * 6, by - 4);
+          c.quadraticCurveTo(bx - dir * 2, by + 12, 46, 50);
+          c.closePath();
+          c.fill();
+          c.stroke();
+        }
+      }
+      // The slim armored core.
+      c.strokeStyle = "rgba(5,7,10,0.9)";
+      c.lineWidth = 2.5;
+      c.fillStyle = css(armor);
+      c.beginPath();
+      c.moveTo(38, 78);
+      c.quadraticCurveTo(34, 46, 40, 34);
+      c.quadraticCurveTo(46, 28, 52, 34);
+      c.quadraticCurveTo(58, 46, 54, 78);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      // The banner-spear, planted.
+      c.strokeStyle = css(0x134e4a);
+      c.lineWidth = 3;
+      c.beginPath();
+      c.moveTo(62, 78);
+      c.lineTo(62, 6);
+      c.stroke();
+      c.fillStyle = css(0xf59e0b);
+      c.beginPath();
+      c.moveTo(62, 8);
+      c.lineTo(84, 14);
+      c.lineTo(62, 22);
+      c.closePath();
+      c.fill();
+      c.strokeStyle = "rgba(5,7,10,0.85)";
+      c.lineWidth = 2;
+      c.stroke();
+      // The helm: a cinder-lit visor.
+      c.fillStyle = css(mix(armor, 0x000000, 0.3));
+      c.beginPath();
+      c.arc(46, 26, 8, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+      c.fillStyle = css(0xfacc15);
+      c.fillRect(41, 24, 4, 3);
+      c.fillRect(48, 24, 4, 3);
+      finish("mob-herald_of_cinders");
+    }
+  }
+
+  // THE WARDEN OF ASH (78×86): a plague-warden of the fire — wide-brimmed
+  // iron hat, heavy pauldrons, a smoking censer swung on a chain.
+  {
+    const c = canvas("mob-warden_of_ash", 78, 86);
+    if (c) {
+      const coat = 0x6b2e1c;
+      c.strokeStyle = "rgba(5,7,10,0.9)";
+      c.lineWidth = 2.5;
+      // The long ash-coat.
+      c.fillStyle = css(coat);
+      c.beginPath();
+      c.moveTo(18, 84);
+      c.quadraticCurveTo(12, 44, 24, 32);
+      c.quadraticCurveTo(39, 24, 54, 32);
+      c.quadraticCurveTo(66, 44, 60, 84);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      // Heavy pauldrons.
+      c.fillStyle = css(mix(coat, 0x000000, 0.35));
+      c.beginPath(); c.ellipse(22, 34, 10, 7, -0.3, 0, Math.PI * 2); c.fill(); c.stroke();
+      c.beginPath(); c.ellipse(56, 34, 10, 7, 0.3, 0, Math.PI * 2); c.fill(); c.stroke();
+      // Ash-grey mantle seams.
+      c.strokeStyle = css(0xd9c9b0);
+      c.lineWidth = 1.6;
+      c.beginPath();
+      c.moveTo(30, 40); c.lineTo(28, 80);
+      c.moveTo(48, 40); c.lineTo(50, 80);
+      c.stroke();
+      // The censer, swung out on its chain, leaking embers.
+      c.strokeStyle = css(0x8a8072);
+      c.lineWidth = 1.8;
+      c.beginPath();
+      c.moveTo(60, 40);
+      c.quadraticCurveTo(70, 50, 68, 62);
+      c.stroke();
+      c.fillStyle = css(0x4a4038);
+      c.strokeStyle = "rgba(5,7,10,0.9)";
+      c.lineWidth = 2;
+      c.beginPath(); c.arc(68, 68, 6, 0, Math.PI * 2); c.fill(); c.stroke();
+      c.fillStyle = css(0xff9c3f);
+      c.beginPath(); c.arc(68, 68, 2.5, 0, Math.PI * 2); c.fill();
+      // The wide-brimmed warden's hat + furnace-slit visor.
+      c.fillStyle = css(mix(coat, 0x000000, 0.45));
+      c.beginPath();
+      c.ellipse(39, 20, 22, 6, 0, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+      c.beginPath();
+      c.moveTo(30, 20);
+      c.quadraticCurveTo(39, 4, 48, 20);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      c.fillStyle = css(0xffb74a);
+      c.fillRect(33, 24, 12, 3);
+      finish("mob-warden_of_ash");
+    }
+  }
+
+  // THE GATEWRIGHT (64×86): he IS the door — a stone slab body with hinges,
+  // a keyhole glowing where a heart would be, stone hands gripping the edges.
+  {
+    const c = canvas("mob-gatewright", 64, 86);
+    if (c) {
+      const stone = 0x5b7180;
+      c.strokeStyle = "rgba(5,7,10,0.9)";
+      c.lineWidth = 2.5;
+      // The slab, slightly ajar-tilted.
+      c.fillStyle = css(stone);
+      c.beginPath();
+      c.moveTo(12, 84);
+      c.lineTo(14, 12);
+      c.lineTo(50, 8);
+      c.lineTo(52, 84);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      // The arch-top.
+      c.fillStyle = css(mix(stone, 0xffffff, 0.12));
+      c.beginPath();
+      c.moveTo(14, 14);
+      c.quadraticCurveTo(32, 0, 50, 10);
+      c.lineTo(50, 16);
+      c.lineTo(14, 20);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      // Hinges on the left edge.
+      c.fillStyle = css(0x2a333a);
+      c.fillRect(10, 24, 8, 6);
+      c.fillRect(10, 54, 8, 6);
+      c.strokeRect(10, 24, 8, 6);
+      c.strokeRect(10, 54, 8, 6);
+      // The keyhole, glowing lantern-pale: what he keeps, and what he lost.
+      c.fillStyle = css(0xe8fbff);
+      c.beginPath();
+      c.arc(32, 42, 5, 0, Math.PI * 2);
+      c.fill();
+      c.beginPath();
+      c.moveTo(29, 44);
+      c.lineTo(35, 44);
+      c.lineTo(33, 56);
+      c.lineTo(31, 56);
+      c.closePath();
+      c.fill();
+      // Stone hands gripping both edges.
+      c.fillStyle = css(mix(stone, 0x000000, 0.3));
+      c.beginPath(); c.arc(12, 46, 7, 0, Math.PI * 2); c.fill(); c.stroke();
+      c.beginPath(); c.arc(52, 40, 7, 0, Math.PI * 2); c.fill(); c.stroke();
+      // Masons' marks down the face (the mystery's alphabet).
+      c.strokeStyle = "rgba(11,14,18,0.5)";
+      c.lineWidth = 1.4;
+      c.beginPath();
+      c.moveTo(24, 64); c.lineTo(28, 68); c.lineTo(24, 72);
+      c.moveTo(38, 64); c.lineTo(42, 64); c.moveTo(40, 64); c.lineTo(40, 72);
+      c.stroke();
+      finish("mob-gatewright");
+    }
+  }
+
+  // THE INVASION HERALD (66×82): the horn comes first — a great curved
+  // war-horn raised to the sky, the body leaning back into the blast.
+  {
+    const c = canvas("mob-invasion_herald", 66, 82);
+    if (c) {
+      const cloak = 0x0f766e;
+      c.strokeStyle = "rgba(5,7,10,0.9)";
+      c.lineWidth = 2.5;
+      // The body, leaning back.
+      c.fillStyle = css(cloak);
+      c.beginPath();
+      c.moveTo(14, 80);
+      c.quadraticCurveTo(6, 48, 20, 34);
+      c.quadraticCurveTo(30, 26, 40, 32);
+      c.quadraticCurveTo(46, 52, 40, 80);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      // The great war-horn, diagonal across the whole frame.
+      c.fillStyle = css(0x2dd4bf);
+      c.beginPath();
+      c.moveTo(34, 34);
+      c.quadraticCurveTo(48, 24, 58, 10);
+      c.quadraticCurveTo(64, 2, 64, 10);
+      c.quadraticCurveTo(60, 24, 44, 40);
+      c.closePath();
+      c.fill();
+      c.stroke();
+      // The bell of the horn, flared.
+      c.fillStyle = css(mix(0x2dd4bf, 0xffffff, 0.25));
+      c.beginPath();
+      c.ellipse(60, 8, 5, 8, -0.6, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+      // The head, tipped back to blow.
+      c.fillStyle = css(mix(cloak, 0x000000, 0.3));
+      c.beginPath();
+      c.arc(28, 28, 7, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+      c.fillStyle = css(0xccfbf1);
+      c.fillRect(24, 25, 3, 3);
+      c.fillRect(30, 24, 3, 3);
+      finish("mob-invasion_herald");
+    }
+  }
+
 }
 
 /** Which generated texture renders a mob kind (fallback: tinted wolf shape). */
