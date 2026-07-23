@@ -179,6 +179,15 @@ export const QUESTS: Record<string, QuestDef> = {
     requires: "the_wake_paid",
     giver: "charterwright_essa",
   },
+  what_kept_the_bells: {
+    id: "what_kept_the_bells",
+    name: "What Kept the Bells",
+    summary: "Descend the reopened Shift and silence the Bell-Foreman — and do not touch the far wall.",
+    objectives: [{ type: "kill", mob: "bell_foreman", count: 1, desc: "Silence the Bell-Foreman" }],
+    rewards: { coins: 160, xp: [{ skill: "mining", amount: 250 }] },
+    requires: "ore_for_the_asking",
+    giver: "rite_keeper_brunna",
+  },
   // First contact — meet the Hearthwarden who runs the gate.
   greet_mira: {
     id: "greet_mira",

@@ -15,6 +15,7 @@ import graywastes from "./graywastes.json";
 import kindlecourt from "./kindlecourt.json";
 import emberheartCaldera from "./emberheart_caldera.json";
 import sunkenPyre from "./sunken_pyre.json";
+import sealedShift from "./sealed_shift.json";
 
 interface TiledObject {
   name: string;
@@ -44,6 +45,7 @@ const maps: Record<string, TiledMap> = {
   kindlecourt: kindlecourt as unknown as TiledMap,
   emberheart_caldera: emberheartCaldera as unknown as TiledMap,
   sunken_pyre: sunkenPyre as unknown as TiledMap,
+  sealed_shift: sealedShift as unknown as TiledMap,
   tanglewood: tanglewood as unknown as TiledMap,
   cinder_depths: cinderDepths as unknown as TiledMap,
   ashreach: ashreach as unknown as TiledMap,

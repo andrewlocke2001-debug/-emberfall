@@ -63,7 +63,7 @@ export const NPCS: Record<string, NpcDef> = {
     y: 1296,
     greeting:
       "Ask first. Cut second. The Open-Vein skip the asking, and now the deep is answering — you hear it too, don't pretend otherwise. The hold pays for order, stranger, and carves what it owes.",
-    quests: ["the_unlawful_cut", "ore_for_the_asking"],
+    quests: ["the_unlawful_cut", "ore_for_the_asking", "what_kept_the_bells"],
     color: 0x9aa3a8,
   },
   tender_ilse: {

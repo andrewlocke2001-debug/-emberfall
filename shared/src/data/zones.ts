@@ -14,6 +14,7 @@ import graywastesJson from "./maps/graywastes.json";
 import kindlecourtJson from "./maps/kindlecourt.json";
 import emberheartCalderaJson from "./maps/emberheart_caldera.json";
 import sunkenPyreJson from "./maps/sunken_pyre.json";
+import sealedShiftJson from "./maps/sealed_shift.json";
 import { loadZoneMap, type TiledMap, type ZoneMap } from "../systems/zonemap";
 
 /**
@@ -31,7 +32,7 @@ export type ZoneId = (typeof ZONE_IDS)[number];
 /** Zones where open PvP (with anti-grief rules) is enabled — the risk zones. */
 export const PVP_ZONES: ReadonlySet<string> = new Set(["ashreach"]);
 
-export const DUNGEON_IDS = ["cinder_depths", "refused_column", "sunken_pyre", "molten_throne", "bg_arena"] as const;
+export const DUNGEON_IDS = ["cinder_depths", "refused_column", "sunken_pyre", "sealed_shift", "molten_throne", "bg_arena"] as const;
 export type DungeonId = (typeof DUNGEON_IDS)[number];
 
 export const ZONES: Record<ZoneId, ZoneMap> = {
@@ -54,6 +55,7 @@ export const DUNGEONS: Record<DungeonId, ZoneMap> = {
   bg_arena: loadZoneMap("bg_arena", bgArenaJson as unknown as TiledMap),
   refused_column: loadZoneMap("refused_column", refusedColumnJson as unknown as TiledMap),
   sunken_pyre: loadZoneMap("sunken_pyre", sunkenPyreJson as unknown as TiledMap),
+  sealed_shift: loadZoneMap("sealed_shift", sealedShiftJson as unknown as TiledMap),
 };
 
 /** Where brand-new characters (and anyone with no valid saved zone) start. */

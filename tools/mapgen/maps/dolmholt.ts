@@ -38,10 +38,12 @@ function paint(): string[] {
   p.fillRect(31, 38, 42, 43, "=");
   p.set(31, 38, "#").set(42, 38, "#").set(31, 43, "#").set(42, 43, "#");
 
-  // The Doors of the Sealed Shift: a cliff-block on the high shelf with a
-  // carved alcove you can enter — and a wall where a road should be.
+  // The Doors of the Sealed Shift: a cliff-block on the high shelf. The
+  // gallery is REOPENED (P17.2) — the alcove's head is now the way down.
   p.fillRect(38, 4, 54, 12, "#");
   p.fillRect(45, 9, 46, 12, "=");
+  p.fillRect(45, 9, 46, 9, "S");
+  p.set(45, 13, "3");
 
   // The Open-Vein pithead (west slope): an illegal mine mouth in the scree.
   p.fillRect(9, 26, 12, 28, "#");
@@ -81,7 +83,8 @@ export const dolmholt: MapSource = {
   exits: {
     X: { to: "tanglewood", entry: "north" },
     F: { to: "cinderfen", entry: "west" },
+    S: { to: "sealed_shift", entry: "gate" },
   },
-  entries: { "1": "south", "2": "east" },
+  entries: { "1": "south", "2": "east", "3": "doors" },
   ascii: paint(),
 };

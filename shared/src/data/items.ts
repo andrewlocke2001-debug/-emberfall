@@ -444,6 +444,12 @@ export const ITEMS: Record<string, ItemDef> = {
     weaponType: "sword",
     desc: "An oar the Wall refused, ground to an edge. It rows through people now.",
   },
+  bell_maul: {
+    id: "bell_maul", name: "The Foreman's Bell", rarity: "rare", maxStack: 1, value: 500,
+    equipSlot: "weapon", bonus: { attack: 4, strength: 18 }, maxDurability: 350,
+    weaponType: "maul",
+    desc: "The shift-bell, hafted. It still rings the hours; the hours are wrong.",
+  },
   barrow_lantern: {
     id: "barrow_lantern",
     name: "Barrow Lantern",
