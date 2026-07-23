@@ -126,6 +126,11 @@ const PALETTES: Record<string, ZonePalette> = {
     path: 0x453e36, wall: 0x4a4440, water: 0x1d3038, canopy: 0x2b2724,
     canopyLit: 0x3b352f, floor: 0x5c4a38,
   },
+  bleedworks: {
+    grass: 0x35383a, grassDark: 0x2d3032, blade: 0x484c4e, flower: 0xd9a44a,
+    path: 0x4a463e, wall: 0x3f4448, water: 0xc2601e, canopy: 0x30332f,
+    canopyLit: 0x424640, floor: 0x554e42,
+  },
   bg_arena: {
     grass: 0x33383f, grassDark: 0x2b3037, blade: 0x454c56, flower: 0x8fa3bd,
     path: 0x4a5058, wall: 0x555d68, water: 0x1d3f66, canopy: 0x2c3e35,
@@ -1021,6 +1026,45 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     finish("mob-harvest_enforcer");
   }
 
+  // The Intake Overseer (P17.3): a brass pressure-rig with a glowing port.
+  ctx = canvas("mob-intake_overseer", 44, 50);
+  if (ctx) {
+    const suit = 0x6e5a38;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    // The rig: a bulky suit with a backpack tank.
+    ctx.fillStyle = css(mix(suit, 0x000000, 0.3));
+    ctx.fillRect(9, 14, 26, 32);
+    ctx.strokeRect(9, 14, 26, 32);
+    ctx.fillStyle = css(suit);
+    ctx.fillRect(11, 16, 22, 28);
+    ctx.fillStyle = css(mix(suit, 0x000000, 0.2));
+    ctx.fillRect(5, 18, 5, 22); // the tank
+    ctx.strokeRect(5, 18, 5, 22);
+    // The brass dome helm with its round port aglow.
+    ctx.fillStyle = css(0xb08040);
+    ctx.beginPath();
+    ctx.arc(22, 11, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = css(0xffc86e);
+    ctx.beginPath();
+    ctx.arc(22, 11, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+    // Gauge on the chest, needle hard in the red.
+    ctx.fillStyle = css(0xd9d2c4);
+    ctx.beginPath();
+    ctx.arc(22, 26, 3.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = css(0xa8341e);
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(22, 26);
+    ctx.lineTo(24.6, 23.8);
+    ctx.stroke();
+    finish("mob-intake_overseer");
+  }
+
   // The Bell-Foreman (P17.2): a broad Dolm shape, brow-lamp, bell in hand.
   ctx = canvas("mob-bell_foreman", 44, 50);
   if (ctx) {
@@ -1583,6 +1627,7 @@ const ATMOS: Record<string, Atmosphere> = {
   emberheart_caldera: { particle: { texture: "fx-soft", tint: 0xff9e5e, lifespan: 5000, speedY: [-44, -20], alpha: 0.38, freq: 260 }, vignette: 0.55, fog: 0x5e2f1e, fogAlpha: 0.12 },
   sunken_pyre: { particle: { texture: "fx-soft", tint: 0x9fd4de, lifespan: 9000, speedY: [-14, -4], alpha: 0.22, freq: 900 }, vignette: 0.58, fog: 0x27454e, fogAlpha: 0.15 },
   sealed_shift: { particle: { texture: "fx-soft", tint: 0xcbb58a, lifespan: 10000, speedY: [6, 16], alpha: 0.2, freq: 1000 }, vignette: 0.56, fog: 0x3a332c, fogAlpha: 0.14 },
+  bleedworks: { particle: { texture: "fx-soft", tint: 0xe8c9a0, lifespan: 6000, speedY: [-26, -12], alpha: 0.3, freq: 480 }, vignette: 0.55, fog: 0x4a4038, fogAlpha: 0.13 },
   marrowgate_downs: { particle: { texture: "fx-soft", tint: 0xcfe3ee, lifespan: 9000, speedY: [8, 20], alpha: 0.28, freq: 900 }, vignette: 0.45, fog: 0x6f8290, fogAlpha: 0.1 },
   ashreach: { particle: { texture: "fx-soft", tint: 0xff9e5e, lifespan: 6000, speedY: [-30, -12], alpha: 0.35, freq: 350 }, vignette: 0.45, fog: 0x5e2f1e, fogAlpha: 0.09 },
   cinder_depths: { particle: { texture: "fx-soft", tint: 0xcabdd6, lifespan: 8000, speedY: [-10, 10], alpha: 0.12, freq: 900 }, vignette: 0.55, fog: 0x161320, fogAlpha: 0.14 },

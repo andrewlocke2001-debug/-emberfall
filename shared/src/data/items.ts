@@ -450,6 +450,12 @@ export const ITEMS: Record<string, ItemDef> = {
     weaponType: "maul",
     desc: "The shift-bell, hafted. It still rings the hours; the hours are wrong.",
   },
+  pressure_bow: {
+    id: "pressure_bow", name: "The Gaugewright's Bow", rarity: "rare", maxStack: 1, value: 550,
+    equipSlot: "weapon", bonus: { attack: 9, strength: 11 }, maxDurability: 320,
+    weaponType: "bow",
+    desc: "Lathed from a pressure gauge's arm. It looses with a hiss.",
+  },
   barrow_lantern: {
     id: "barrow_lantern",
     name: "Barrow Lantern",

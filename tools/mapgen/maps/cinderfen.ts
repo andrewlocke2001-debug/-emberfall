@@ -41,7 +41,8 @@ function paint(): string[] {
   // The Bleedworks (sealed; the Order's pumps thud under the ground here).
   p.fillRect(44, 16, 54, 22, "#");
   p.fillRect(46, 18, 52, 20, "=");
-  p.fillRect(44, 19, 44, 19, "="); // the intake valve — three flags, one door
+  p.fillRect(44, 19, 44, 19, "B"); // the intake valve — now the way down (P17.3)
+  p.set(43, 20, "2");
 
   // The tending-camp: duckboard floors behind a windbreak fence.
   p.fillRect(12, 46, 21, 51, "=");
@@ -79,7 +80,8 @@ export const cinderfen: MapSource = {
   displayName: "The Cinderfen",
   exits: {
     X: { to: "dolmholt", entry: "east" },
+    B: { to: "bleedworks", entry: "gate" },
   },
-  entries: { "1": "west" },
+  entries: { "1": "west", "2": "intake" },
   ascii: paint(),
 };

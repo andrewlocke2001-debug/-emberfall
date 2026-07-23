@@ -188,6 +188,15 @@ export const QUESTS: Record<string, QuestDef> = {
     requires: "ore_for_the_asking",
     giver: "rite_keeper_brunna",
   },
+  shut_the_intake: {
+    id: "shut_the_intake",
+    name: "Shut the Intake",
+    summary: "Go down the valve and stop the Overseer — the fen cannot bleed forever.",
+    objectives: [{ type: "kill", mob: "intake_overseer", count: 1, desc: "Stop the Intake Overseer" }],
+    rewards: { coins: 170, xp: [{ skill: "vitality", amount: 200 }] },
+    requires: "amber_for_the_tending",
+    giver: "tender_ilse",
+  },
   // First contact — meet the Hearthwarden who runs the gate.
   greet_mira: {
     id: "greet_mira",

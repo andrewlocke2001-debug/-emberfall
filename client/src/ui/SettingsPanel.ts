@@ -168,6 +168,7 @@ export class SettingsPanel {
         ["→ Refused Column", "refused_column"],
         ["→ Sunken Pyre", "sunken_pyre"],
         ["→ Sealed Shift", "sealed_shift"],
+        ["→ Bleedworks", "bleedworks"],
         ["→ Cinder Depths", "cinder_depths"],
         ["→ Molten Throne (raid)", "molten_throne"],
       ] as const) {

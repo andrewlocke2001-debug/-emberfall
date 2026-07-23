@@ -74,7 +74,7 @@ export const NPCS: Record<string, NpcDef> = {
     y: 1552,
     greeting:
       "Feel the ground? Warm. The fen weeps at night and the Order calls it yield. We call it a wound. Help the tending and I'll pay you — with coin, since the Ember can't thank you itself. Yet.",
-    quests: ["the_fen_bleeds", "amber_for_the_tending"],
+    quests: ["the_fen_bleeds", "amber_for_the_tending", "shut_the_intake"],
     color: 0x7fae8e,
   },
   cache_factor_merrin: {
