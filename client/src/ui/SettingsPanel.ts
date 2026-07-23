@@ -171,6 +171,7 @@ export class SettingsPanel {
         ["→ Bleedworks", "bleedworks"],
         ["→ Lamplight Archive", "lamplight_archive"],
         ["→ Greatwake Isles", "greatwake_isles"],
+        ["→ Anchor-Tomb", "anchor_tomb"],
         ["→ Cinder Depths", "cinder_depths"],
         ["→ Molten Throne (raid)", "molten_throne"],
       ] as const) {

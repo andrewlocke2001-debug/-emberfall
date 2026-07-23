@@ -806,8 +806,23 @@ user decisions. The single-file solo build is the play-test channel.
   probe: step both ways, both add waves (peak 13 foes), 20 burn ticks,
   relic payout.
 - **The continent: 10 zones + 8 instances, contiguous 1-60. All four
-  promised dungeons delivered.** Left from WORLD.md: Greatwake Isles
-  (34-42 side zone).
+  promised dungeons delivered.**
+
+## P18 — the Greatwake Isles (the last WORLD.md zone)
+- **P18.1 (2026-07-23, commit 0996ab3)** — **The Greatwake Isles**
+  (34-42): volcanic archipelago on the Order road, Cinderfen strait
+  ferry ↔ Ashreach west gate. Six islands in a boiling sea; the
+  GREATWAKE wake-line painted as an impassable steam-wall with exactly
+  one keel-bridge. Hearthholm pearl-camp (waystone + Pearlmother Sena,
+  2 quests → 27), Kettle Rows shrines, Pearl Beds, Leviathan's Rest,
+  and the SEALED Anchor-Tomb islet (dungeon next slice). Mobs:
+  wakespawn 35 / keel_shade 38 (rare kettle_charm amulet) /
+  leviathanling 41. cinder_pearl + leviathan_scale valuables. Trout +
+  iron nodes. Black-sand/boiling-teal palette, steam atmosphere, 3
+  authored painters. 266 unit; probe rode the ferry, cleared a
+  wakespawn, crossed the one bridge, exited to Ashreach. **Continent:
+  11 zones + 8 instances.** Left: the Anchor-Tomb (P18.2) closes
+  WORLD.md entirely.
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +

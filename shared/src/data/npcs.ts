@@ -85,7 +85,7 @@ export const NPCS: Record<string, NpcDef> = {
     y: 1488,
     greeting:
       "The beds cool the Ember's spit into pearls, and the leviathans that made the beds want them back. The Order calls that a supply problem. I call it a debt coming due. Dive anyway?",
-    quests: ["the_beds_at_slack_tide", "what_the_wake_keeps"],
+    quests: ["the_beds_at_slack_tide", "what_the_wake_keeps", "asking_after_the_tide"],
     color: 0x5f8ea3,
   },
   cache_factor_merrin: {

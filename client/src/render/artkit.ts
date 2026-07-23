@@ -131,6 +131,11 @@ const PALETTES: Record<string, ZonePalette> = {
     path: 0x4a463e, wall: 0x3f4448, water: 0xc2601e, canopy: 0x30332f,
     canopyLit: 0x424640, floor: 0x554e42,
   },
+  anchor_tomb: {
+    grass: 0x39413e, grassDark: 0x2f3634, blade: 0x4a5350, flower: 0x7fd4c1,
+    path: 0x584f41, wall: 0x3d4344, water: 0x1e4a4a, canopy: 0x38403c,
+    canopyLit: 0x4a5450, floor: 0x54594f,
+  },
   greatwake_isles: {
     grass: 0x4a4640, grassDark: 0x3e3b35, blade: 0x5a554b, flower: 0xd8b04a,
     path: 0x6b5f4c, wall: 0x4d4644, water: 0x2f6d75, canopy: 0x51584d,
@@ -1036,6 +1041,55 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     finish("mob-harvest_enforcer");
   }
 
+  // The Harbor-Saint (P18.2): the first Unreturned, still hauling the anchor.
+  ctx = canvas("mob-harbor_saint", 42, 52);
+  if (ctx) {
+    const verd = 0x6fa89a;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    // A broad drowned bulk in tide-rotted vestments.
+    ctx.fillStyle = css(mix(verd, 0x000000, 0.35));
+    ctx.beginPath();
+    ctx.moveTo(9, 48);
+    ctx.quadraticCurveTo(5, 20, 19, 10);
+    ctx.quadraticCurveTo(33, 20, 29, 48);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = css(verd);
+    ctx.beginPath();
+    ctx.moveTo(11, 46);
+    ctx.quadraticCurveTo(8, 21, 19, 12);
+    ctx.quadraticCurveTo(30, 21, 27, 46);
+    ctx.closePath();
+    ctx.fill();
+    // Barnacle crust across the shoulders.
+    ctx.fillStyle = css(0xd7e0d4);
+    for (const [bx, by] of [[13, 18], [17, 15], [23, 17], [26, 21], [11, 24]] as const) {
+      ctx.beginPath();
+      ctx.arc(bx, by, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // The anchor, dragged at his side on its chain.
+    ctx.strokeStyle = css(0x4b5a56);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(28, 26);
+    ctx.quadraticCurveTo(34, 32, 35, 40);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(35, 38);
+    ctx.lineTo(35, 48);
+    ctx.moveTo(31, 45);
+    ctx.quadraticCurveTo(35, 50, 39, 45);
+    ctx.stroke();
+    // Hollow tide-lit eyes under the brow.
+    ctx.fillStyle = css(0x7fd4c1);
+    ctx.fillRect(15, 20, 3, 3);
+    ctx.fillRect(22, 20, 3, 3);
+    finish("mob-harbor_saint");
+  }
+
   // The Wakespawn (P18.1): a humped sea-thing, kindled along its seams.
   ctx = canvas("mob-wakespawn", 36, 28);
   if (ctx) {
@@ -1806,6 +1860,7 @@ const ATMOS: Record<string, Atmosphere> = {
   sunken_pyre: { particle: { texture: "fx-soft", tint: 0x9fd4de, lifespan: 9000, speedY: [-14, -4], alpha: 0.22, freq: 900 }, vignette: 0.58, fog: 0x27454e, fogAlpha: 0.15 },
   sealed_shift: { particle: { texture: "fx-soft", tint: 0xcbb58a, lifespan: 10000, speedY: [6, 16], alpha: 0.2, freq: 1000 }, vignette: 0.56, fog: 0x3a332c, fogAlpha: 0.14 },
   bleedworks: { particle: { texture: "fx-soft", tint: 0xe8c9a0, lifespan: 6000, speedY: [-26, -12], alpha: 0.3, freq: 480 }, vignette: 0.55, fog: 0x4a4038, fogAlpha: 0.13 },
+  anchor_tomb: { particle: { texture: "fx-soft", tint: 0x9fd4c8, lifespan: 7000, speedY: [6, 12], alpha: 0.2, freq: 600 }, vignette: 0.5, fog: 0x1e3a3a, fogAlpha: 0.14 },
   greatwake_isles: { particle: { texture: "fx-soft", tint: 0xbfe8e2, lifespan: 6000, speedY: [-16, -8], alpha: 0.22, freq: 500 }, vignette: 0.38, fog: 0x9fc4c0, fogAlpha: 0.08 },
   lamplight_archive: { particle: { texture: "fx-soft", tint: 0xffe9a8, lifespan: 8000, speedY: [-10, -4], alpha: 0.28, freq: 700 }, vignette: 0.52, fog: 0x3a332a, fogAlpha: 0.12 },
   marrowgate_downs: { particle: { texture: "fx-soft", tint: 0xcfe3ee, lifespan: 9000, speedY: [8, 20], alpha: 0.28, freq: 900 }, vignette: 0.45, fog: 0x6f8290, fogAlpha: 0.1 },

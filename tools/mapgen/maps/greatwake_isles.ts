@@ -67,8 +67,9 @@ function paint(): string[] {
   p.hline(45, 50, 50, "#");
   p.hline(45, 50, 53, "#");
   p.fillRect(52, 48, 55, 52, "#"); // the tomb mound
-  p.set(53, 52, "="); // the sealed door — it opens in a later slice
-  p.set(54, 52, "=");
+  p.set(53, 52, "C"); // the tomb door — open at last (P18.2)
+  p.set(54, 52, "C");
+  p.set(52, 54, "3");
 
   // The trouble: wakespawn in the beds, shades on the keels, whelps east.
   p.set(26, 32, "M");
@@ -102,7 +103,8 @@ export const greatwakeIsles: MapSource = {
   exits: {
     X: { to: "cinderfen", entry: "east" },
     S: { to: "ashreach", entry: "west" },
+    C: { to: "anchor_tomb", entry: "gate" },
   },
-  entries: { "1": "west", "2": "east" },
+  entries: { "1": "west", "2": "east", "3": "tomb" },
   ascii: paint(),
 };

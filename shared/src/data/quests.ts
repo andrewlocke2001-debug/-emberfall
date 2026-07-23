@@ -223,6 +223,15 @@ export const QUESTS: Record<string, QuestDef> = {
     requires: "the_beds_at_slack_tide",
     giver: "pearlmother_sena",
   },
+  asking_after_the_tide: {
+    id: "asking_after_the_tide",
+    name: "Asking After the Tide",
+    summary: "The Anchor-Tomb's door stands open and nobody opened it. Go down among the keels and put the Harbor-Saint to rest.",
+    objectives: [{ type: "kill", mob: "harbor_saint", count: 1, desc: "Put the Harbor-Saint to rest" }],
+    rewards: { coins: 260, xp: [{ skill: "fishing", amount: 300 }] },
+    requires: "what_the_wake_keeps",
+    giver: "pearlmother_sena",
+  },
   // First contact — meet the Hearthwarden who runs the gate.
   greet_mira: {
     id: "greet_mira",

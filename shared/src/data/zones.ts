@@ -18,6 +18,7 @@ import sealedShiftJson from "./maps/sealed_shift.json";
 import bleedworksJson from "./maps/bleedworks.json";
 import lamplightArchiveJson from "./maps/lamplight_archive.json";
 import greatwakeIslesJson from "./maps/greatwake_isles.json";
+import anchorTombJson from "./maps/anchor_tomb.json";
 import { loadZoneMap, type TiledMap, type ZoneMap } from "../systems/zonemap";
 
 /**
@@ -35,7 +36,7 @@ export type ZoneId = (typeof ZONE_IDS)[number];
 /** Zones where open PvP (with anti-grief rules) is enabled — the risk zones. */
 export const PVP_ZONES: ReadonlySet<string> = new Set(["ashreach"]);
 
-export const DUNGEON_IDS = ["cinder_depths", "refused_column", "sunken_pyre", "sealed_shift", "bleedworks", "lamplight_archive", "molten_throne", "bg_arena"] as const;
+export const DUNGEON_IDS = ["cinder_depths", "refused_column", "sunken_pyre", "sealed_shift", "bleedworks", "anchor_tomb", "lamplight_archive", "molten_throne", "bg_arena"] as const;
 export type DungeonId = (typeof DUNGEON_IDS)[number];
 
 export const ZONES: Record<ZoneId, ZoneMap> = {
@@ -62,6 +63,7 @@ export const DUNGEONS: Record<DungeonId, ZoneMap> = {
   sealed_shift: loadZoneMap("sealed_shift", sealedShiftJson as unknown as TiledMap),
   bleedworks: loadZoneMap("bleedworks", bleedworksJson as unknown as TiledMap),
   lamplight_archive: loadZoneMap("lamplight_archive", lamplightArchiveJson as unknown as TiledMap),
+  anchor_tomb: loadZoneMap("anchor_tomb", anchorTombJson as unknown as TiledMap),
 };
 
 /** Where brand-new characters (and anyone with no valid saved zone) start. */

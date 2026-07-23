@@ -480,6 +480,16 @@ export const ITEMS: Record<string, ItemDef> = {
     equipSlot: "amulet", bonus: { defence: 5, maxHp: 20 },
     desc: "A nailed kettle from a shrine post. A boiling offering needs no fire here.",
   },
+  tide_knife: {
+    id: "tide_knife", name: "Tide-Knife", rarity: "rare", maxStack: 1, value: 950,
+    equipSlot: "weapon", bonus: { attack: 8, strength: 9 }, maxDurability: 320,
+    weaponType: "dagger",
+    desc: "The Vossari cut the dead loose with it. The tide goes out; the knife stays.",
+  },
+  branded_keelplate: {
+    id: "branded_keelplate", name: "Branded Keelplate", rarity: "common", maxStack: 2_147_483_647, value: 120,
+    desc: "A funeral keel's plate, branded with the maker's mark from the black Beacon. 2 of 9 — where are the other seven?",
+  },
   barrow_lantern: {
     id: "barrow_lantern",
     name: "Barrow Lantern",
