@@ -793,9 +793,21 @@ user decisions. The single-file solo build is the play-test channel.
   (brass dome helm, tank, red-lined gauge); works palette. 258 unit;
   probe walked the valve gate: scald confirmed (9 between-swing hits),
   loot, both-way stair.
-- **The continent: 10 zones + 7 instances, contiguous 1-60.** Left from
-  WORLD.md: Greatwake Isles (34-42 side zone) + the Lamplight Archive
-  (Kindlecourt ~55, Provost Ilsever raid-lead-in).
+- **P17.4 (2026-07-23, commit 63cee01)** — **The Lamplight Archive**
+  (endgame, ~55-60): the Kindlecourt's sealed step finally opens. 30×60
+  crawl — reading hall → restricted stacks (shelf-lanes) → lamp gallery
+  → binding theatre — the one staffed building in the capital, where
+  Lampwrighting is practiced TODAY. Boss PROVOST ILSEVER (60, 1200hp,
+  raid-lead-in kit: telegraph volley ×2 + warden adds at 66/33% + every
+  hit lamp-burns 12/tick 6s — the only boss combining all three
+  mechanics). Drops SPARK-SIPHON (relic dagger) + PHYLACTERY-LAMP (relic
+  ring). Havel quest 3 "The Unacknowledged" (25 quests). Lamplit palette
+  + gold lamp-mote atmosphere + gilt-robed Ilsever painter. 262 unit;
+  probe: step both ways, both add waves (peak 13 foes), 20 burn ticks,
+  relic payout.
+- **The continent: 10 zones + 8 instances, contiguous 1-60. All four
+  promised dungeons delivered.** Left from WORLD.md: Greatwake Isles
+  (34-42 side zone).
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
