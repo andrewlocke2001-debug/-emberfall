@@ -1,8 +1,8 @@
 # Emberfall — Steam Submission Runbook
 
 Everything in this folder is ready-made: capsule art at Steam's exact
-dimensions (`capsules/`), six 1920×1080 store screenshots (`screenshots/`),
-and the store copy below. The shippable Windows build comes from
+dimensions (`capsules/`), eleven 1920×1080 store screenshots
+(`screenshots/`), and the store copy below. The shippable Windows build comes from
 `desktop/` (see "Build the depot"). What remains are the account steps only
 the owner can do.
 
@@ -61,7 +61,11 @@ executable `Emberfall.exe`, no arguments.
 ## 4. Store page checklist
 
 - Upload `capsules/*` to their matching slots (names carry the sizes).
-- Upload all six `screenshots/*` (Steam minimum is 5).
+- Upload the `screenshots/*` (Steam minimum is 5; eleven ship here). They
+  read best in filename order — the classic zones (01–04) into the endgame
+  reveals (05 Kindlecourt capital, 06 Greatwake Isles, 07 Lamplight Archive)
+  and the fight/build hero shots (08 warded boss, 09 the Molten King's slag
+  phase, 10 the 204-node skill web, 11 inventory + combat).
 - A short gameplay trailer is REQUIRED for release (30–60s screen capture of
   town → forest combat → Ashreach → raid boss is plenty; OBS is fine).
 - Genre: RPG · Tags: Action RPG, Top-Down, Fantasy, Singleplayer, 2D,
@@ -74,10 +78,10 @@ executable `Emberfall.exe`, no arguments.
 ## 5. Store copy (paste-ready)
 
 **Short description (≤300 chars):**
-> Emberfall is a combat-first top-down RPG. Level five skills, forge your
-> gear, clear a telegraph-dodging dungeon, break the five-boss Molten Throne
-> raid, and survive the lawless Ashreach — in a hand-crafted world lit by
-> dying embers.
+> Emberfall is a combat-first top-down RPG. Choose a weapon, grow a
+> 200-node skill web, forge your gear, and climb an eleven-zone continent
+> from levels 1 to 60 — dodging boss charges, ward-phases and rising slag
+> in six dungeons and a five-boss raid, in a world lit by dying embers.
 
 **About This Game:**
 > The frontier of Emberfall is a world lit by dying embers — a mossy
@@ -85,14 +89,24 @@ executable `Emberfall.exe`, no arguments.
 > risk-and-reward decision.
 >
 > **Fight deliberately.** Tab-target combat on a global cooldown: commit to
-> strikes, weave heals, and step out of telegraphed boss slams.
+> strikes, weave heals, drop AOE finishers, and read each boss. No two
+> bosses fight the same — one drags an anchor across the floor in a
+> telegraphed charge, one hides behind lamp-wards you must break first, and
+> the Molten King wakes his throne mid-fight and floods the arena with slag.
 >
-> **Master five skills.** Mining, Fishing, Smithing, Cooking and Melee feed
-> one another — gather, craft, eat, fight, repeat.
+> **Build your own class.** Pick a weapon — sword, axe, maul, bow, staff or
+> dagger, each with its own moveset — then grow a 200-node Path-of-Exile-
+> style passive web from one of six starting Callings, crossing into other
+> classes' territory for the build you want.
 >
-> **Climb the world.** Quiet Meadowbrook → wolf-run Greenreach → the tangled
-> deep forest → the instanced Cinder Depths dungeon → the lawless PvE-risk
-> Ashreach → the Molten Throne: a five-boss gauntlet with a weekly relic.
+> **Master the skills.** Mining, Fishing, Smithing and Cooking feed your
+> combat — gather, craft, eat, fight, repeat — across Melee, Ranged and Magic.
+>
+> **Climb a continent.** Eleven hand-built zones from quiet Meadowbrook to
+> the lamplit capital Kindlecourt, the boiling Greatwake Isles and the
+> Emberheart Caldera — levels 1 to 60, every zone arc ending in its own
+> dungeon, capped by the Molten Throne: a five-boss gauntlet with a weekly
+> relic.
 >
 > **Live economy.** Durability, repair costs, vendors, a bank, and an
 > order-book Exchange — every coin created or destroyed is accounted for.
