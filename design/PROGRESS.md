@@ -783,9 +783,19 @@ user decisions. The single-file solo build is the play-test channel.
   quests, mining XP). Mountain trash reused; authored Foreman painter;
   deep-mine palette. 254 unit; probe entered THROUGH the Doors: adds
   woke mid-fight, loot paid, stair both ways.
-- **The continent: 10 zones + 6 instances, contiguous 1-60.** Left from
-  WORLD.md: Greatwake Isles (34-42 side zone) + dungeons (Bleedworks /
-  Lamplight Archive).
+- **P17.3 (2026-07-23, commit abfad34)** — **The Bleedworks** (30-38):
+  the Cinderfen dungeon behind the intake valve. Pipe gallery → vat hall
+  (liquid cinder pools) → the pump heart. Boss the INTAKE OVERSEER (38:
+  TRIPLE telegraph volley + every hit SCALDS via onHitEffect burn — the
+  third distinct boss kit; drops THE GAUGEWRIGHT'S BOW, the bow class
+  chase). Ilse quest 3 closes the arc (24 quests). Every mid-band zone
+  arc now ends in its own dungeon. Fen trash reused; Overseer painter
+  (brass dome helm, tank, red-lined gauge); works palette. 258 unit;
+  probe walked the valve gate: scald confirmed (9 between-swing hits),
+  loot, both-way stair.
+- **The continent: 10 zones + 7 instances, contiguous 1-60.** Left from
+  WORLD.md: Greatwake Isles (34-42 side zone) + the Lamplight Archive
+  (Kindlecourt ~55, Provost Ilsever raid-lead-in).
 
 ## Known follow-ups (deferred, not blocking)
 - **Controls feel "wonky"** (user feedback) — prediction/reconciliation +
