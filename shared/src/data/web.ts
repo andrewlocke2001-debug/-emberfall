@@ -5,14 +5,16 @@ import { CALLING_IDS } from "./callings";
  * The Passive Web (P15.2) — one shared allocation graph in the spirit of
  * Path of Exile's tree, replacing the six siloed Calling trees. Your Calling
  * decides WHERE you start on the wheel; from there you allocate any node
- * ADJACENT to one you already own. Three travel layers let builds cross
- * class territory: the center ring (short, expensive detours), the six
- * spokes, and the outer rim linking neighboring keystone regions.
+ * ADJACENT to one you already own. Five travel layers let builds cross
+ * class territory: the innermost hexagon, the center ring, the gate arcs,
+ * the six spokes, and the outer rim road linking crown regions.
  *
  * The graph is BUILT here (data-as-code, like the map painters): six 60°
- * sectors, each with an inward path to the center ring, an outward spine to
- * a keystone, and two flavored branches with a notable at each tip. All
- * nodes are rank 1 (PoE-style): the build is the SHAPE of your allocation.
+ * sectors of 34 nodes (204 total, doubled in P19), each with an inward path
+ * to the center ring, an outward spine to a keystone AND a crown keystone
+ * beyond it, two flavored branches with a notable at each tip, and a deep
+ * fork past each branch ending in a deep notable. All nodes are rank 1
+ * (PoE-style): the build is the SHAPE of your allocation.
  */
 
 export type WebNodeKind = "small" | "notable" | "keystone";
@@ -33,14 +35,17 @@ export const WEB_EDGES: [string, string][] = [];
 /** Where each Calling enters the web. */
 export const WEB_STARTS: Record<CallingId, string> = {} as Record<CallingId, string>;
 
-/** Per-sector flavor: [smallA, smallB, notableL, notableR, keystone]. */
+/** Per-sector flavor: smalls, branch notables, deep notables, two keystones. */
 const FLAVOR: Record<
   CallingId,
   {
     smalls: { name: string; effects: TalentEffects }[];
     notableL: { name: string; effects: TalentEffects };
     notableR: { name: string; effects: TalentEffects };
+    deepL: { name: string; effects: TalentEffects };
+    deepR: { name: string; effects: TalentEffects };
     keystone: { name: string; desc: string; effects: TalentEffects };
+    crown: { name: string; desc: string; effects: TalentEffects };
   }
 > = {
   warden: {
@@ -55,6 +60,13 @@ const FLAVOR: Record<
       desc: "You are the wall the frontier sleeps behind.",
       effects: { defencePct: 10, maxHpFlat: 30 },
     },
+    deepL: { name: "Bulwark Oath", effects: { defencePct: 5, maxHpFlat: 12 } },
+    deepR: { name: "Ember-Tended Scars", effects: { maxHpFlat: 14, lifesteal: 1 } },
+    crown: {
+      name: "The Unbroken Line",
+      desc: "The wall outlives the war.",
+      effects: { defencePct: 12, maxHpFlat: 40 },
+    },
   },
   reaver: {
     smalls: [
@@ -67,6 +79,13 @@ const FLAVOR: Record<
       name: "The Red Season",
       desc: "What falls below the waterline does not come back up.",
       effects: { strengthPct: 8, executePct: 12 },
+    },
+    deepL: { name: "Wet Work", effects: { strengthPct: 5, lifesteal: 1 } },
+    deepR: { name: "No Quarter", effects: { executePct: 8, strengthPct: 3 } },
+    crown: {
+      name: "The Drowned Court",
+      desc: "Everything sinks if you hold it down long enough.",
+      effects: { strengthPct: 10, lifesteal: 2 },
     },
   },
   strider: {
@@ -81,6 +100,13 @@ const FLAVOR: Record<
       desc: "The arrow was always going to land there.",
       effects: { attackPct: 6, critChance: 5 },
     },
+    deepL: { name: "Windage", effects: { attackPct: 5, gcdPct: 2 } },
+    deepR: { name: "Second Shaft", effects: { critChance: 2, attackPct: 4 } },
+    crown: {
+      name: "The Longest Shot",
+      desc: "Loosed yesterday, landing tomorrow.",
+      effects: { attackPct: 8, critChance: 4 },
+    },
   },
   cinderwright: {
     smalls: [
@@ -93,6 +119,13 @@ const FLAVOR: Record<
       name: "The Everlamp",
       desc: "A flame that pays its own fuel.",
       effects: { strengthPct: 8, energyCostPct: 8 },
+    },
+    deepL: { name: "Overstoked", effects: { strengthPct: 6, energyCostPct: 2 } },
+    deepR: { name: "Slow Coals", effects: { energyCostPct: 5, maxHpFlat: 10 } },
+    crown: {
+      name: "The Furnace Heart",
+      desc: "It burns because you tell it to.",
+      effects: { strengthPct: 10, energyCostPct: 10 },
     },
   },
   hearthmender: {
@@ -107,6 +140,13 @@ const FLAVOR: Record<
       desc: "No spark goes down the flue on your watch.",
       effects: { healPowerPct: 15, maxHpFlat: 25 },
     },
+    deepL: { name: "Poultice Lore", effects: { healPowerPct: 8, energyCostPct: 2 } },
+    deepR: { name: "Vigil's Reward", effects: { maxHpFlat: 16, healPowerPct: 4 } },
+    crown: {
+      name: "The Long Watch",
+      desc: "Dawn is a promise you keep.",
+      effects: { healPowerPct: 18, maxHpFlat: 30 },
+    },
   },
   ashwalker: {
     smalls: [
@@ -119,6 +159,13 @@ const FLAVOR: Record<
       name: "The Quench",
       desc: "Strike from the cold side of the fire.",
       effects: { critChance: 6, gcdPct: 4 },
+    },
+    deepL: { name: "Smoke Discipline", effects: { gcdPct: 3, critChance: 1 } },
+    deepR: { name: "Grave-Quiet", effects: { critChance: 3, lifesteal: 1 } },
+    crown: {
+      name: "The Second Shadow",
+      desc: "You arrive before your footsteps.",
+      effects: { critChance: 5, gcdPct: 5 },
     },
   },
 };
@@ -200,14 +247,71 @@ CALLING_IDS.forEach((calling, i) => {
   edge(rb1, rb2);
   edge(rb2, rb3);
   edge(rb3, rN);
+
+  // --- the doubled web (P19): four new layers per sector ---
+
+  // Hearthside spur: the innermost hexagon, hanging inside the center ring.
+  const spur = p(A, 40, "spur", "small", { name: "Hearthside", effects: { maxHpFlat: 6 } });
+  edge(ring, spur);
+
+  // Mid-spurs: flavored pockets off the inward path.
+  const midL = p(A - 14, 137, "ml", "small", small(0));
+  const midR = p(A + 14, 137, "mr", "small", small(1));
+  edge(in1, midL);
+  edge(in2, midR);
+
+  // The gate arc: lateral travel at gate radius toward the NEXT gate.
+  const arcA = p(A + 20, 200, "aa", "small", { name: "Waymark", effects: { maxHpFlat: 4 } });
+  const arcB = p(A + 40, 200, "ab", "small", { name: "Waymark", effects: { maxHpFlat: 4 } });
+  edge(start, arcA);
+  edge(arcA, arcB);
+
+  // Deep branches: a fork past each branch tip, ending in a deep notable.
+  const dl1 = p(A - 30, 385, "dl1", "small", small(1));
+  const dl2 = p(A - 36, 410, "dl2", "small", small(0));
+  const dlN = p(A - 42, 435, "dln", "notable", f.deepL);
+  edge(lb3, dl1);
+  edge(dl1, dl2);
+  edge(dl2, dlN);
+  const dr1 = p(A + 30, 385, "dr1", "small", small(0));
+  const dr2 = p(A + 36, 410, "dr2", "small", small(1));
+  const drN = p(A + 42, 435, "drn", "notable", f.deepR);
+  edge(rb3, dr1);
+  edge(dr1, dr2);
+  edge(dr2, drN);
+
+  // The crown: a second keystone past the first, reached by a diamond.
+  const k1 = p(A - 6, 475, "k1", "small", small(0));
+  const k2 = p(A + 6, 475, "k2", "small", small(1));
+  const crown = p(A, 520, "crown", "keystone", f.crown, f.crown.desc);
+  edge(key, k1);
+  edge(key, k2);
+  edge(k1, crown);
+  edge(k2, crown);
+
+  // The rim road: crown-to-crown travel, with spans up from the deep forks.
+  const rim = p(A + 30, 505, "rim", "small", { name: "The Rim-Road", effects: { maxHpFlat: 4 } });
+  const bridgeR = p(A + 38, 470, "br", "small", { name: "Span", effects: { maxHpFlat: 4 } });
+  const bridgeL = p(A - 38, 470, "bl", "small", { name: "Span", effects: { maxHpFlat: 4 } });
+  edge(crown, rim);
+  edge(drN, bridgeR);
+  edge(bridgeR, rim);
+  edge(dlN, bridgeL);
 });
 
 // Ring travel: the center hexagon, and the rim links between sectors
 // (sector i's RIGHT notable meets sector i+1's LEFT notable).
 CALLING_IDS.forEach((calling, i) => {
   const next = CALLING_IDS[(i + 1) % CALLING_IDS.length]!;
+  const prev = CALLING_IDS[(i + CALLING_IDS.length - 1) % CALLING_IDS.length]!;
   edge(`w_${calling}_ring`, `w_${next}_ring`);
   edge(`w_${calling}_rn`, `w_${next}_ln`);
+  // Doubled-web travel (P19): the innermost hexagon, the gate arcs, and
+  // the outer rim linking crown regions in both directions.
+  edge(`w_${calling}_spur`, `w_${next}_spur`);
+  edge(`w_${calling}_ab`, `w_${next}_start`);
+  edge(`w_${calling}_rim`, `w_${next}_crown`);
+  edge(`w_${calling}_bl`, `w_${prev}_rim`);
 });
 
 /** Adjacency map, derived once from the edges. */

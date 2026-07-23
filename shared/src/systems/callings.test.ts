@@ -27,7 +27,7 @@ describe("passive web content", () => {
     for (const s of starts) expect(webNode(s)).toBeDefined();
 
     // Many nodes (the ask): a big web, all with effects and valid positions.
-    expect(Object.keys(WEB_NODES).length).toBeGreaterThan(90);
+    expect(Object.keys(WEB_NODES).length).toBeGreaterThan(190); // doubled web (P19)
     for (const n of Object.values(WEB_NODES)) {
       expect(Object.keys(n.effects).length).toBeGreaterThan(0);
       expect(Number.isFinite(n.x) && Number.isFinite(n.y)).toBe(true);
@@ -51,7 +51,7 @@ describe("passive web content", () => {
 
   it("keystones exist and are far from the center", () => {
     const keys = Object.values(WEB_NODES).filter((n) => n.kind === "keystone");
-    expect(keys.length).toBe(CALLING_IDS.length);
+    expect(keys.length).toBe(CALLING_IDS.length * 2); // spine keystone + crown
     for (const k of keys) expect(Math.hypot(k.x, k.y)).toBeGreaterThan(380);
   });
 });

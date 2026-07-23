@@ -17,7 +17,7 @@ export interface PerksPanelOptions {
 
 const SVG = "http://www.w3.org/2000/svg";
 /** Web coords are centered at 0; shift into a positive SVG canvas. */
-const CENTER = 560;
+const CENTER = 640;
 const CANVAS = CENTER * 2;
 
 /** Human-readable one-liner for a node's effects. */
