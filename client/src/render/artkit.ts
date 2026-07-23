@@ -131,6 +131,11 @@ const PALETTES: Record<string, ZonePalette> = {
     path: 0x4a463e, wall: 0x3f4448, water: 0xc2601e, canopy: 0x30332f,
     canopyLit: 0x424640, floor: 0x554e42,
   },
+  lamplight_archive: {
+    grass: 0x38322a, grassDark: 0x2f2a23, blade: 0x4a4236, flower: 0xffd34d,
+    path: 0x4e4436, wall: 0x4a4038, water: 0x27424e, canopy: 0x332e26,
+    canopyLit: 0x453e32, floor: 0x5e5140,
+  },
   bg_arena: {
     grass: 0x33383f, grassDark: 0x2b3037, blade: 0x454c56, flower: 0x8fa3bd,
     path: 0x4a5058, wall: 0x555d68, water: 0x1d3f66, canopy: 0x2c3e35,
@@ -1026,6 +1031,54 @@ function ensureMobTextures(scene: Phaser.Scene): void {
     finish("mob-harvest_enforcer");
   }
 
+  // Provost Ilsever (P17.4): gilt-edged Order robes, a lamp held high.
+  ctx = canvas("mob-provost_ilsever", 42, 52);
+  if (ctx) {
+    const robe = 0x3f3a30;
+    ctx.strokeStyle = "rgba(5,7,10,0.9)";
+    ctx.lineWidth = 2;
+    ctx.fillStyle = css(mix(robe, 0x000000, 0.3));
+    ctx.beginPath();
+    ctx.moveTo(8, 48);
+    ctx.quadraticCurveTo(6, 20, 20, 12);
+    ctx.quadraticCurveTo(34, 20, 32, 48);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = css(robe);
+    ctx.beginPath();
+    ctx.moveTo(10, 46);
+    ctx.quadraticCurveTo(9, 21, 20, 13);
+    ctx.quadraticCurveTo(31, 21, 30, 46);
+    ctx.closePath();
+    ctx.fill();
+    // Gilt edging down the front seam.
+    ctx.strokeStyle = css(0xe8cf7a);
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(20, 14);
+    ctx.lineTo(20, 46);
+    ctx.stroke();
+    // The lamp, held high in her off hand — and its halo.
+    ctx.fillStyle = css(0xffe9a8);
+    ctx.globalAlpha = 0.25;
+    ctx.beginPath();
+    ctx.arc(35, 16, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = css(0xffd34d);
+    ctx.fillRect(33, 13, 4, 7);
+    ctx.strokeStyle = css(0x2a2f3a);
+    ctx.lineWidth = 1.4;
+    ctx.strokeRect(33, 13, 4, 7);
+    // A pale, exact face in the hood's shadow.
+    ctx.fillStyle = css(0xd9cbb8);
+    ctx.beginPath();
+    ctx.arc(20, 19, 3.4, 0, Math.PI * 2);
+    ctx.fill();
+    finish("mob-provost_ilsever");
+  }
+
   // The Intake Overseer (P17.3): a brass pressure-rig with a glowing port.
   ctx = canvas("mob-intake_overseer", 44, 50);
   if (ctx) {
@@ -1628,6 +1681,7 @@ const ATMOS: Record<string, Atmosphere> = {
   sunken_pyre: { particle: { texture: "fx-soft", tint: 0x9fd4de, lifespan: 9000, speedY: [-14, -4], alpha: 0.22, freq: 900 }, vignette: 0.58, fog: 0x27454e, fogAlpha: 0.15 },
   sealed_shift: { particle: { texture: "fx-soft", tint: 0xcbb58a, lifespan: 10000, speedY: [6, 16], alpha: 0.2, freq: 1000 }, vignette: 0.56, fog: 0x3a332c, fogAlpha: 0.14 },
   bleedworks: { particle: { texture: "fx-soft", tint: 0xe8c9a0, lifespan: 6000, speedY: [-26, -12], alpha: 0.3, freq: 480 }, vignette: 0.55, fog: 0x4a4038, fogAlpha: 0.13 },
+  lamplight_archive: { particle: { texture: "fx-soft", tint: 0xffe9a8, lifespan: 8000, speedY: [-10, -4], alpha: 0.28, freq: 700 }, vignette: 0.52, fog: 0x3a332a, fogAlpha: 0.12 },
   marrowgate_downs: { particle: { texture: "fx-soft", tint: 0xcfe3ee, lifespan: 9000, speedY: [8, 20], alpha: 0.28, freq: 900 }, vignette: 0.45, fog: 0x6f8290, fogAlpha: 0.1 },
   ashreach: { particle: { texture: "fx-soft", tint: 0xff9e5e, lifespan: 6000, speedY: [-30, -12], alpha: 0.35, freq: 350 }, vignette: 0.45, fog: 0x5e2f1e, fogAlpha: 0.09 },
   cinder_depths: { particle: { texture: "fx-soft", tint: 0xcabdd6, lifespan: 8000, speedY: [-10, 10], alpha: 0.12, freq: 900 }, vignette: 0.55, fog: 0x161320, fogAlpha: 0.14 },

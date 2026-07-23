@@ -35,8 +35,9 @@ function paint(): string[] {
   // can stand on; a door that does not acknowledge you.
   p.fillRect(8, 6, 20, 13, "#");
   p.fillRect(10, 8, 18, 11, "=");
-  p.set(14, 14, "=");
-  p.set(15, 14, "=");
+  p.set(14, 14, "L"); // the step is now a door (P17.4) — it opens inward
+  p.set(15, 14, "L");
+  p.set(17, 14, "3");
 
   // The Scaffold of the Everlasting Lamp (east): city-sized, skeletal, one
   // breach in its west face letting you walk the engine floor.
@@ -93,7 +94,8 @@ export const kindlecourt: MapSource = {
   exits: {
     X: { to: "graywastes", entry: "south" },
     E: { to: "emberheart_caldera", entry: "west" },
+    L: { to: "lamplight_archive", entry: "gate" },
   },
-  entries: { "1": "north", "2": "east" },
+  entries: { "1": "north", "2": "east", "3": "archive" },
   ascii: paint(),
 };

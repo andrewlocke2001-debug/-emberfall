@@ -456,6 +456,17 @@ export const ITEMS: Record<string, ItemDef> = {
     weaponType: "bow",
     desc: "Lathed from a pressure gauge's arm. It looses with a hiss.",
   },
+  spark_siphon: {
+    id: "spark_siphon", name: "Spark-Siphon", rarity: "relic", maxStack: 1, value: 1800,
+    equipSlot: "weapon", bonus: { attack: 12, strength: 14 }, maxDurability: 450,
+    weaponType: "dagger",
+    desc: "The Provost's instrument. It does not cut. It collects.",
+  },
+  phylactery_lamp: {
+    id: "phylactery_lamp", name: "Phylactery-Lamp", rarity: "relic", maxStack: 1, value: 1200,
+    equipSlot: "ring", bonus: { attack: 6, strength: 6, defence: 5, maxHp: 25 },
+    desc: "Somebody's stolen spark, still burning. It keeps you instead, now.",
+  },
   barrow_lantern: {
     id: "barrow_lantern",
     name: "Barrow Lantern",

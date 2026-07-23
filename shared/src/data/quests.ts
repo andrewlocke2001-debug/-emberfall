@@ -197,6 +197,15 @@ export const QUESTS: Record<string, QuestDef> = {
     requires: "amber_for_the_tending",
     giver: "tender_ilse",
   },
+  the_unacknowledged: {
+    id: "the_unacknowledged",
+    name: "The Unacknowledged",
+    summary: "The Archive's door opened. Havel won't say for whom. Go down, and stop the Provost's work.",
+    objectives: [{ type: "kill", mob: "provost_ilsever", count: 1, desc: "End Provost Ilsever's work" }],
+    rewards: { coins: 300, xp: [{ skill: "magic", amount: 400 }] },
+    requires: "glass_for_the_study",
+    giver: "docent_havel",
+  },
   // First contact — meet the Hearthwarden who runs the gate.
   greet_mira: {
     id: "greet_mira",

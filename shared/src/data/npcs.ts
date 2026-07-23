@@ -96,7 +96,7 @@ export const NPCS: Record<string, NpcDef> = {
     y: 176,
     greeting:
       "Mind the sentinels — they still think there's a capital to defend. I catalogue what the Accord left. The Archive? Sealed, staffed, and above my clearance, which is the politest sentence I know with a lie in every word.",
-    quests: ["the_dead_watch", "glass_for_the_study"],
+    quests: ["the_dead_watch", "glass_for_the_study", "the_unacknowledged"],
     color: 0xb1a37f,
   },
   camp_keeper_ashka: {

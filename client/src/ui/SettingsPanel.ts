@@ -169,6 +169,7 @@ export class SettingsPanel {
         ["→ Sunken Pyre", "sunken_pyre"],
         ["→ Sealed Shift", "sealed_shift"],
         ["→ Bleedworks", "bleedworks"],
+        ["→ Lamplight Archive", "lamplight_archive"],
         ["→ Cinder Depths", "cinder_depths"],
         ["→ Molten Throne (raid)", "molten_throne"],
       ] as const) {
